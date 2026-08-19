@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # Runs from day one, before any dependency exists: enforces the layering rules
+  # declared in AGENTS.md §4 and the ADRs. Zero dependencies by design.
+  boundaries:
+    name: Confini architetturali
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/check-boundaries.mjs
+
+  # Detects whether the application has been scaffolded yet, so the pipeline is
+  # meaningful on an empty repository and becomes strict as soon as code lands.
+  detect:
+    name: Rilevamento progetto
+    runs-on: ubuntu-latest
+    outputs:
+      has_app: ${{ steps.check.outputs.has_app }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f package.json ]; then
+            echo "has_app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::package.json non ancora presente: i controlli di qualità sono saltati."
+          fi
+
+  quality:
+    name: Typecheck, lint e test
+    runs-on: ubuntu-latest
+    needs: [detect, boundaries]
+    if: needs.detect.outputs.has_app == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Installazione dipendenze
+        run: npm ci
+
+      # Fail fast: cheapest signal first.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # No network and no LLM calls here: unit tests use the fake provider.
+      - name: Test
+        run: npm run test
+        env:
+          CI: "true"
+
+      - name: Build
+        run: npm run build
+
+  # Evaluations hit a real model, so they need a key and cost money: never on
+  # every push. Triggered manually or by the "run-evals" label on a PR.
+  evals:
+    name: Valutazione output LLM
+    runs-on: ubuntu-latest
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.has_app == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       contains(github.event.pull_request.labels.*.name, 'run-evals'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Eval
+        run: npm run eval
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}

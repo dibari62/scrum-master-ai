@@ -1,0 +1,135 @@
+# Scrum Master AI
+
+Applicazione web dove un'azienda si registra, inserisce i propri progetti e crea per
+ciascuno uno **Scrum Master AI** che assiste il team: report di sprint, digest
+giornalieri, monitoraggio della salute dello sprint, individuazione dei colli di
+bottiglia e domande e risposte sul progetto.
+
+Lo Scrum Master AI non è un modello addestrato: è una *configurazione + memoria + skill
+abilitate + connettori*, istanziata per progetto.
+
+> **Stato:** proof-of-concept / portfolio. Non è un prodotto commerciale.
+
+---
+
+## Idea in breve
+
+```
+Organization (azienda)
+ └── Project (N progetti)
+      ├── Integration    →  fonti dati (seed sintetico, GitHub, …)
+      └── ScrumAgent     →  persona, skill abilitate, policy, memoria
+```
+
+Sotto le skill c'è un **livello dati condiviso**: i connettori traducono ogni fonte in un
+**modello canonico Scrum**, su cui un motore deterministico calcola le metriche di flusso.
+L'LLM interviene solo per interpretare e narrare numeri già calcolati.
+
+---
+
+## Principio centrale
+
+> **Il codice calcola, l'LLM racconta.**
+
+Velocity, burndown, cycle time, WIP e metriche DORA sono prodotti da funzioni pure e
+testate. Al modello linguistico non viene mai chiesto di calcolare, sommare o stimare.
+Un numero sbagliato in un report distrugge la fiducia nell'intero sistema.
+
+Vedi [ADR-0002](docs/architecture/ADR-0002-metriche-deterministiche.md).
+
+---
+
+## Stack
+
+Next.js (App Router) · TypeScript strict · Tailwind + shadcn/ui · Zod ·
+Postgres + pgvector (Neon) · Drizzle · Auth.js · Vercel AI SDK · Vitest · Playwright
+
+Hosting: Vercel Hobby + Neon Free + Upstash QStash.
+Motivazioni e alternative scartate in [ADR-0001](docs/architecture/ADR-0001-stack-e-hosting.md).
+
+---
+
+## Struttura
+
+```
+src/
+  app/            route Next.js
+  domain/         ⭐ modello canonico + schemi Zod (non importa nulla)
+  db/             schema Drizzle, migrazioni, query
+  metrics/        motore metriche deterministico (puro, no I/O)
+  connectors/     adapter verso il modello canonico
+  agents/         skill dello Scrum Master AI
+  lib/            auth, gateway LLM, utility
+tests/            unit e integrazione
+evals/            dataset dorati per gli output LLM
+specs/            specifiche per feature
+docs/             architettura, glossario, roadmap
+scripts/          controllo dei confini architetturali
+```
+
+Direzione delle dipendenze, verificata automaticamente in CI:
+
+```
+app → agents → metrics → domain
+app → db → domain
+connectors → domain
+```
+
+---
+
+## Sviluppo assistito da agenti
+
+Il progetto è sviluppato con una squadra di agenti AI specializzati.
+
+| Documento | Contenuto |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | regole operative sempre attive |
+| [`docs/agent-workflow.md`](docs/agent-workflow.md) | come si lavora con la squadra |
+| [`docs/domain-glossary.md`](docs/domain-glossary.md) | vocabolario vincolante |
+| [`docs/architecture/`](docs/architecture/) | decisioni e loro motivazione |
+| [`docs/roadmap.md`](docs/roadmap.md) | ordine di costruzione |
+| [`.github/agents/`](.github/agents/) | gli undici ruoli |
+
+I ruoli compaiono nel selettore della chat di VS Code.
+Il ciclo tipico: `product-analyst` → `architect` → implementazione →
+`qa-adversarial` → `reviewer`.
+
+---
+
+## Comandi
+
+```bash
+npm run verify        # typecheck + lint + test — il contratto di "fatto"
+npm run dev           # sviluppo locale
+npm run test          # test unitari e di integrazione
+npm run test:e2e      # test end-to-end
+npm run eval          # valutazione degli output LLM (richiede una chiave)
+npm run db:generate   # genera una migrazione dallo schema
+npm run db:migrate    # applica le migrazioni
+npm run seed          # popola il database con lo scenario sintetico
+node scripts/check-boundaries.mjs   # verifica i confini architetturali
+```
+
+> Su questa macchina l'esecuzione di script PowerShell è disabilitata: `npm` non parte da
+> PowerShell. Usa `cmd.exe`, oppure
+> `node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" <comando>`.
+
+---
+
+## Configurazione
+
+Copia `.env.example` in `.env.local` e valorizza le variabili.
+In sviluppo tieni `LLM_PROVIDER=fake`: nessuna chiamata di rete, nessun costo.
+
+---
+
+## Vincoli di prodotto
+
+Anche trattandosi di un proof-of-concept, due regole non vengono derogate:
+
+- **Nessuna metrica di performance individuale.** Si misura il processo, non le persone.
+- **Nessuna inferenza di emozioni o stati d'animo individuali.** Nel contesto lavorativo
+  europeo è una pratica proibita dall'AI Act. Il clima del team, se misurato, si esprime
+  con indicatori **di processo aggregati**.
+
+Dettagli in [`AGENTS.md`](AGENTS.md) §8.
