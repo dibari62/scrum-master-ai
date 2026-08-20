@@ -79,8 +79,17 @@ Senza `AUTH_GITHUB_ID` e `AUTH_GITHUB_SECRET` l'applicazione funziona: il pulsan
 «Continua con GitHub» semplicemente non compare, e resta l'accesso con email e
 password.
 
-> **`AUTH_URL` non serve.** La configurazione usa `trustHost: true`, quindi Auth.js
-> ricava l'indirizzo dalla richiesta. Impostarla a mano è un modo per sbagliarla.
+> **`AUTH_URL` non va impostata, e non è un dettaglio.** La configurazione usa
+> `trustHost: true`, quindi Auth.js ricava l'indirizzo dalla richiesta. Se invece
+> la variabile è presente, **vince lei** — anche se punta altrove.
+>
+> Verificato: con `AUTH_URL=http://localhost:3000` ereditata da `.env.local`, un
+> accesso riuscito sul server in ascolto sulla porta 3100 rimanda comunque a
+> `http://localhost:3000/`. La sessione viene creata correttamente, ma l'utente
+> finisce su un indirizzo che in produzione non esiste.
+>
+> È il motivo per cui **non si copia `.env.local` dentro Vercel**: si inseriscono
+> solo le variabili della tabella qui sopra, una per una.
 
 ### Passi
 
@@ -133,6 +142,11 @@ gratuito di Neon spegne il database e deve risvegliarlo.
 
 ## Tre trappole da conoscere
 
+**Non copiare `.env.local` dentro Vercel.** È il gesto più naturale ed è quello che
+rompe l'accesso: quel file contiene `AUTH_URL=http://localhost:3000`, e in
+produzione manderebbe ogni utente appena autenticato su un indirizzo inesistente.
+Inserisci solo le due variabili obbligatorie, a mano.
+
 **Il build riesce anche senza nessuna variabile.** Verificato: nascondendo
 completamente la configurazione, `next build` completa lo stesso. È comodo, ma
 inganna — un deploy verde **non** dimostra che le variabili siano giuste. Se
@@ -143,7 +157,7 @@ registrarsi. Controlla sempre il giro completo, non il colore della spunta.
 nell'host. Quella diretta funziona in locale e crolla in ambiente serverless, dove
 ogni invocazione aprirebbe una connessione propria fino a esaurire il limite.
 
-**Vercel Hobby vieta l'uso commerciale.** Legittimo per un proof-of-concept
+Infine: **Vercel Hobby vieta l'uso commerciale**. Legittimo per un proof-of-concept
 (ADR-0001). Se il progetto cambiasse natura, cambia anche il piano necessario.
 
 ---
