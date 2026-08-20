@@ -11,7 +11,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "22"
+  # Kept in step with the development machine (node 24.x) so that "green in CI"
+  # and "green locally" mean the same thing.
+  NODE_VERSION: "24"
+  # Telemetry is a network call: it has no place in a pipeline that must be
+  # fast, reproducible and silent about this repository.
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
   # Runs from day one, before any dependency exists: enforces the layering rules

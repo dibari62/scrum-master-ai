@@ -38,14 +38,30 @@ script disabilitata: `npm.ps1` non parte direttamente. Aggiramenti validi:
 - eseguire i comandi da `cmd.exe`
 - invocare `node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" <comando>`
 
+Inoltre i collegamenti `.cmd` generati in `node_modules\.bin` sono **bloccati da criteri
+di gruppo** ("This program is blocked by group policy"): `tsc`, `eslint`, `vitest` e
+`next` non partono attraverso quegli shim. Per questo gli script di `package.json`
+invocano direttamente il punto di ingresso JavaScript, per esempio
+`node node_modules/typescript/bin/tsc --noEmit`. La forma è identica su Windows e su
+Linux, quindi in locale e in CI viene eseguito **lo stesso identico comando**: non
+sostituirla con la forma abbreviata `tsc`.
+
 Non introdurre passi che dipendano da script PowerShell locali.
+
+Su questa macchina `npm install` **incrementale** può fallire con `Invalid Version:`
+(bug di arborist: confronta le versioni dei binari nativi opzionali di altre piattaforme,
+per esempio `@rolldown/binding-darwin-x64`, che su Windows non sono installati). Se
+capita: cancella `node_modules` e `package-lock.json` e rifai un `npm install` pulito,
+poi verifica con `npm ci` che il lockfile rigenerato sia valido. Non modificare il
+lockfile a mano.
 
 ## Attenzione al percorso di lavoro
 
-Il repository si trova in una cartella sincronizzata con OneDrive. `node_modules` e le
-cartelle di build vanno esclusi dalla sincronizzazione (o il progetto va spostato in un
-percorso locale), altrimenti l'installazione delle dipendenze diventa lentissima e
-soggetta a conflitti di file bloccati.
+Il repository vive in `C:\Scrum Master AI`, un percorso **locale e fuori da OneDrive**:
+è la collocazione corretta e va mantenuta. Se il progetto venisse spostato dentro una
+cartella sincronizzata (OneDrive, Dropbox), `node_modules` e le cartelle di build
+andrebbero esclusi dalla sincronizzazione, altrimenti l'installazione delle dipendenze
+diventa lentissima e soggetta a conflitti di file bloccati.
 
 ## Definizione di fatto
 

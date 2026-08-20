@@ -43,6 +43,14 @@ const RULES = [
       /^(ai|@ai-sdk|langchain|@langchain)/.test(spec),
   },
   {
+    layer: "components",
+    reason:
+      "src/components is presentation only: it receives ready-made data from app and must not reach into db, agents, metrics or connectors (AGENTS.md §4).",
+    forbid: (spec) =>
+      /(^|\/)\.\.\/(db|agents|metrics|connectors|app)(\/|$)/.test(spec) ||
+      /^@\/(db|agents|metrics|connectors|app)(\/|$)/.test(spec),
+  },
+  {
     layer: "connectors",
     reason:
       "Connectors translate towards the canonical model; they must not reach into app, metrics or agents (ADR-0003).",
