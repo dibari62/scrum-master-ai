@@ -199,6 +199,22 @@ if (pooled === "") {
   } catch (error) {
     console.log(`  [NO  ] connessione fallita: ${error.message}`);
     problems.push("il database non risponde con DATABASE_URL");
+
+    // A TLS-intercepting corporate proxy surfaces here as a dead database.
+    // Naming it costs one line and saves an afternoon of wrong diagnosis.
+    const cause = error.cause?.message ?? "";
+    if (/certificate|self.signed|unable to (get|verify)/i.test(`${error.message} ${cause}`)) {
+      console.log("");
+      console.log("  La rete sta intercettando il traffico HTTPS e Node non riconosce");
+      console.log("  l'autorità che firma i certificati. Non è un problema del database.");
+      if (!process.env["NODE_EXTRA_CA_CERTS"]) {
+        console.log("  NODE_EXTRA_CA_CERTS non è impostata in questa sessione: se l'hai");
+        console.log("  già configurata, riapri il terminale. Vedi docs/setup-ambiente.md §6.");
+      } else {
+        console.log(`  NODE_EXTRA_CA_CERTS punta a: ${process.env["NODE_EXTRA_CA_CERTS"]}`);
+        console.log("  Il file potrebbe non contenere l'autorità giusta: docs/setup-ambiente.md §6.");
+      }
+    }
   }
 }
 
