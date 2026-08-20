@@ -54,6 +54,7 @@ Motivazioni e alternative scartate in [ADR-0001](docs/architecture/ADR-0001-stac
 ```
 src/
   app/            route Next.js
+  components/     componenti UI condivisi (shadcn/ui in components/ui)
   domain/         ⭐ modello canonico + schemi Zod (non importa nulla)
   db/             schema Drizzle, migrazioni, query
   metrics/        motore metriche deterministico (puro, no I/O)
@@ -99,19 +100,25 @@ Il ciclo tipico: `product-analyst` → `architect` → implementazione →
 ## Comandi
 
 ```bash
-npm run verify        # typecheck + lint + test — il contratto di "fatto"
+npm run verify        # typecheck + lint + test + confini — il contratto di "fatto"
 npm run dev           # sviluppo locale
+npm run build         # build di produzione
 npm run test          # test unitari e di integrazione
-npm run test:e2e      # test end-to-end
-npm run eval          # valutazione degli output LLM (richiede una chiave)
-npm run db:generate   # genera una migrazione dallo schema
-npm run db:migrate    # applica le migrazioni
-npm run seed          # popola il database con lo scenario sintetico
-node scripts/check-boundaries.mjs   # verifica i confini architetturali
+npm run test:e2e      # test end-to-end            (non ancora implementato: T0/T1)
+npm run eval          # valutazione degli output LLM, richiede una chiave (T4)
+npm run db:generate   # genera una migrazione dallo schema        (T1)
+npm run db:migrate    # applica le migrazioni                     (T1)
+npm run seed          # popola il database con lo scenario sintetico (T1)
+npm run boundaries    # verifica i confini architetturali
 ```
 
-> Su questa macchina l'esecuzione di script PowerShell è disabilitata: `npm` non parte da
-> PowerShell. Usa `cmd.exe`, oppure
+Gli script marcati con un traguardo esistono già ma **escono con errore** finché la parte
+corrispondente non è costruita: non devono mai far credere che un passo sia stato eseguito.
+
+> Su questa macchina l'esecuzione di script PowerShell è disabilitata e i collegamenti
+> `.cmd` in `node_modules\.bin` sono bloccati da criteri di gruppo. Per questo gli script
+> invocano direttamente il punto di ingresso Node (`node node_modules/typescript/bin/tsc`,
+> …): la stessa riga funziona in locale e in CI. Lancia `npm` da `cmd.exe`, oppure con
 > `node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" <comando>`.
 
 ---

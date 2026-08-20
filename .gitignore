@@ -17,6 +17,7 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+.vitest/
 
 # Ambiente — mai committare segreti
 .env

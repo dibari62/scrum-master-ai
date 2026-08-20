@@ -83,6 +83,7 @@ src/
   metrics/        motore metriche deterministico (R1). Puro, testabile, no I/O.
   connectors/     adapter verso il canonico (seed sintetico, github, …)
   agents/         skill, prompt, tool, grafi. Consuma metrics, non ricalcola.
+  components/     componenti di interfaccia riusabili; `ui/` è generata da shadcn/ui
   lib/            auth, gateway LLM, utility trasversali
 tests/            unit + integrazione
 evals/            dataset dorati e runner per gli output LLM
@@ -99,10 +100,13 @@ docs/
 ```
 app → agents → metrics → domain
 app → db → domain
+app → components → domain
 connectors → domain
 ```
 
 `domain` non importa **nulla** dagli altri livelli. `metrics` non fa I/O.
+`components` è di sola presentazione: non accede a `db`, non chiama `agents`, riceve
+i dati già pronti da `app`.
 Una freccia all'indietro è un errore bloccante in review.
 
 ---
@@ -135,7 +139,7 @@ Conventional Commits: `feat(metrics): calcola cycle time per colonna`.
 Comando unico che deve passare prima di considerare finito qualsiasi lavoro:
 
 ```bash
-npm run verify        # typecheck + lint + test
+npm run verify        # typecheck + lint + test + confini architetturali
 ```
 
 Comandi granulari:
@@ -144,6 +148,7 @@ Comandi granulari:
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
 npm run test          # vitest run
+npm run boundaries    # verifica le direzioni di dipendenza di §4
 npm run test:e2e      # playwright
 npm run eval          # eval degli output LLM (richiede API key)
 npm run db:generate   # genera migrazione Drizzle dallo schema
