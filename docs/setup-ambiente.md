@@ -105,6 +105,21 @@ Controlla che le variabili obbligatorie siano valorizzate, che le due stringhe N
 abbiano la forma giusta, e **si collega davvero al database** verificando anche che
 pgvector sia attivo. Non stampa mai un valore: solo nomi, lunghezze ed esiti.
 
+### Test di integrazione sul database
+
+`npm run verify` non tocca mai un database, e nemmeno la CI. La suite che verifica
+l'isolamento fra due organizzazioni **su Postgres vero** è quindi a richiesta esplicita:
+
+```powershell
+$env:RUN_DB_INTEGRATION = "1"
+npm run test -- tests/integration
+```
+
+L'attivazione è legata a una variabile dedicata, non alla semplice presenza di
+`DATABASE_URL`: quei test scrivono e cancellano righe, e `npm run test` non deve
+farlo al database che uno sviluppatore ha configurato per altro. I dati creati sono
+fittizi e vengono rimossi al termine.
+
 ---
 
 ## 6. Rete aziendale che ispeziona il traffico HTTPS
@@ -121,8 +136,40 @@ unable to get local issuer certificate
 Non è un problema di configurazione dell'applicazione, e si manifesta ovunque: verifica
 dell'ambiente, migrazioni, chiamate ai modelli.
 
-**Soluzione.** Individua l'autorità che firma davvero, ispezionando la catena presentata
-dal server — non dare per scontato che sia quella dell'azienda:
+### Soluzione più semplice: `--use-system-ca`
+
+Da Node 24 il modo più diretto è dire a Node di usare l'archivio certificati del
+sistema operativo, dove l'autorità aziendale è **già** considerata attendibile:
+
+```powershell
+$env:NODE_OPTIONS = "--use-system-ca"
+npm run db:migrate
+```
+
+Reso permanente per l'utente:
+
+```powershell
+setx NODE_OPTIONS "--use-system-ca"
+```
+
+Non esporta nulla, non versiona nulla, e **non indebolisce la verifica**: i certificati
+continuano a essere convalidati, cambia solo l'elenco di autorità consultato. Verificato
+su questa macchina: senza il flag `tls.connect` fallisce con
+`UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, con il flag riporta `authorized: true` e una catena
+firmata da Cisco Umbrella.
+
+`NODE_OPTIONS` è ereditato dai processi figli, quindi copre anche i worker che
+Next.js avvia in sviluppo.
+
+> **Mai** ricorrere a `NODE_TLS_REJECT_UNAUTHORIZED=0`. Disattiva la verifica dei
+> certificati per l'intero processo: le credenziali del database viaggerebbero su un
+> canale che nessuno ha autenticato. È la scorciatoia ovvia ed è quella sbagliata.
+
+### Alternativa: esportare l'autorità
+
+Se usi una versione di Node precedente, individua l'autorità che firma davvero
+ispezionando la catena presentata dal server — non dare per scontato che sia quella
+dell'azienda:
 
 ```bash
 node -e "const t=require('node:tls');const s=t.connect({host:'HOST',port:443,rejectUnauthorized:false},()=>{let c=s.getPeerCertificate(true);while(c){console.log(c.issuer);if(c.issuerCertificate===c)break;c=c.issuerCertificate}s.end()})"
