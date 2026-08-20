@@ -145,5 +145,23 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | azienda / cliente / tenant (nel codice) | `Organization` |
 | status / stato del ticket | `WorkItemState` |
 | agente (per lo Scrum Master del progetto) | `ScrumAgent` |
-| sentiment | indicatore di processo aggregato |
+| sentiment | `ProcessSignal` (indicatore di processo aggregato) |
 | performance del team (come giudizio) | metrica di flusso |
+| clima / morale / umore del team (come stato emotivo) | `ProcessSignal` |
+| fonte / prova / riferimento (di un `Insight`) | `Evidence` |
+
+---
+
+## 6. Aggiunte in revisione — spec `scrum-agent` (2026-08-20)
+
+> **Blocco aggiunto dal Product Analyst** insieme a `specs/scrum-agent/spec.md`.
+> Sono termini necessari a quella spec e non ancora presenti nel vocabolario.
+> Restano **in revisione** finché il Product Owner non li approva; una volta approvati,
+> vanno riassorbiti nelle sezioni 1–4 e questa sezione va rimossa.
+
+| Codice | Italiano | Definizione | Da non confondere con |
+|---|---|---|---|
+| `ProcessSignal` | Indicatore di processo aggregato | Indicatore **sul processo di collaborazione**, calcolato in modo deterministico su un insieme di `Message`/`Comment` o `StateTransition` e sempre riferito al gruppo: tempo di risposta nei thread, distribuzione della partecipazione, ricorrenza di temi, riaperture. Emesso **solo** al di sopra di una soglia minima di partecipanti distinti e **mai** attribuibile a una singola `Person`. Non è, e non può diventare, una misura di emozioni o di stato d'animo (`AGENTS.md` §8.2). | sentiment, umore, engagement |
+| `Evidence` | Evidenza | Riferimento verificabile che sostiene un `Insight`: identificativo di `WorkItem`, `StateTransition`, `Comment`, `Decision` o nome della metrica con valore e finestra temporale. Un `Insight` senza almeno una `Evidence` non è pubblicabile. | `Insight` (l'osservazione), `KnowledgeItem` (il documento) |
+| `ProjectContext` | Contesto di progetto | Configurazione dichiarata dall'umano per un `Project` e usata dalle `Skill` come cornice: durata dello sprint, giorni delle cerimonie, `DefinitionOfDone`, working agreement, elenco degli stakeholder, lingua degli output. Dato dichiarativo, non derivato dalle fonti. | `ProjectMemory` (fatti appresi nel tempo) |
+| `DefinitionOfDone` | Definition of Done | Elenco delle condizioni che un `WorkItem` deve soddisfare per essere considerato `done`. Fa parte del `ProjectContext` ed è indicizzabile come `KnowledgeItem`. | `SprintGoal` |
