@@ -100,4 +100,6 @@ jobs:
       - name: Eval
         run: npm run eval
         env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
