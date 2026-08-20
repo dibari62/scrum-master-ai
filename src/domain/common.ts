@@ -52,3 +52,20 @@ export const auditFields = {
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 } as const;
+
+/**
+ * Derives a candidate slug from a human name, for prefilling a form field.
+ *
+ * A suggestion, not a guarantee: the result still goes through `slugSchema`,
+ * which rejects what this cannot fix — an empty name, or one made entirely of
+ * characters that do not survive the transformation.
+ */
+export function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    // Strip combining marks so "Città" becomes "citta" rather than losing the vowel.
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
