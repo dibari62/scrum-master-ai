@@ -79,13 +79,16 @@ const credentialsProvider = Credentials({
  *
  * Local development must work without anyone creating an OAuth application
  * first; an unconfigured provider would otherwise fail at the moment someone
- * clicks the button.
+ * clicks the button. The interface asks the same question before drawing it.
  */
-function providers(): NextAuthConfig["providers"] {
-  const hasGitHub =
-    Boolean(process.env["AUTH_GITHUB_ID"]) && Boolean(process.env["AUTH_GITHUB_SECRET"]);
+export function isGitHubConfigured(): boolean {
+  return (
+    Boolean(process.env["AUTH_GITHUB_ID"]) && Boolean(process.env["AUTH_GITHUB_SECRET"])
+  );
+}
 
-  return hasGitHub ? [credentialsProvider, GitHub] : [credentialsProvider];
+function providers(): NextAuthConfig["providers"] {
+  return isGitHubConfigured() ? [credentialsProvider, GitHub] : [credentialsProvider];
 }
 
 /**
@@ -105,6 +108,8 @@ export function authConfig(): NextAuthConfig {
     }),
     session: { strategy: "jwt" },
     trustHost: true,
+    // Our own pages, in Italian, instead of the built-in English ones.
+    pages: { signIn: "/accedi" },
     providers: providers(),
     callbacks: {
       /**
