@@ -14,7 +14,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 155 test"]
+        S3["Vitest · 155 test<br/>Playwright · 8 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -142,8 +142,8 @@ Cose note e volutamente rimandate, non sviste:
 | Revoca di `Membership` non immediata | ADR-0006 | prima di un uso reale |
 | Nessuna verifica dell'indirizzo email | ADR-0006 | dopo il PoC |
 | Nessun recupero password | — | dopo il PoC |
-| `npm run test:e2e` è un segnaposto | — | quando le pagine si moltiplicano |
-| Registrazione dal browser non provata end-to-end | — | serve Playwright |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 8 test Playwright su Chrome |
+| Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 
 ---
 
