@@ -128,6 +128,28 @@ password.
 
 ### Verifica che sia davvero in piedi
 
+**Prima cosa: il sito potrebbe essere protetto.** Vercel attiva in modo predefinito
+*Deployment Protection*, che chiude il progetto a chiunque non sia autenticato sul
+tuo account Vercel. Il sintomo è un rimando a `vercel.com/login` invece della
+pagina iniziale:
+
+```
+302 Found
+Location: https://vercel.com/sso-api?url=...
+```
+
+Non è un errore di configurazione: l'applicazione funziona, semplicemente non è
+pubblica. Per aprirla:
+
+**Project Settings → Deployment Protection → Vercel Authentication → Disabled**,
+poi **Save**. Ha effetto subito, senza bisogno di un nuovo deploy.
+
+Per una demo da mostrare a qualcuno va disattivata. Se invece il progetto deve
+restare visibile solo a te, lasciala accesa e verifica dal browser in cui sei già
+autenticato.
+
+Poi:
+
 | Cosa | Atteso |
 |---|---|
 | `/` | la pagina iniziale con i due pulsanti |
@@ -137,6 +159,11 @@ password.
 
 La prima richiesta dopo un periodo di inattività può essere lenta: il piano
 gratuito di Neon spegne il database e deve risvegliarlo.
+
+Se un segreto finisce comunque in chiaro — in una chat, in un ticket, in un log —
+**non basta rimuoverlo dal punto in cui è comparso**: va considerato compromesso e
+sostituito alla fonte. Per Neon: *Roles → `neondb_owner` → Reset password*, poi
+aggiornare `DATABASE_URL` e `DATABASE_URL_UNPOOLED` in `.env.local` e su Vercel.
 
 ---
 
