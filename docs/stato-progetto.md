@@ -160,3 +160,10 @@ Regole:
 - una casella è verde **solo** se è stata verificata, non se è stata scritta
 - ciò che è bloccato su una persona va detto, con la ragione
 - il debito si aggiunge quando lo si crea, non quando lo si paga
+
+**I diagrammi vanno controllati prima di consegnarli.** Un blocco Mermaid con un
+errore di sintassi non sparisce: GitHub lo sostituisce con un riquadro rosso, e il
+risultato è peggio dell'assenza del diagramma. Il modo più rapido, senza aggiungere
+dipendenze al progetto, è incollarlo su [mermaid.live](https://mermaid.live).
+
+I tre diagrammi di questo file sono stati validati con il parser di Mermaid 11.
