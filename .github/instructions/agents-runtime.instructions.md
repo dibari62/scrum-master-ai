@@ -4,7 +4,9 @@ applyTo: "src/agents/**,src/lib/llm/**,evals/**"
 
 # Regole per le skill dello Scrum Master AI
 
-Vedi [ADR-0004](../../docs/architecture/ADR-0004-skill-tipizzate.md).
+Vedi [ADR-0004](../../docs/architecture/ADR-0004-skill-tipizzate.md) per la struttura
+delle skill e [ADR-0005](../../docs/architecture/ADR-0005-provider-llm.md) per la scelta
+dei provider.
 
 ## Struttura
 
@@ -33,6 +35,9 @@ approvazione umana intermedia.
 6. **Nessuna rete nei test**: si usa il provider fittizio.
 7. Ogni skill dichiara schema di input, schema di output, budget di token e livello di
    autonomia minimo.
+8. **Solo dati sintetici ai provider su piano gratuito.** Il piano gratuito di Gemini usa
+   i contenuti inviati per migliorare i propri prodotti: ciò che entra non esce più
+   (ADR-0005).
 
 ## Prompt
 
