@@ -9,6 +9,15 @@
 
 export { createDatabase, getDatabase, type Database } from "./client";
 export {
+  createOrganizationWithOwner,
+  findInitialMembership,
+  findUserForSignIn,
+  type ActiveMembership,
+  type RegistrationInput,
+  type RegistrationResult,
+  type SignInRecord,
+} from "./users";
+export {
   forOrganization,
   type TenantReadName,
   type TenantScope,
