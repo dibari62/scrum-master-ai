@@ -125,6 +125,20 @@ Permette a più agenti di lavorare in parallelo senza rompersi a vicenda.
 Una feature = una PR = idealmente < 400 righe di diff.
 Se una PR supera le 600 righe, va spezzata.
 
+### Stato visibile a fine sviluppo
+Alla fine di ogni sviluppo si aggiorna **[`docs/stato-progetto.md`](docs/stato-progetto.md)**,
+che contiene i diagrammi Mermaid dello stato di scheletro, infrastruttura, database e
+interfaccia.
+
+Serve al Product Owner per capire dove siamo senza rileggere il registro dei commit.
+Tre vincoli:
+
+- una casella è verde **solo se verificata**, non se è stata scritta;
+- ciò che è bloccato su una persona va detto, con la ragione;
+- il debito si registra quando lo si crea, non quando lo si paga.
+
+Un diagramma che mente è peggio di nessun diagramma.
+
 ### Branch
 `feat/<breve-descrizione>`, `fix/<…>`, `chore/<…>`, `docs/<…>`.
 Mai commit diretti su `main`.
