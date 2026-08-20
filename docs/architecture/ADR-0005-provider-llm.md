@@ -41,6 +41,10 @@ nessun costo, risultati riproducibili.
 La selezione avviene tramite `LLM_PROVIDER` ed è gestita esclusivamente dal gateway in
 `src/lib/llm` (ADR-0004). Nessun modulo conosce il fornitore concreto.
 
+Ogni fornitore ha la **propria** variabile di chiave (`GEMINI_API_KEY`, `GROQ_API_KEY`),
+mai una condivisa: il passaggio alla riserva deve costare il cambio di una sola
+variabile, non la riscrittura di una credenziale.
+
 Finché si usano piani gratuiti, **al modello possono transitare solo dati sintetici o
 non riservati**.
 
@@ -87,6 +91,9 @@ dopo aver collegato un repository aziendale.
 **Vincoli che ne derivano per il codice**
 - `LLM_PROVIDER=fake` è il valore predefinito in sviluppo e **l'unico ammesso in CI e
   nei test unitari** (`AGENTS.md` §9).
+- Una variabile di chiave **per fornitore** (`GEMINI_API_KEY`, `GROQ_API_KEY`). Il
+  gateway sceglie quale leggere in base a `LLM_PROVIDER`; il passaggio alla riserva non
+  deve richiedere di spostare credenziali a mano.
 - Il provider si sceglie solo tramite variabile d'ambiente. Nessun `if (provider === …)`
   fuori da `src/lib/llm`.
 - Il passaggio al fornitore di riserva è una decisione del gateway, non del chiamante.
