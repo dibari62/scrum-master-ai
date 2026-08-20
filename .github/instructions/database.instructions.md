@@ -31,3 +31,10 @@ I nomi seguono [`docs/domain-glossary.md`](../../docs/domain-glossary.md).
 Neon Free: 0,5 GB per progetto, pausa dopo 5 minuti di inattività.
 Non conservare payload grezzi oltre il necessario; prevedi una politica di retention;
 tollera il cold start della prima query senza trattarlo come errore.
+
+**Due stringhe di connessione, usi distinti.** L'applicazione usa `DATABASE_URL`
+(*pooled*, host con `-pooler`): in ambiente serverless ogni invocazione aprirebbe
+altrimenti una connessione propria fino a esaurire il limite. Le migrazioni usano
+`DATABASE_URL_UNPOOLED` (diretta): il pooler lavora in *transaction mode* e restituisce
+la connessione al termine di ogni transazione, quindi `SET`, tabelle temporanee,
+`PREPARE` e lock di sessione non sopravvivono agli strumenti di migrazione.

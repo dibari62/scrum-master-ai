@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
@@ -13,8 +15,13 @@ export default function HomePage() {
         Lo scheletro dell&apos;applicazione è in piedi: Next.js, TypeScript in modalità
         strict, Tailwind e shadcn/ui. Il codice calcola, il modello linguistico racconta.
       </p>
-      <div>
-        <Button disabled>Registra la tua azienda (in arrivo)</Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button asChild>
+          <Link href="/registrati">Registra la tua azienda</Link>
+        </Button>
+        <Button asChild variant="ghost">
+          <Link href="/accedi">Accedi</Link>
+        </Button>
       </div>
     </main>
   );

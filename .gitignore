@@ -37,6 +37,11 @@ yarn-error.log*
 .vercel/
 .cache/
 
+# Certificati della rete aziendale: locali alla macchina, mai versionati
+certs/
+*.pem
+*.cer
+
 # Sistema operativo
 .DS_Store
 Thumbs.db
