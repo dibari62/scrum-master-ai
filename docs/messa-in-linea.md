@@ -5,47 +5,45 @@ Due operazioni distinte: **integrare** e **pubblicare**. Vanno fatte in quest'or
 
 ---
 
-## 1. Integrare `integration/t0` in `main`
+## 1. Integrare un branch in `main`
+
+> **Fatto per T0** — PR #2, mergiata il 20/08/2026. La procedura resta qui perché
+> vale per ogni integrazione futura.
 
 ### Perché serve una persona
 
 `AGENTS.md` §5 vieta i commit diretti su `main`: si passa da una pull request.
-Un agente non può aprirla — le integrazioni GitHub disponibili su questa macchina
-non hanno permessi di scrittura sul repository — quindi il passaggio è manuale.
+Un agente non può aprirla. Le tre vie disponibili sono state provate tutte e
+falliscono per la stessa ragione:
+
+| Via | Esito |
+|---|---|
+| Server MCP GitHub | `403 Unauthorized: As an Enterprise Managed User…` |
+| Integrazione GitHub di VS Code | stesso errore |
+| GitKraken | richiede un accesso interattivo |
+
+Il blocco è sull'**account**, non sullo strumento: un utente gestito da
+un'azienda non può scrivere su un repository personale. Non c'è configurazione
+che lo aggiri, quindi il passaggio resta manuale.
 
 ### Passi
 
-1. Apri la pagina di confronto:
-   `https://github.com/dibari62/scrum-master-ai/compare/main...integration/t0`
-
-2. **Create pull request**. Titolo suggerito:
+1. Apri questo link: arriva direttamente al modulo, con titolo e descrizione già
+   compilati.
 
    ```
-   feat: fondamenta T0 — dominio, persistenza multi-azienda, autenticazione
+   https://github.com/dibari62/scrum-master-ai/compare/main...integration/t0?expand=1
    ```
 
-   Nella descrizione conviene elencare le sei fette, perché la PR è ampia e la
-   storia dei commit è l'unico modo per rileggerla a pezzi:
+2. Clicca il pulsante verde **Create pull request**.
 
-   ```markdown
-   Integra sei branch, già verificati singolarmente:
+3. **Attendi la CI.** I controlli passano da un pallino giallo a una spunta verde
+   in due o tre minuti. Se qualcosa diventa rosso, non forzare il merge: il
+   problema è reale e va guardato.
 
-   1. `chore/neon-direct-url` — ambiente locale e connessione diretta a Neon
-   2. `docs/adr-llm-provider` — ADR-0005, scelta del provider LLM
-   3. `feat/tenancy-model` — modello canonico Zod delle entità di tenancy
-   4. `feat/db-tenancy` — schema Drizzle e accesso filtrato per organizzazione
-   5. `feat/auth-foundation` — ADR-0006, Auth.js, password con scrypt
-   6. `feat/auth-ui` — registrazione, accesso, area azienda
-
-   `npm run verify`: 147 test superati, 8 saltati (integrazione su database).
-   `next build` completo. Migrazioni già applicate su Neon.
-   ```
-
-3. **Attendi la CI.** Deve diventare verde su typecheck, lint, test, build e
-   confini architetturali. Se fallisce, non forzare il merge: il problema è reale.
-
-4. **Merge**. Usa *Create a merge commit*, non *Squash*: i sei commit di merge
-   raccontano quale fetta ha introdotto cosa, e schiacciarli perde quella traccia.
+4. **Merge pull request** → **Confirm merge**. Scegli *Create a merge commit*,
+   non *Squash*: i sei commit di merge raccontano quale fetta ha introdotto cosa,
+   e schiacciarli perde quella traccia.
 
 5. Allinea la copia locale:
 
