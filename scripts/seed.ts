@@ -1,9 +1,10 @@
 /**
  * Loads the synthetic data set into the database.
  *
- * Reconciliation keys on `(project_id, source_system, source_id)`, so running
- * this twice updates rather than duplicates — the idempotence the connector
- * instructions require, exercised here rather than merely claimed.
+ * Deletes and rewrites the `seed` data for the project on every run, so the
+ * database always reflects the connector as it is now. Reconciliation keys on
+ * `(project_id, source_system, source_id)`, so a second run leaves the same
+ * content, never duplicates.
  *
  * Behind a TLS-inspecting proxy:
  *
@@ -27,6 +28,7 @@ import { and, eq } from "drizzle-orm";
 
 import { seedConnector } from "../src/connectors/seed";
 import { createDatabase } from "../src/db/client";
+import { toWorkItemRow } from "../src/db/rows";
 import { organizationIdSchema, projectIdSchema } from "../src/domain";
 import {
   boardColumns,
@@ -105,34 +107,100 @@ async function main(): Promise<void> {
   });
 
   /**
-   * Inserted in dependency order: a row cannot reference something that does
-   * not exist yet. `onConflictDoNothing` turns a second run into a no-op rather
-   * than an error.
+   * Replace rather than merge.
+   *
+   * The previous version inserted with `onConflictDoNothing`, which made a
+   * second run a silent no-op: once a row existed, no correction could ever
+   * reach it. That is how every estimate in the database stayed null after the
+   * writer was fixed. This data set is synthetic and regenerated in full, so
+   * there is nothing to preserve — deleting first is both simpler and the only
+   * version that actually reconciles.
+   *
+   * Scoped to this project and to `source_system = 'seed'`: data ingested from
+   * a real tool must never be collateral damage of a seed run.
    */
-  const steps = [
-    ["persone", people, batch.people],
-    ["board", boards, batch.boards],
-    ["colonne", boardColumns, batch.boardColumns],
-    ["sprint", sprints, batch.sprints],
-    ["elementi di lavoro", workItems, batch.workItems],
-    ["transizioni", stateTransitions, batch.transitions],
-    ["variazioni di perimetro", sprintScopeEvents, batch.scopeEvents],
-    ["commenti", comments, batch.comments],
-    ["impedimenti", impediments, batch.impediments],
-    ["pull request", pullRequests, batch.pullRequests],
+  const deletions = [
+    ["pull request", pullRequests],
+    ["impedimenti", impediments],
+    ["commenti", comments],
+    ["variazioni di perimetro", sprintScopeEvents],
+    ["transizioni", stateTransitions],
+    ["elementi di lavoro", workItems],
+    ["sprint", sprints],
+    ["colonne", boardColumns],
+    ["board", boards],
+    ["persone", people],
   ] as const;
 
-  for (const [label, table, rows] of steps) {
-    if (rows.length === 0) {
+  for (const [, table] of deletions) {
+    await db
+      .delete(table)
+      .where(and(eq(table.projectId, project.id), eq(table.sourceSystem, "seed")));
+  }
+
+  /**
+   * Inserted in dependency order: a row cannot reference something that does
+   * not exist yet.
+   *
+   * Each insert is its own statement rather than a loop over a heterogeneous
+   * list, because the loop could only be made to compile with `as never` —
+   * which disabled exactly the checking that would have been worth having.
+   *
+   * The connector returns `readonly` arrays, deliberately: nothing downstream
+   * should be able to mutate what it produced. Drizzle asks for a mutable one,
+   * so each is copied at the call site rather than weakening the connector's
+   * type to suit the writer.
+   */
+  const insertions: readonly (readonly [string, number, () => Promise<unknown>])[] = [
+    ["persone", batch.people.length, () => db.insert(people).values([...batch.people])],
+    ["board", batch.boards.length, () => db.insert(boards).values([...batch.boards])],
+    [
+      "colonne",
+      batch.boardColumns.length,
+      () => db.insert(boardColumns).values([...batch.boardColumns]),
+    ],
+    ["sprint", batch.sprints.length, () => db.insert(sprints).values([...batch.sprints])],
+    [
+      "elementi di lavoro",
+      batch.workItems.length,
+      // The one entity whose row shape differs from the canonical one.
+      () => db.insert(workItems).values(batch.workItems.map(toWorkItemRow)),
+    ],
+    [
+      "transizioni",
+      batch.transitions.length,
+      () => db.insert(stateTransitions).values([...batch.transitions]),
+    ],
+    [
+      "variazioni di perimetro",
+      batch.scopeEvents.length,
+      () => db.insert(sprintScopeEvents).values([...batch.scopeEvents]),
+    ],
+    [
+      "commenti",
+      batch.comments.length,
+      () => db.insert(comments).values([...batch.comments]),
+    ],
+    [
+      "impedimenti",
+      batch.impediments.length,
+      () => db.insert(impediments).values([...batch.impediments]),
+    ],
+    [
+      "pull request",
+      batch.pullRequests.length,
+      () => db.insert(pullRequests).values([...batch.pullRequests]),
+    ],
+  ];
+
+  for (const [label, count, run] of insertions) {
+    if (count === 0) {
       console.log(`  ${label}: nessuna riga`);
       continue;
     }
 
-    await db
-      .insert(table)
-      .values(rows as never)
-      .onConflictDoNothing();
-    console.log(`  ${label}: ${rows.length}`);
+    await run();
+    console.log(`  ${label}: ${count}`);
   }
 
   console.log("");
