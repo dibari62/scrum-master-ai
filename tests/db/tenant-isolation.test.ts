@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createDatabase, forOrganization, type TenantScope } from "@/db";
 import type { TenantReadName, TenantWriteName } from "@/db";
-import { organizationIdSchema, projectIdSchema, userIdSchema } from "@/domain";
+import { organizationIdSchema, projectIdSchema, sprintIdSchema, userIdSchema, workItemIdSchema } from "@/domain";
 
 /**
  * Isolation between two organizations (AGENTS.md §8.4).
@@ -24,6 +24,8 @@ const ORGANIZATION_A = organizationIdSchema.parse("3f1a9c2e-8b6d-4f2a-9c1e-5d7b3
 const ORGANIZATION_B = organizationIdSchema.parse("8a2d4f60-1c3b-4e97-8f5a-6b0d2e9c4713");
 const PROJECT_ID = projectIdSchema.parse("9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905");
 const USER_ID = userIdSchema.parse("7c9e6679-7425-40de-944b-e07fc1f90ae7");
+const SPRINT_ID = sprintIdSchema.parse("2c7f4a18-3e5b-4d69-9a02-8f6b1c4d7e35");
+const WORK_ITEM_ID = workItemIdSchema.parse("5e8b1d47-9c2a-4f36-8b71-3d0a6e9f2c48");
 
 const db = createDatabase(CONNECTION);
 const scopeA = forOrganization(db, ORGANIZATION_A);
@@ -43,6 +45,19 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   projectBySlug: (scope) => scope.reads.projectBySlug("checkout").toSQL(),
   memberships: (scope) => scope.reads.memberships().toSQL(),
   membershipByUserId: (scope) => scope.reads.membershipByUserId(USER_ID).toSQL(),
+
+  sprints: (scope) => scope.reads.sprints().toSQL(),
+  sprintById: (scope) => scope.reads.sprintById(SPRINT_ID).toSQL(),
+  sprintsByProject: (scope) => scope.reads.sprintsByProject(PROJECT_ID).toSQL(),
+  workItemsByProject: (scope) => scope.reads.workItemsByProject(PROJECT_ID).toSQL(),
+  workItemsBySprint: (scope) => scope.reads.workItemsBySprint(SPRINT_ID).toSQL(),
+  transitionsByWorkItem: (scope) =>
+    scope.reads.transitionsByWorkItem(WORK_ITEM_ID).toSQL(),
+  transitionsByProject: (scope) => scope.reads.transitionsByProject(PROJECT_ID).toSQL(),
+  scopeEventsBySprint: (scope) => scope.reads.scopeEventsBySprint(SPRINT_ID).toSQL(),
+  commentsByWorkItem: (scope) => scope.reads.commentsByWorkItem(WORK_ITEM_ID).toSQL(),
+  impedimentsByProject: (scope) => scope.reads.impedimentsByProject(PROJECT_ID).toSQL(),
+  pullRequestsByProject: (scope) => scope.reads.pullRequestsByProject(PROJECT_ID).toSQL(),
 };
 
 /** Same contract for writes: an unlisted write breaks the build. */

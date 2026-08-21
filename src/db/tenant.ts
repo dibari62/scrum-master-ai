@@ -5,12 +5,25 @@ import type {
   CreateProjectInput,
   OrganizationId,
   ProjectId,
+  SprintId,
   UpdateProjectInput,
   UserId,
+  WorkItemId,
 } from "@/domain";
 
 import type { Database } from "./client";
-import { memberships, organizations, projects } from "./schema";
+import {
+  comments,
+  impediments,
+  memberships,
+  organizations,
+  projects,
+  pullRequests,
+  sprintScopeEvents,
+  sprints,
+  stateTransitions,
+  workItems,
+} from "./schema";
 
 /**
  * Tenant-scoped access to the database.
@@ -72,6 +85,136 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           and(
             eq(memberships.organizationId, organizationId),
             eq(memberships.userId, userId),
+          ),
+        ),
+
+    /**
+     * Canonical Scrum data.
+     *
+     * Each read carries the tenant predicate even where a project or sprint
+     * identifier would already narrow the result. That is deliberate: the
+     * identifier arrives from a caller, and a caller that passed a foreign one
+     * would otherwise read another company's data. The predicate turns a
+     * mistake into an empty result instead of a leak.
+     */
+
+    sprints: () =>
+      db.select().from(sprints).where(eq(sprints.organizationId, organizationId)),
+
+    sprintById: (sprintId: SprintId) =>
+      db
+        .select()
+        .from(sprints)
+        .where(and(eq(sprints.organizationId, organizationId), eq(sprints.id, sprintId))),
+
+    sprintsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(sprints)
+        .where(
+          and(
+            eq(sprints.organizationId, organizationId),
+            eq(sprints.projectId, projectId),
+          ),
+        )
+        .orderBy(sprints.startsAt),
+
+    workItemsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(workItems)
+        .where(
+          and(
+            eq(workItems.organizationId, organizationId),
+            eq(workItems.projectId, projectId),
+          ),
+        ),
+
+    workItemsBySprint: (sprintId: SprintId) =>
+      db
+        .select()
+        .from(workItems)
+        .where(
+          and(
+            eq(workItems.organizationId, organizationId),
+            eq(workItems.sprintId, sprintId),
+          ),
+        ),
+
+    /**
+     * One item's history, oldest first.
+     *
+     * Ordering happens in the database because the index covers exactly this
+     * pair of columns; sorting in memory would throw that away.
+     */
+    transitionsByWorkItem: (workItemId: WorkItemId) =>
+      db
+        .select()
+        .from(stateTransitions)
+        .where(
+          and(
+            eq(stateTransitions.organizationId, organizationId),
+            eq(stateTransitions.workItemId, workItemId),
+          ),
+        )
+        .orderBy(stateTransitions.occurredAt),
+
+    /** Whole-project history: what burndown and throughput scan. */
+    transitionsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(stateTransitions)
+        .where(
+          and(
+            eq(stateTransitions.organizationId, organizationId),
+            eq(stateTransitions.projectId, projectId),
+          ),
+        )
+        .orderBy(stateTransitions.occurredAt),
+
+    scopeEventsBySprint: (sprintId: SprintId) =>
+      db
+        .select()
+        .from(sprintScopeEvents)
+        .where(
+          and(
+            eq(sprintScopeEvents.organizationId, organizationId),
+            eq(sprintScopeEvents.sprintId, sprintId),
+          ),
+        )
+        .orderBy(sprintScopeEvents.occurredAt),
+
+    commentsByWorkItem: (workItemId: WorkItemId) =>
+      db
+        .select()
+        .from(comments)
+        .where(
+          and(
+            eq(comments.organizationId, organizationId),
+            eq(comments.workItemId, workItemId),
+          ),
+        )
+        .orderBy(comments.postedAt),
+
+    impedimentsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(impediments)
+        .where(
+          and(
+            eq(impediments.organizationId, organizationId),
+            eq(impediments.projectId, projectId),
+          ),
+        ),
+
+    pullRequestsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(pullRequests)
+        .where(
+          and(
+            eq(pullRequests.organizationId, organizationId),
+            eq(pullRequests.projectId, projectId),
           ),
         ),
   } as const;
