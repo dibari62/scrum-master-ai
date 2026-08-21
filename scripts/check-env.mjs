@@ -19,12 +19,13 @@ const EXPECTED = new Map([
   ["DATABASE_URL", [true, "connessione Neon per l'applicazione (pooled)"]],
   ["DATABASE_URL_UNPOOLED", [true, "connessione Neon diretta, per le migrazioni"]],
   ["AUTH_SECRET", [true, "segreto di sessione Auth.js"]],
-  ["AUTH_URL", [true, "URL di base dell'applicazione"]],
   ["AUTH_GITHUB_ID", [false, "OAuth App GitHub di sviluppo"]],
   ["AUTH_GITHUB_SECRET", [false, "OAuth App GitHub di sviluppo"]],
   ["LLM_PROVIDER", [true, "provider attivo: gemini | groq | fake"]],
   ["GEMINI_API_KEY", [false, "chiave Google AI Studio"]],
   ["GROQ_API_KEY", [false, "chiave Groq"]],
+  ["LLM_MODEL", [false, "modello da usare; se vuoto decide il gateway"]],
+  ["LOG_LEVEL", [false, "debug | info | warn | error; se vuoto dipende da NODE_ENV"]],
   ["JOB_SECRET", [true, "segreto delle route dei job"]],
   ["QSTASH_TOKEN", [false, "QStash, serve da T5"]],
   ["QSTASH_CURRENT_SIGNING_KEY", [false, "QStash, serve da T5"]],
@@ -125,12 +126,22 @@ check(
   `LLM_PROVIDER="${provider}": in sviluppo deve essere "fake" (AGENTS.md §9)`,
 );
 
-const authUrl = env.get("AUTH_URL") ?? "";
-check(
-  "AUTH_URL punta a localhost",
-  authUrl.includes("localhost"),
-  `AUTH_URL="${authUrl}" non è locale: in .env.local ci si aspetta localhost`,
-);
+/**
+ * `AUTH_URL` is not expected, and its presence is worth a warning.
+ *
+ * The configuration sets `trustHost`, so Auth.js derives the address from the
+ * request and works unchanged on localhost, on preview deployments and in
+ * production. When the variable *is* present it takes precedence — so a value
+ * copied to a hosting panel from a development file sends every freshly
+ * authenticated person to `localhost`. The session is created correctly, which
+ * is what makes the failure so confusing: nothing looks broken server-side.
+ */
+const authUrl = env.get("AUTH_URL");
+if (authUrl !== undefined) {
+  warnings.push(
+    `AUTH_URL è impostata ("${authUrl}"): non serve, e in produzione reindirizzerebbe lì ogni accesso riuscito. Rimuovila.`,
+  );
+}
 
 /**
  * Shows the shape of a connection string with the password blanked out.
@@ -207,13 +218,20 @@ if (pooled === "") {
       console.log("");
       console.log("  La rete sta intercettando il traffico HTTPS e Node non riconosce");
       console.log("  l'autorità che firma i certificati. Non è un problema del database.");
-      if (!process.env["NODE_EXTRA_CA_CERTS"]) {
-        console.log("  NODE_EXTRA_CA_CERTS non è impostata in questa sessione: se l'hai");
-        console.log("  già configurata, riapri il terminale. Vedi docs/setup-ambiente.md §6.");
-      } else {
+      console.log("");
+      console.log("  Rimedio più semplice, da Node 24 in avanti:");
+      console.log("      $env:NODE_OPTIONS = \"--use-system-ca\"");
+      console.log("  Usa l'archivio certificati del sistema operativo, dove l'autorità");
+      console.log("  aziendale è già attendibile. La verifica resta attiva: cambia solo");
+      console.log("  l'elenco consultato.");
+      if (process.env["NODE_EXTRA_CA_CERTS"]) {
+        console.log("");
         console.log(`  NODE_EXTRA_CA_CERTS punta a: ${process.env["NODE_EXTRA_CA_CERTS"]}`);
         console.log("  Il file potrebbe non contenere l'autorità giusta: docs/setup-ambiente.md §6.");
       }
+      console.log("");
+      console.log("  Mai usare NODE_TLS_REJECT_UNAUTHORIZED=0: spegne la verifica e");
+      console.log("  manderebbe le credenziali del database su un canale non autenticato.");
     }
   }
 }
