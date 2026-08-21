@@ -56,6 +56,16 @@ Il livello che rende il prodotto indipendente dallo strumento di origine.
 | `Deployment` | Rilascio | Messa in produzione di una versione |
 | `Incident` | Incidente | Malfunzionamento in produzione |
 
+### Aggiunte proposte — in attesa di approvazione
+
+> Introdotte insieme alle entità Scrum di T1. Restano qui finché il Product Owner
+> non le approva; una volta approvate vanno assorbite nella tabella sopra.
+
+| Codice | Italiano | Definizione | Perché serve |
+|---|---|---|---|
+| `SprintScopeEvent` | Variazione di perimetro | Ingresso o uscita di un `WorkItem` da uno `Sprint`, con istante e verso (`added` \| `removed`). | `scopeChange` è definita come lavoro aggiunto o rimosso **dopo** l'inizio dello sprint, e `carryOver` richiede di sapere che l'item era nello sprint precedente. Un `sprintId` sul `WorkItem` dice dove si trova **adesso** e perde entrambe le informazioni: è lo stesso motivo per cui ADR-0003 rende `StateTransition` un'entità di primo livello invece di leggere lo stato corrente. |
+| `SourceSystem` | Sistema di origine | Fonte da cui un connettore traduce: `seed` \| `github` \| `jira`. | ADR-0003 impone `sourceSystem` e `sourceId` su ogni entità canonica. `seed` è membro a pieno titolo, non un espediente per i test: è ciò che permette di costruire metriche e skill prima di avere una credenziale reale. |
+
 ### Eventi Scrum
 
 | Codice | Italiano |

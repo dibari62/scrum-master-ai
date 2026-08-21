@@ -120,6 +120,25 @@ L'attivazione è legata a una variabile dedicata, non alla semplice presenza di
 farlo al database che uno sviluppatore ha configurato per altro. I dati creati sono
 fittizi e vengono rimossi al termine.
 
+### Test end-to-end nel browser
+
+```powershell
+$env:RUN_E2E = "1"
+npm run test:e2e
+```
+
+Playwright compila il progetto, avvia il server di **produzione** sulla porta 3210 e
+percorre il giro completo con **Google Chrome installato sulla macchina** — non un
+Chromium scaricato, che dietro un proxy che ispeziona il traffico non si scaricherebbe.
+
+Coprono l'unico percorso che i test unitari non possono raggiungere: una server
+action invocata da un modulo vero. Il suo identificativo è generato al momento del
+build, quindi nessun client HTTP può chiamarla a mano.
+
+Anche questi scrivono su un database reale, con dati fittizi rimossi al termine.
+Ogni esecuzione usa un suffisso casuale, così una corsa interrotta non blocca la
+successiva.
+
 ---
 
 ## 6. Rete aziendale che ispeziona il traffico HTTPS

@@ -5,47 +5,61 @@ Due operazioni distinte: **integrare** e **pubblicare**. Vanno fatte in quest'or
 
 ---
 
-## 1. Integrare `integration/t0` in `main`
+## 1. Integrare un branch in `main`
 
-### Perché serve una persona
+> **Fatto per T0** — PR #2, mergiata il 20/08/2026. La procedura resta qui perché
+> vale per ogni integrazione futura.
 
-`AGENTS.md` §5 vieta i commit diretti su `main`: si passa da una pull request.
-Un agente non può aprirla — le integrazioni GitHub disponibili su questa macchina
-non hanno permessi di scrittura sul repository — quindi il passaggio è manuale.
+### Due account GitHub, e quale conta
 
-### Passi
+Su questa macchina convivono due identità GitHub, ed è la fonte di un errore che
+sembra insormontabile:
 
-1. Apri la pagina di confronto:
-   `https://github.com/dibari62/scrum-master-ai/compare/main...integration/t0`
+| Chi | Dove vive | Cosa può fare su questo repository |
+|---|---|---|
+| Account **aziendale** (Enterprise Managed User) | sessione di VS Code, server MCP, GitKraken | **niente in scrittura**: risponde `403` |
+| Account **`dibari62`** | Git Credential Manager | tutto: è il proprietario del repository |
 
-2. **Create pull request**. Titolo suggerito:
+Il repository appartiene a `dibari62`, ma VS Code è autenticato con l'account
+aziendale. Ne segue che ogni strumento integrato fallisce con
+`403 Unauthorized: As an Enterprise Managed User…`, mentre `git push` funziona
+senza problemi: git usa credenziali diverse, e sono quelle giuste.
+
+**La conseguenza pratica:** per aprire una pull request non si passa
+dall'interfaccia di VS Code, si usa il token che git già possiede.
+
+```bash
+git credential fill      # protocol=https, host=github.com
+```
+
+restituisce `username=dibari62` e il token associato, spendibile sull'API REST
+di GitHub. Con quello, una pull request si apre da riga di comando senza toccare
+l'interfaccia.
+
+> Il token **non va mai** stampato, scritto su file, né passato come argomento
+> di un comando: nell'elenco dei processi sarebbe visibile a chiunque sia sulla
+> macchina. Va letto e usato nello stesso processo.
+
+### Aprire la pull request
+
+1. Apri il modulo già compilato, sostituendo il nome del branch:
 
    ```
-   feat: fondamenta T0 — dominio, persistenza multi-azienda, autenticazione
+   https://github.com/dibari62/scrum-master-ai/compare/main...NOME-BRANCH?expand=1
    ```
 
-   Nella descrizione conviene elencare le sei fette, perché la PR è ampia e la
-   storia dei commit è l'unico modo per rileggerla a pezzi:
+   Assicurati di essere autenticato su GitHub **come `dibari62`**, non con
+   l'account aziendale: da quest'ultimo il pulsante non compare.
 
-   ```markdown
-   Integra sei branch, già verificati singolarmente:
+2. Clicca il pulsante verde **Create pull request**.
 
-   1. `chore/neon-direct-url` — ambiente locale e connessione diretta a Neon
-   2. `docs/adr-llm-provider` — ADR-0005, scelta del provider LLM
-   3. `feat/tenancy-model` — modello canonico Zod delle entità di tenancy
-   4. `feat/db-tenancy` — schema Drizzle e accesso filtrato per organizzazione
-   5. `feat/auth-foundation` — ADR-0006, Auth.js, password con scrypt
-   6. `feat/auth-ui` — registrazione, accesso, area azienda
+3. **Attendi la CI.** I controlli passano da un pallino giallo a una spunta verde
+   in due o tre minuti. Se qualcosa diventa rosso, non forzare il merge: il
+   problema è reale e va guardato.
 
-   `npm run verify`: 147 test superati, 8 saltati (integrazione su database).
-   `next build` completo. Migrazioni già applicate su Neon.
-   ```
-
-3. **Attendi la CI.** Deve diventare verde su typecheck, lint, test, build e
-   confini architetturali. Se fallisce, non forzare il merge: il problema è reale.
-
-4. **Merge**. Usa *Create a merge commit*, non *Squash*: i sei commit di merge
-   raccontano quale fetta ha introdotto cosa, e schiacciarli perde quella traccia.
+4. **Merge pull request** → **Confirm merge**. Scegli *Create a merge commit*,
+   non *Squash*: i sei commit di merge raccontano quale fetta ha introdotto cosa,
+   e schiacciarli perde quella traccia.
 
 5. Allinea la copia locale:
 
@@ -81,8 +95,17 @@ Senza `AUTH_GITHUB_ID` e `AUTH_GITHUB_SECRET` l'applicazione funziona: il pulsan
 «Continua con GitHub» semplicemente non compare, e resta l'accesso con email e
 password.
 
-> **`AUTH_URL` non serve.** La configurazione usa `trustHost: true`, quindi Auth.js
-> ricava l'indirizzo dalla richiesta. Impostarla a mano è un modo per sbagliarla.
+> **`AUTH_URL` non va impostata, e non è un dettaglio.** La configurazione usa
+> `trustHost: true`, quindi Auth.js ricava l'indirizzo dalla richiesta. Se invece
+> la variabile è presente, **vince lei** — anche se punta altrove.
+>
+> Verificato: con `AUTH_URL=http://localhost:3000` ereditata da `.env.local`, un
+> accesso riuscito sul server in ascolto sulla porta 3100 rimanda comunque a
+> `http://localhost:3000/`. La sessione viene creata correttamente, ma l'utente
+> finisce su un indirizzo che in produzione non esiste.
+>
+> È il motivo per cui **non si copia `.env.local` dentro Vercel**: si inseriscono
+> solo le variabili della tabella qui sopra, una per una.
 
 ### Passi
 
@@ -121,6 +144,28 @@ password.
 
 ### Verifica che sia davvero in piedi
 
+**Prima cosa: il sito potrebbe essere protetto.** Vercel attiva in modo predefinito
+*Deployment Protection*, che chiude il progetto a chiunque non sia autenticato sul
+tuo account Vercel. Il sintomo è un rimando a `vercel.com/login` invece della
+pagina iniziale:
+
+```
+302 Found
+Location: https://vercel.com/sso-api?url=...
+```
+
+Non è un errore di configurazione: l'applicazione funziona, semplicemente non è
+pubblica. Per aprirla:
+
+**Project Settings → Deployment Protection → Vercel Authentication → Disabled**,
+poi **Save**. Ha effetto subito, senza bisogno di un nuovo deploy.
+
+Per una demo da mostrare a qualcuno va disattivata. Se invece il progetto deve
+restare visibile solo a te, lasciala accesa e verifica dal browser in cui sei già
+autenticato.
+
+Poi:
+
 | Cosa | Atteso |
 |---|---|
 | `/` | la pagina iniziale con i due pulsanti |
@@ -131,9 +176,19 @@ password.
 La prima richiesta dopo un periodo di inattività può essere lenta: il piano
 gratuito di Neon spegne il database e deve risvegliarlo.
 
+Se un segreto finisce comunque in chiaro — in una chat, in un ticket, in un log —
+**non basta rimuoverlo dal punto in cui è comparso**: va considerato compromesso e
+sostituito alla fonte. Per Neon: *Roles → `neondb_owner` → Reset password*, poi
+aggiornare `DATABASE_URL` e `DATABASE_URL_UNPOOLED` in `.env.local` e su Vercel.
+
 ---
 
 ## Tre trappole da conoscere
+
+**Non copiare `.env.local` dentro Vercel.** È il gesto più naturale ed è quello che
+rompe l'accesso: quel file contiene `AUTH_URL=http://localhost:3000`, e in
+produzione manderebbe ogni utente appena autenticato su un indirizzo inesistente.
+Inserisci solo le due variabili obbligatorie, a mano.
 
 **Il build riesce anche senza nessuna variabile.** Verificato: nascondendo
 completamente la configurazione, `next build` completa lo stesso. È comodo, ma
@@ -145,7 +200,7 @@ registrarsi. Controlla sempre il giro completo, non il colore della spunta.
 nell'host. Quella diretta funziona in locale e crolla in ambiente serverless, dove
 ogni invocazione aprirebbe una connessione propria fino a esaurire il limite.
 
-**Vercel Hobby vieta l'uso commerciale.** Legittimo per un proof-of-concept
+Infine: **Vercel Hobby vieta l'uso commerciale**. Legittimo per un proof-of-concept
 (ADR-0001). Se il progetto cambiasse natura, cambia anche il piano necessario.
 
 ---
