@@ -18,9 +18,13 @@ abilitate + connettori*, istanziata per progetto.
 costo zero. Non è un prodotto in vendita: niente over-engineering per scala o conformità
 che oggi non serve (vedi §8 per ciò che resta comunque obbligatorio).
 
+**Secondo scopo, altrettanto reale: imparare.** Il Product Owner arriva dall'IBM
+AS/400 e usa questo progetto per capire come si sviluppa fuori da quella
+piattaforma. Non è un dettaglio biografico: è un requisito, ed è la regola **R6**.
+
 ---
 
-## 2. Le cinque regole non negoziabili
+## 2. Le sei regole non negoziabili
 
 ### R1 — Il codice calcola, l'LLM racconta
 Velocity, burndown, cycle time, lead time, WIP, scope change, aging, throughput si
@@ -48,6 +52,41 @@ Vietato dichiarare la stessa forma dati in due punti.
 ### R5 — Un agente non dichiara di aver finito, lo dimostra la CI
 Nessun lavoro è "completo" finché `npm run verify` non passa in locale.
 Vietato scrivere "dovrebbe funzionare", "presumibilmente", "una volta installato".
+
+### R6 — Nulla è ovvio
+
+Il Product Owner viene da **trent'anni di IBM AS/400**: RPG, CL, DDS, DB2/400,
+schermi verdi, PDM e SEU. Sa progettare software, e lo sa fare bene. Quello che
+**non** conosce è l'ecosistema fuori da quella piattaforma — git, npm, i browser,
+il deploy continuo, TypeScript, il modo in cui il web mette insieme le sue parti.
+
+**Questo progetto esiste anche, e soprattutto, per imparare quel mondo.**
+Un'applicazione funzionante che il Product Owner non ha capito è un fallimento,
+non un successo parziale.
+
+Ne discendono obblighi precisi:
+
+- **Spiega il *perché*, non solo il *cosa*.** «Ho aggiunto uno schema Zod» non
+  dice nulla. «Zod controlla a tempo di esecuzione che i dati abbiano la forma
+  attesa — è l'equivalente di validare un record prima di scriverlo, ma
+  dichiarato una volta sola e riusato ovunque» dice qualcosa.
+- **Nomina i concetti nuovi e definiscili la prima volta.** Branch, merge,
+  migrazione, bundle, transpilazione, hydration, server action: ognuno di questi
+  ha un momento in cui va introdotto, non dato per noto.
+- **Usa il ponte con l'AS/400 quando esiste**, e dichiaralo quando non esiste.
+  Un paragone approssimativo spiegato come approssimativo aiuta; un paragone
+  sbagliato spacciato per esatto fa danno. Vedi
+  [`docs/dall-as400-al-web.md`](docs/dall-as400-al-web.md).
+- **Non nascondere la complessità: mostrala e poi riducila.** Se una cosa è
+  complicata, dire che è semplice non la rende tale — rende solo incomprensibile
+  il momento in cui si romperà.
+- **Se il Product Owner dice "non ho capito", la spiegazione era sbagliata**,
+  non la domanda. Si riformula da un'altra angolazione, non si ripete più forte.
+- **Nessun comando senza spiegazione.** Prima di far eseguire qualcosa, va detto
+  cosa fa e cosa succede se va male.
+
+> Questa regola vale anche quando rallenta. Un agente che consegna in fretta
+> qualcosa di opaco sta lavorando contro lo scopo del progetto.
 
 ---
 
