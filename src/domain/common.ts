@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { organizationIdSchema, projectIdSchema } from "./ids";
+
 /**
  * Primitives shared by every canonical entity. Declaring them once is what
  * makes R4 ("one shape, one place") enforceable rather than aspirational.
@@ -51,6 +53,19 @@ export const descriptionSchema = z.string().trim().max(2000).nullable();
 export const auditFields = {
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
+} as const;
+
+/**
+ * Carried by every record that belongs to a project.
+ *
+ * `organizationId` is repeated alongside `projectId` even though the project
+ * already implies it. It is denormalisation on purpose: the tenant filter of
+ * §8.4 then applies to every table directly, without a join whose absence
+ * would silently widen a query.
+ */
+export const projectScopedFields = {
+  organizationId: organizationIdSchema,
+  projectId: projectIdSchema,
 } as const;
 
 /**
