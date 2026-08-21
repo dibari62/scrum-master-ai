@@ -226,7 +226,86 @@ cambia, ricostruisce e pubblica. Il merge *è* la messa in produzione.
 
 ---
 
-## Come si aggiorna questo file
+## 11. Due errori che il compilatore non ha visto
+
+Il 21 agosto 2026 la dashboard è stata guardata in un browser per la prima volta.
+`npm run verify` era verde, 358 test passavano, la CI era verde, il deploy
+riusciva. Due difetti erano comunque lì. Vale la pena capirli, perché
+appartengono a una categoria che sull'AS/400 quasi non esiste.
+
+### Il primo: la stima che non arrivava mai nel database
+
+Il generatore di dati produceva una stima per ogni elemento. Il database aveva
+due colonne, `estimate_value` e `estimate_unit`. Nel database erano nulle tutte
+e cinquantuno. La dashboard scriveva, onestamente, «nessuna stima» per quattro
+sprint.
+
+Lo script di caricamento passava all'ORM l'oggetto canonico così com'era. Quello
+ha una proprietà `estimate` che contiene *due* valori insieme; la tabella ha due
+colonne separate. L'ORM non conosceva `estimate`, l'ha ignorata, e ha scritto
+NULL nelle due colonne — **senza un errore, senza un avviso**.
+
+Perché TypeScript non l'ha visto? Per una regola che sorprende: il controllo
+sulle proprietà in eccesso scatta solo sui *letterali* scritti a mano, non su una
+variabile. E le due colonne, essendo annullabili, erano facoltative: ometterle
+non è un errore. Il tipo diceva il vero, e il vero non bastava.
+
+C'era anche un `as never` nel codice, messo per far compilare un ciclo. È il
+modo di dire al compilatore «fidati». Il compilatore si è fidato.
+
+**Il rimedio non è stare più attenti.** È una funzione di conversione che scrive
+la riga come letterale, campo per campo, con un tipo che rende *obbligatoria*
+ogni colonna. Adesso dimenticarne una non compila. Più un test che rifà il giro
+completo — canonico → riga → canonico — su tutti e cinquantuno gli elementi.
+
+**Il ponte con l'AS/400:** in RPG, con un file descritto esternamente, la
+struttura del record *è* il tracciato. Non esiste lo scarto fra «l'oggetto in
+memoria» e «la riga su disco», perché sono la stessa cosa. Qui sono due modelli
+distinti e qualcuno deve tradurre. Se quel qualcuno sbaglia in silenzio, i dati
+sono sbagliati e tutto continua a funzionare.
+
+### Il secondo: le etichette del grafico che il server non scriveva
+
+Nel grafico burndown, l'etichetta di ogni punto era scritta così:
+
+```jsx
+<title>{data}: {valore} {unità}</title>
+```
+
+Sembra una frase. Per React sono **cinque pezzi separati**. E React 19 tratta
+`<title>` come un elemento speciale che accetta un solo pezzo di testo: davanti a
+cinque non ne scrive nessuno. Il server mandava `<title></title>`, vuoto. Le
+etichette comparivano solo dopo che il JavaScript aveva ricostruito la pagina nel
+browser.
+
+Conseguenze: chi legge la pagina con un lettore di schermo, o prima che il
+JavaScript sia caricato, non vedeva nulla. E a ogni caricamento il browser
+segnalava un *hydration mismatch* — il server e il browser avevano prodotto due
+pagine diverse.
+
+React lo diceva. Stampava un messaggio esplicito, con perfino il suggerimento di
+usare una stringa unica. Nessuno aveva mai aperto la console del browser.
+
+**Il rimedio:** costruire prima la stringa, poi passarla come pezzo unico. Più un
+test che rende la pagina sul server e verifica che l'etichetta sia scritta
+*nell'HTML*, non nel browser.
+
+**Il ponte con l'AS/400:** un programma 5250 rende lo schermo una volta sola, sul
+sistema. Qui la stessa pagina viene costruita **due volte**: prima sul server per
+mandarla subito, poi nel browser per renderla interattiva. Se le due versioni non
+coincidono, il browser butta via la prima. È un concetto che non ha equivalente
+sul verde, e produce una classe di errori tutta sua.
+
+### La lezione comune
+
+Nessuno dei due difetti era visibile dai test, dal compilatore o dal deploy
+riuscito. Entrambi si sono visti in tre minuti aprendo la pagina e guardando i
+numeri e la console.
+
+> Verde non vuol dire giusto. Vuol dire che nessuno dei controlli che abbiamo
+> scritto ha protestato. Guardare il risultato resta un passo, non un lusso.
+
+---
 
 Quando incontri un concetto che non conosci, chiedilo: la spiegazione entra qui.
 Il documento serve a te, quindi cresce sulle tue domande — non su ciò che un

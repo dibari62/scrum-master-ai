@@ -55,6 +55,8 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
     scope.reads.transitionsByWorkItem(WORK_ITEM_ID).toSQL(),
   transitionsByProject: (scope) => scope.reads.transitionsByProject(PROJECT_ID).toSQL(),
   scopeEventsBySprint: (scope) => scope.reads.scopeEventsBySprint(SPRINT_ID).toSQL(),
+  scopeEventsByProject: (scope) => scope.reads.scopeEventsByProject(PROJECT_ID).toSQL(),
+  peopleByProject: (scope) => scope.reads.peopleByProject(PROJECT_ID).toSQL(),
   commentsByWorkItem: (scope) => scope.reads.commentsByWorkItem(WORK_ITEM_ID).toSQL(),
   impedimentsByProject: (scope) => scope.reads.impedimentsByProject(PROJECT_ID).toSQL(),
   pullRequestsByProject: (scope) => scope.reads.pullRequestsByProject(PROJECT_ID).toSQL(),

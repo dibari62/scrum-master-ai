@@ -17,6 +17,7 @@ import {
   impediments,
   memberships,
   organizations,
+  people,
   projects,
   pullRequests,
   sprintScopeEvents,
@@ -183,6 +184,27 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           ),
         )
         .orderBy(sprintScopeEvents.occurredAt),
+
+    /** Every membership change in a project: what a dashboard needs in one read. */
+    scopeEventsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(sprintScopeEvents)
+        .where(
+          and(
+            eq(sprintScopeEvents.organizationId, organizationId),
+            eq(sprintScopeEvents.projectId, projectId),
+          ),
+        )
+        .orderBy(sprintScopeEvents.occurredAt),
+
+    peopleByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(people)
+        .where(
+          and(eq(people.organizationId, organizationId), eq(people.projectId, projectId)),
+        ),
 
     commentsByWorkItem: (workItemId: WorkItemId) =>
       db
