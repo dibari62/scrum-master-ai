@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -93,8 +94,21 @@ export default async function OrganizationPage() {
           </div>
         </dl>
 
+        {/*
+         * The way in, not a footnote.
+         *
+         * This page said "i progetti arrivano con i prossimi traguardi" for a
+         * while after the projects had arrived, and offered no link to them:
+         * whoever signed in read that there was nothing to see and stopped.
+         * It is the page every session lands on, so anything reachable has to
+         * be reachable from here.
+         */}
+        <Button asChild>
+          <Link href="/progetti">Vai ai progetti</Link>
+        </Button>
+
         <p className="text-muted-foreground text-sm">
-          I progetti e lo Scrum Master AI arrivano con i prossimi traguardi.
+          Lo Scrum Master AI arriva con i prossimi traguardi.
         </p>
 
         <form action={signOutAction}>
