@@ -142,6 +142,22 @@ describe("flowEfficiency", () => {
     expect(result.value).toBe(1);
   });
 
+  it("scende quando l'elemento resta in attesa di revisione", () => {
+    // Un giorno di lavoro, tre in coda di revisione, poi concluso: un quarto
+    // del tempo è stato lavoro vero. Prima della decisione su Q1 questo caso
+    // dava 1, perché `in_review` veniva contato come lavoro.
+    const history = [
+      move(null, "todo", "2026-04-06T09:00:00.000Z"),
+      move("todo", "in_progress", "2026-04-07T09:00:00.000Z"),
+      move("in_progress", "in_review", "2026-04-08T09:00:00.000Z"),
+      move("in_review", "done", "2026-04-11T09:00:00.000Z"),
+    ];
+
+    const result = flowEfficiency(history, ASOF);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBeCloseTo(0.25, 10);
+  });
+
   it("scende quando l'elemento resta bloccato", () => {
     // Un giorno di lavoro, tre di blocco, poi concluso: un quarto del tempo
     // è stato lavoro vero.

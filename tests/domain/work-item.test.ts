@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  countsTowardWip,
   estimateSchema,
-  isActiveState,
   isCompletedState,
   isTerminalState,
+  isValueAdding,
   workItemSchema,
   workItemStateSchema,
   type WorkItemState,
@@ -46,16 +47,48 @@ describe("classificazione degli stati", () => {
     ["done", false],
     ["cancelled", false],
   ] as ReadonlyArray<readonly [WorkItemState, boolean]>)(
-    "%s è attivo: %s",
+    "%s conta nel WIP: %s",
     (state, expected) => {
-      expect(isActiveState(state)).toBe(expected);
+      expect(countsTowardWip(state)).toBe(expected);
     },
   );
 
-  it("blocked non è attivo: un item fermo non è lavoro in corso", () => {
-    // Contarlo come attivo farebbe sembrare occupata una squadra bloccata,
-    // e gonfierebbe l'efficienza di flusso proprio quando peggiora.
-    expect(isActiveState("blocked")).toBe(false);
+  it("blocked non conta nel WIP: un item fermo non è lavoro in corso", () => {
+    // Contarlo farebbe sembrare occupata una squadra bloccata.
+    expect(countsTowardWip("blocked")).toBe(false);
+  });
+
+  it.each([
+    ["todo", false],
+    ["in_progress", true],
+    ["in_review", false],
+    ["blocked", false],
+    ["done", false],
+    ["cancelled", false],
+  ] as ReadonlyArray<readonly [WorkItemState, boolean]>)(
+    "%s è lavorazione: %s",
+    (state, expected) => {
+      expect(isValueAdding(state)).toBe(expected);
+    },
+  );
+
+  it("in_review conta nel carico ma non è lavorazione", () => {
+    // È la decisione presa sulla questione Q1, e la ragione per cui esistono
+    // due elenchi invece di uno. Rispondono a domande diverse: quanto la
+    // squadra ha in carico, e quanto di quel tempo è stato lavoro vero.
+    // Riunirli riporterebbe l'efficienza di flusso a un fisso 100%.
+    expect(countsTowardWip("in_review")).toBe(true);
+    expect(isValueAdding("in_review")).toBe(false);
+  });
+
+  it("ciò che è lavorazione conta sempre anche nel carico", () => {
+    // L'inclusione vale in un verso solo. Se un giorno non valesse più,
+    // significherebbe che si sta lavorando a qualcosa che il WIP non vede.
+    for (const state of workItemStateSchema.options) {
+      if (isValueAdding(state)) {
+        expect(countsTowardWip(state), `${state} lavorato ma fuori dal WIP`).toBe(true);
+      }
+    }
   });
 
   it.each([
@@ -79,10 +112,13 @@ describe("classificazione degli stati", () => {
 
   it("copre tutti gli stati dichiarati nello schema", () => {
     // Se qualcuno aggiunge uno stato senza classificarlo, questo test lo
-    // segnala invece di lasciarlo silenziosamente inattivo e non terminale.
+    // segnala invece di lasciarlo silenziosamente fuori da ogni categoria.
     for (const state of workItemStateSchema.options) {
       const classified =
-        isActiveState(state) || isTerminalState(state) || state === "todo" || state === "blocked";
+        countsTowardWip(state) ||
+        isTerminalState(state) ||
+        state === "todo" ||
+        state === "blocked";
       expect(classified, `stato non classificato: ${state}`).toBe(true);
     }
   });
