@@ -85,13 +85,23 @@ export function blockedTime(
 /**
  * Flow efficiency: active time divided by total elapsed time.
  *
- * A number between 0 and 1 that answers "of the time this item existed, how
- * much was anyone actually working on it". Teams new to it are usually
- * surprised by how low it is, which is the point: the waiting is the problem,
- * and the waiting is invisible until measured.
+ * A number between 0 and 1 that answers "of the time this item was in flight,
+ * how much was it in the workflow rather than stalled".
  *
  * Measured from the first `in_progress`, not from creation: backlog time is not
  * a flow inefficiency, it is a prioritisation decision.
+ *
+ * **Known limitation, open question Q1 in the glossary.** `in_review` counts as
+ * active, because that is what the glossary says when defining WIP. The
+ * consequence is that a review bottleneck is invisible here: an item that goes
+ * `in_progress` → `in_review` → `done` scores 1 even if it waited four days for
+ * someone to look at it. Verified against the synthetic data set, where median
+ * efficiency is exactly 1 while review wait climbs from hours to days.
+ *
+ * Until the Product Owner decides, this metric drops only for work that was
+ * `blocked` or pushed back to `todo`. **`reviewWaitTime` is the metric that
+ * sees the review bottleneck**, and an interface showing one without the other
+ * would mislead.
  */
 export function flowEfficiency(
   transitions: readonly StateTransition[],
