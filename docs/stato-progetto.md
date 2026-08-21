@@ -3,7 +3,7 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **20/08/2026** — chiusura funzionale di T0.
+> Ultimo aggiornamento: **20/08/2026** — T0 integrato in `main` (PR #2).
 
 ---
 
@@ -14,7 +14,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 155 test"]
+        S3["Vitest · 155 test<br/>Playwright · 8 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -110,28 +110,25 @@ la pagina iniziale: il deploy ha senso **dopo** il merge dell'integrazione.
 
 ```mermaid
 graph LR
-    A["6 branch<br/>di lavoro"] -->|"già integrati"| B["integration/t0<br/>✅ 155 test"]
-    B -->|"PR da aprire<br/>👤 serve una persona"| C["main"]
+    A["6 branch<br/>di lavoro"] -->|"integrati"| B["integration/t0<br/>✅ 155 test"]
+    B -->|"PR #2 ✅"| C["main<br/>aggiornato"]
     C -->|"collegamento<br/>👤 serve una persona"| D["Vercel<br/>online"]
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
     classDef bloccato fill:#f97316,stroke:#c2410c,color:#fff
     classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
 
-    class A,B fatto
-    class C bloccato
-    class D todo
+    class A,B,C fatto
+    class D bloccato
 ```
 
-Tutto il lavoro di T0 è pronto e verificato su `integration/t0`, ma `main` è ancora al
-commit di scaffolding. **Due passaggi richiedono te**, perché nessuno dei due è
-eseguibile da un agente in questo ambiente:
+Il codice di T0 è **in `main`**. Resta un solo passaggio, e richiede una persona:
+**collegare il repository a Vercel** e impostare le variabili d'ambiente, perché
+serve accesso al pannello.
 
-1. **Aprire e mergiare la PR** `integration/t0` → `main`.
-   Le integrazioni GitHub disponibili non hanno permessi di scrittura su questo
-   repository.
-2. **Collegare il repository a Vercel** e impostare le variabili d'ambiente.
-   Richiede accesso al pannello.
+Finché non è fatto, T0 non è ancora *dimostrabile*: la roadmap chiede «ci si
+registra come azienda **ed è online**». Procedura in
+[`messa-in-linea.md`](messa-in-linea.md).
 
 ---
 
@@ -145,8 +142,8 @@ Cose note e volutamente rimandate, non sviste:
 | Revoca di `Membership` non immediata | ADR-0006 | prima di un uso reale |
 | Nessuna verifica dell'indirizzo email | ADR-0006 | dopo il PoC |
 | Nessun recupero password | — | dopo il PoC |
-| `npm run test:e2e` è un segnaposto | — | quando le pagine si moltiplicano |
-| Registrazione dal browser non provata end-to-end | — | serve Playwright |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 8 test Playwright su Chrome |
+| Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 
 ---
 

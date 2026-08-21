@@ -10,7 +10,7 @@
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "lint": "node node_modules/eslint/bin/eslint.js .",
     "test": "node node_modules/vitest/vitest.mjs run",
-    "test:e2e": "node scripts/not-implemented.mjs test:e2e",
+    "test:e2e": "node node_modules/@playwright/test/cli.js test",
     "eval": "node scripts/not-implemented.mjs eval",
     "db:generate": "node node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node node_modules/drizzle-kit/bin.cjs migrate",
@@ -36,6 +36,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
