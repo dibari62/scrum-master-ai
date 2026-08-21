@@ -135,21 +135,21 @@ describe("le anomalie volute sono visibili nelle metriche", () => {
     if (flow.reopenRate.available) expect(flow.reopenRate.value).toBeGreaterThan(0);
   });
 
-  it("l'efficienza di flusso scende solo per il lavoro bloccato, non per l'attesa in revisione", () => {
-    // Questo test documenta un limite noto, non un successo: `in_review` conta
-    // come stato attivo, quindi la mediana è 1 anche con la revisione
-    // ingolfata. È la questione aperta Q1 del glossario.
+  it("l'efficienza di flusso vede l'attesa in revisione, non solo i blocchi", () => {
+    // Questo test è il rovescio di quello che stava qui prima, il quale
+    // documentava un limite: con `in_review` contato come lavoro, la mediana
+    // era esattamente 1 mentre l'attesa in revisione cresceva da ore a giorni.
     //
-    // Se un giorno il Product Owner escludesse `in_review` dagli stati attivi,
-    // questo test fallirebbe — ed è giusto così: sarebbe il segnale che la
-    // decisione è stata presa e che il codice l'ha seguita.
+    // Risolta la questione Q1, la metrica deve scendere sotto 1: nel software
+    // l'efficienza di flusso misurata sta tipicamente fra il 5% e il 15%, e un
+    // numero che non può scendere non è una misura ma una costante travestita.
     const flow = summariseFlow(batch.workItems, batch.transitions, ASOF);
     const median = flow.flowEfficiency.median;
 
     expect(median.available).toBe(true);
     if (median.available) {
       expect(median.value).toBeGreaterThan(0);
-      expect(median.value).toBeLessThanOrEqual(1);
+      expect(median.value).toBeLessThan(1);
     }
 
     // Gli elementi che si sono bloccati devono comunque scendere sotto 1,
@@ -170,6 +170,27 @@ describe("le anomalie volute sono visibili nelle metriche", () => {
       .map((result) => (result.available ? result.value : 1));
 
     expect(Math.min(...efficiencies)).toBeLessThan(1);
+  });
+
+  it("l'efficienza peggiora negli sprint in cui la revisione si ingolfa", () => {
+    // Il legame che prima non esisteva: se l'attesa in revisione cresce di
+    // sprint in sprint, l'efficienza deve calare. Sono due letture dello stesso
+    // fenomeno, e devono concordare.
+    const efficiencyIn = (sprintIndex: number): number[] =>
+      itemsOf(sprintIndex)
+        .map((item) =>
+          flowEfficiency(
+            batch.transitions.filter((t) => t.workItemId === item.id),
+            ASOF,
+          ),
+        )
+        .filter((result) => result.available)
+        .map((result) => (result.available ? result.value : 1));
+
+    const mean = (values: number[]): number =>
+      values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
+
+    expect(mean(efficiencyIn(3))).toBeLessThan(mean(efficiencyIn(0)));
   });
 
   it("il collo di bottiglia in revisione si legge in reviewWaitTime, non nell'efficienza", () => {

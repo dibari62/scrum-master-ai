@@ -40,6 +40,8 @@ Il livello che rende il prodotto indipendente dallo strumento di origine.
 | `WorkItem` | Elemento di lavoro | **Termine unico** per story, bug, task, epic. Il tipo è il campo `kind`. |
 | `WorkItemKind` | Tipo | `story` \| `bug` \| `task` \| `epic` \| `spike` |
 | `WorkItemState` | Stato | Stato canonico: `todo` \| `in_progress` \| `in_review` \| `blocked` \| `done` \| `cancelled` |
+| `countsTowardWip` | Stati in carico | `in_progress`, `in_review`. Quanto la squadra ha preso e non ancora chiuso. Alimenta il WIP. |
+| `isValueAdding` | Stati di lavorazione | `in_progress`. Quando qualcuno ci sta davvero lavorando. Alimenta l'efficienza di flusso. |
 | `StateTransition` | Transizione | Passaggio di un work item da uno stato a un altro, con timestamp. **È la materia prima di quasi tutte le metriche.** |
 | `Estimate` | Stima | Valore + unità (`points` \| `hours`). Mai assumere gli story point. |
 | `Board` | Board | Rappresentazione a colonne del flusso di lavoro |
@@ -73,46 +75,83 @@ Il livello che rende il prodotto indipendente dallo strumento di origine.
 > Ambiguità incontrate scrivendo il codice. `AGENTS.md` §10.1 vieta di indovinare:
 > restano qui finché non vengono risolte.
 
-### Q1 — `in_review` conta come stato attivo?
+### Q1 — `in_review` conta come stato attivo? — **DECISA**
 
-**Dove si è manifestata.** Scrivendo `flowEfficiency` in `src/metrics`.
+> **Decisione del Product Owner, 21 agosto 2026: opzione 2.**
+> `in_review` conta nel WIP ma **non** è tempo di lavorazione.
+> Attuata in `src/domain/work-item.ts` (`countsTowardWip`, `isValueAdding`).
 
-**Il conflitto.** Il glossario definisce `wip` come «work item contemporaneamente
-in stati attivi (`in_progress`, `in_review`)», quindi `in_review` è attivo. Ma
-definisce anche `flowEfficiency` come «tempo in stati attivi ÷ tempo totale di
-attraversamento», e con quella lista **un collo di bottiglia in revisione diventa
-invisibile**: un elemento che passa da `in_progress` a `in_review` a `done` senza
-mai bloccarsi ottiene efficienza 1, anche se è rimasto quattro giorni in attesa
-che qualcuno lo guardasse.
+**Dove si era manifestata.** Scrivendo `flowEfficiency` in `src/metrics`.
 
-Verificato sui dati sintetici: l'efficienza mediana è esattamente 1 mentre
-l'attesa in revisione cresce da ore a giorni.
+**Il conflitto.** Il glossario definiva `wip` come «work item contemporaneamente
+in stati attivi (`in_progress`, `in_review`)» e `flowEfficiency` come «tempo in
+stati attivi ÷ tempo totale». Con la stessa lista per entrambe, **un collo di
+bottiglia in revisione diventava invisibile**: un elemento che passa da
+`in_progress` a `in_review` a `done` otteneva efficienza 1 anche dopo quattro
+giorni di attesa. Sui dati sintetici l'efficienza mediana era esattamente 1
+mentre l'attesa in revisione cresceva da ore a giorni.
 
-**Perché non l'ho deciso io.** Le due definizioni servono scopi diversi e
-entrambe le letture sono difendibili:
+**Perché l'opzione 2.**
 
-- `in_review` **è** lavoro in corso — occupa una posizione nel flusso, e per
-  questo conta nel WIP;
-- `in_review` **è** attesa — nessuno ci sta lavorando finché un revisore non lo
-  apre.
+*Il numero era la prova.* Nella letteratura Lean/Kanban l'efficienza di flusso
+misurata sul lavoro software sta tipicamente fra il **5% e il 15%**; il 40% è
+considerato eccellente. Il motivo è strutturale: la maggior parte del tempo di
+un elemento è coda, non lavorazione. Un 100% non era una buona notizia sulla
+squadra: era il sintomo che la definizione misurava altro. **Una metrica che non
+può scendere sotto una soglia non è una misura, è una costante travestita.**
 
-Il modello canonico non distingue «in attesa di revisione» da «in revisione»,
-perché quasi nessuna fonte espone quella differenza.
+*L'obiezione non reggeva.* Il costo dichiarato dell'opzione 2 era «due
+definizioni di attivo nello stesso sistema». Ma non erano due definizioni della
+stessa cosa: erano **due concetti diversi chiamati con una parola sola**.
 
-**Opzioni.**
+| Domanda | Cosa conta | Perché |
+|---|---|---|
+| **WIP** — quanto ha in carico la squadra? | `in_progress`, `in_review` | Un elemento in revisione è un impegno preso e non chiuso: occupa un posto. Misura il **carico**. |
+| **Efficienza di flusso** — quanto di quel tempo è stato lavoro? | `in_progress` | Un elemento in coda di revisione non sta venendo lavorato. Misura lo **spreco**. |
 
-1. **Lasciare com'è.** `flowEfficiency` misura «nel flusso ÷ totale» e scende
-   solo con `blocked`. Il collo di bottiglia si legge in `reviewWaitTime`, che
-   lo misura direttamente. Costo: un cruscotto che mostra «efficienza 100%» a
-   una squadra sommersa dalle revisioni.
-2. **Escludere `in_review` dagli stati attivi** ai soli fini di
-   `flowEfficiency`, lasciandolo nel WIP. Costo: due definizioni di «attivo»
-   nello stesso sistema, da spiegare ogni volta.
-3. **Aggiungere uno stato canonico** `review_wait`. Costo: i connettori devono
-   saperlo dedurre, e quasi nessuna fonte lo espone.
+Il rimedio non è scegliere fra le due liste, è smettere di chiamarle con lo
+stesso nome. Da qui i due termini della sezione seguente.
 
-**Stato:** in attesa di decisione. Nel frattempo vale l'opzione 1, che è la
-lettura letterale del glossario, e il limite è dichiarato nel codice.
+**Approssimazione accettata e dichiarata.** Escludendo tutto `in_review` si
+contano come spreco anche i minuti in cui il revisore sta effettivamente
+leggendo. Il modello canonico non distingue «in attesa di revisione» da «in
+revisione», perché quasi nessuna fonte espone la differenza. L'approssimazione
+sbaglia **nella direzione giusta**: mostra un collo di bottiglia che potrebbe non
+esserci, invece di nascondere uno che c'è.
+
+**Perché non l'opzione 3 (uno stato canonico `review_wait`).** Obbligherebbe i
+connettori a *dedurlo*, e la regola 4 dei connettori vieta di fingere che un dato
+ci sia quando la fonte non lo espone. **Ma tornerà disponibile**: la tabella
+`pull_requests` ha già `opened_at` e `first_review_at`, quindi con il connettore
+GitHub l'attesa di revisione sarà un dato **osservato, non dedotto**. A quel
+punto l'opzione 3 va riconsiderata.
+
+**Conseguenza sull'interfaccia.** `flowEfficiency` dice che del tempo si è perso
+ma non dove; `reviewWaitTime` dice dove. La dashboard le mostra **affiancate**:
+la prima versione mostrava solo l'efficienza, ed era fuorviante.
+
+---
+
+### Q2 — un elemento `blocked` fa parte del carico? — aperta
+
+**Dove si è manifestata.** Chiudendo Q1, riformulando il WIP come misura del
+*carico*.
+
+**Il conflitto.** Se il WIP misura quanto la squadra ha in carico, un elemento
+bloccato **è** carico: è stato preso, non è chiuso, e qualcuno dovrà tornarci.
+Oggi `blocked` è escluso, con una motivazione altrettanto sensata: contarlo
+farebbe sembrare occupata una squadra ferma.
+
+**Perché non l'ho deciso io.** La decisione su Q1 riguardava `flowEfficiency`;
+estenderla al WIP sarebbe stato un cambiamento diverso, fatto passare di
+contrabbando. Il comportamento attuale resta invariato finché il Product Owner
+non decide.
+
+**Nota pratica.** Nei sistemi Kanban il limite di WIP di solito **include** gli
+elementi bloccati, proprio perché il senso del limite è impedire alla squadra di
+prendere altro lavoro mentre ne ha di fermo.
+
+**Stato:** in attesa di decisione. Comportamento attuale: `blocked` escluso.
 
 
 ### Eventi Scrum
@@ -139,14 +178,27 @@ metrica è ambigua, l'ambiguità va risolta **qui** prima di implementarla.
 | `cycleTime` | Cycle time | Tempo dal primo ingresso in `in_progress` al primo ingresso in `done` |
 | `leadTime` | Lead time | Tempo dalla creazione del work item al primo ingresso in `done` |
 | `throughput` | Throughput | Numero di work item completati per unità di tempo |
-| `wip` | WIP | Work item contemporaneamente in stati attivi (`in_progress`, `in_review`) |
-| `flowEfficiency` | Efficienza di flusso | Tempo in stati attivi ÷ tempo totale di attraversamento |
+| `wip` | WIP | Work item contemporaneamente in **stati in carico** (`in_progress`, `in_review`). Misura il carico, non il lavoro. |
+| `flowEfficiency` | Efficienza di flusso | Tempo in **stati di lavorazione** ÷ tempo totale di attraversamento, dal primo `in_progress`. Nel software è normale che stia fra 5% e 15% (Q1). |
 | `agingWorkItem` | Invecchiamento | Tempo trascorso nello stato attuale da un item non ancora concluso |
 | `scopeChange` | Variazione di perimetro | Lavoro aggiunto o rimosso dallo sprint **dopo** l'inizio |
 | `carryOver` | Lavoro trascinato | Work item non completati che passano allo sprint successivo |
-| `reopenRate` | Tasso di riapertura | Quota di item che tornano da `done` a uno stato attivo |
+| `reopenRate` | Tasso di riapertura | Quota di item che tornano da `done` a uno stato non terminale |
 | `blockedTime` | Tempo bloccato | Tempo cumulato in stato `blocked` |
-| `reviewWaitTime` | Attesa in review | Tempo fra apertura della PR e primo commento di revisione |
+| `reviewWaitTime` | Attesa in revisione | Durata dell'**ultima** permanenza in `in_review`. Vedi la nota qui sotto. |
+
+> **Nota su `reviewWaitTime`.** Questa voce definiva l'attesa come «tempo fra
+> apertura della PR e primo commento di revisione», mentre il codice misura la
+> permanenza nello stato `in_review`. Sono due cose diverse, e la divergenza è
+> stata scoperta chiudendo Q1. Vince la definizione basata sullo stato, perché è
+> l'unica calcolabile oggi: il connettore seed non produce pull request
+> collegate a una revisione reale.
+>
+> La versione basata sulla PR è **migliore** — misura l'attesa osservata invece
+> di dedurla dal movimento su una board — e le colonne `opened_at` e
+> `first_review_at` esistono già in `pull_requests`. Diventerà calcolabile con il
+> connettore GitHub, e a quel punto le due letture andranno confrontate prima di
+> sostituire l'una con l'altra.
 
 ### Metriche DORA
 
@@ -203,6 +255,7 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | stand-up | `DailyScrum` |
 | azienda / cliente / tenant (nel codice) | `Organization` |
 | status / stato del ticket | `WorkItemState` |
+| «stato attivo» | **da non usare**: dire `countsTowardWip` (carico) oppure `isValueAdding` (lavorazione). Una parola per due concetti è ciò che ha prodotto Q1. |
 | agente (per lo Scrum Master del progetto) | `ScrumAgent` |
 | sentiment | indicatore di processo aggregato |
 | performance del team (come giudizio) | metrica di flusso |

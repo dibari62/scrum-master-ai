@@ -37,18 +37,44 @@ export const workItemStateSchema = z.enum([
 export type WorkItemState = z.infer<typeof workItemStateSchema>;
 
 /**
- * States that count as work in progress.
+ * States counted as work in progress.
  *
- * Declared once here because three metrics depend on the same answer — `wip`,
- * `flowEfficiency` and `blockedTime` — and three copies of the list would
- * eventually disagree. `blocked` is deliberately excluded: an item nobody can
- * move is not being worked on, and counting it as active would make a stuck
- * team look busy.
+ * This is a measure of **load**: how much the team has taken on and not yet
+ * finished. An item waiting for review still occupies a slot, so it counts.
+ *
+ * `blocked` is excluded: an item nobody can move is not being worked on, and
+ * counting it as in progress would make a stuck team look busy.
+ *
+ * Deliberately *not* the same list as `isValueAdding`. See the note there.
  */
-const ACTIVE_STATES: ReadonlySet<WorkItemState> = new Set(["in_progress", "in_review"]);
+const WIP_STATES: ReadonlySet<WorkItemState> = new Set(["in_progress", "in_review"]);
 
-export function isActiveState(state: WorkItemState): boolean {
-  return ACTIVE_STATES.has(state);
+export function countsTowardWip(state: WorkItemState): boolean {
+  return WIP_STATES.has(state);
+}
+
+/**
+ * States in which someone is actually working on the item.
+ *
+ * This is a measure of **work**, and it is what flow efficiency divides by
+ * elapsed time. `in_review` is excluded: an item sitting in a review queue is
+ * waiting, not being worked on, and almost no source distinguishes "waiting to
+ * be reviewed" from "being reviewed right now".
+ *
+ * **Why two lists rather than one word.** They answer different questions —
+ * load and waste — and calling both "active" was what produced open question Q1
+ * in the glossary: flow efficiency read a flat 100% on data where review wait
+ * climbed from hours to days, because time in the review queue was being
+ * counted as work. A metric that cannot fall is not a metric.
+ *
+ * The approximation is knowing: the minutes a reviewer spends reading are
+ * counted as waste too. It errs towards showing a bottleneck that may not be
+ * there rather than hiding one that is — the right direction for a diagnostic.
+ */
+const VALUE_ADDING_STATES: ReadonlySet<WorkItemState> = new Set(["in_progress"]);
+
+export function isValueAdding(state: WorkItemState): boolean {
+  return VALUE_ADDING_STATES.has(state);
 }
 
 /**

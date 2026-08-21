@@ -1,6 +1,6 @@
 import {
   compareTransitions,
-  isActiveState,
+  isValueAdding,
   type StateTransition,
   type WorkItemId,
   type WorkItemState,
@@ -91,13 +91,18 @@ export function timeInState(
     .reduce((total, interval) => total + interval.duration, 0);
 }
 
-/** Total time in states that count as work in progress (`in_progress`, `in_review`). */
-export function activeTime(
+/**
+ * Total time in states where the item was actually being worked on.
+ *
+ * Not the same as "not finished": time in a review queue is excluded, because
+ * it is waiting rather than work. See `isValueAdding` in the domain.
+ */
+export function valueAddingTime(
   transitions: readonly StateTransition[],
   asOf: Date,
 ): Milliseconds {
   return stateIntervals(transitions, asOf)
-    .filter((interval) => isActiveState(interval.state))
+    .filter((interval) => isValueAdding(interval.state))
     .reduce((total, interval) => total + interval.duration, 0);
 }
 

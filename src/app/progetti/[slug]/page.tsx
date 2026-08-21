@@ -96,6 +96,7 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
   const wipNow = presentCount(wip);
   const reopen = presentPercent(flow.reopenRate, 1);
   const efficiency = presentPercent(flow.flowEfficiency.median, 0);
+  const reviewWait = presentDuration(flow.reviewWait.median);
 
   const addedNow = current
     ? presentCount(
@@ -156,11 +157,11 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             label="Lavoro in corso"
             value={wipNow.value}
             detail={wipNow.detail}
-            hint="Elementi attivi adesso. Esclude i bloccati."
+            hint="Elementi presi in carico e non ancora chiusi. Esclude i bloccati."
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <MetricCard
             label="Tasso di riapertura"
             value={reopen.value}
@@ -174,7 +175,18 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             label="Efficienza di flusso mediana"
             value={efficiency.value}
             detail={efficiency.detail}
-            hint="Non vede l'attesa in revisione: questione aperta Q1 del glossario."
+            hint="Quanto del tempo in lavorazione è stato lavoro e non coda. Nel software è normale che sia bassa."
+          />
+          {/*
+           * Accanto all'efficienza, non altrove: l'efficienza dice che del
+           * tempo si è perso, questa dice dove. Mostrare la prima senza la
+           * seconda lascia il lettore con un problema e nessuna direzione.
+           */}
+          <MetricCard
+            label="Attesa in revisione mediana"
+            value={reviewWait.value}
+            detail={reviewWait.detail}
+            hint="Da quando un elemento entra in revisione a quando qualcuno lo sblocca."
           />
         </div>
       </section>
