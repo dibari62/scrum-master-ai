@@ -3,7 +3,8 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **20/08/2026** — T0 integrato in `main` (PR #2).
+> Ultimo aggiornamento: **21/08/2026** — T0, T1 e T2 in `main` (PR #2 → #12),
+> applicazione online e visibile.
 
 ---
 
@@ -14,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 155 test<br/>Playwright · 8 test e2e"]
+        S3["Vitest · 372 test<br/>Playwright · 10 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -27,7 +28,7 @@ graph TB
 
     subgraph DB["🗄️ Database"]
         D1["Modello canonico Zod<br/>4 entità di tenancy"]
-        D2["Schema Drizzle<br/>6 tabelle create"]
+        D2["Schema Drizzle<br/>16 tabelle create"]
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
     end
@@ -46,17 +47,16 @@ graph TB
     classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
 
     class S1,S2,S3,S4 fatto
-    class I1,I2 fatto
-    class I3,I4 todo
-    class D1,D2,D3 fatto
-    class D4 todo
-    class U1,U2,U3,U4 fatto
-    class U5,U6 todo
+    class I1,I2,I3 fatto
+    class I4 todo
+    class D1,D2,D3,D4 fatto
+    class U1,U2,U3,U4,U5 fatto
+    class U6 todo
 ```
 
-**Come leggerlo:** scheletro e database sono solidi. L'interfaccia esiste per tutto
-ciò che serve a entrare nel prodotto. L'infrastruttura ha un buco: **il deploy non
-esiste ancora**.
+**Come leggerlo:** scheletro, database e metriche sono solidi e verificati in un
+browser, non solo dai test. Resta da costruire lo Scrum Master AI vero e proprio
+— cioè la parte che dà il nome al prodotto. I job schedulati non servono ancora.
 
 ---
 
@@ -64,7 +64,7 @@ esiste ancora**.
 
 ```mermaid
 graph LR
-    T0["<b>T0</b><br/>Fondamenta<br/>———<br/>auth · tenancy<br/>✅ codice<br/>❌ online"]
+    T0["<b>T0</b><br/>Fondamenta<br/>———<br/>auth · tenancy<br/>✅ online"]
     T1["<b>T1</b><br/>Modello canonico<br/>———<br/>entità Scrum<br/>connettore seed"]
     T2["<b>T2</b><br/>⭐ Metriche<br/>———<br/>motore + dashboard<br/><i>zero LLM</i>"]
     T3["<b>T3</b><br/>Scrum Master AI<br/>———<br/>creazione agente"]
@@ -74,14 +74,19 @@ graph LR
 
     T0 --> T1 --> T2 --> T3 --> T4 --> T5 --> T6
 
-    classDef quasi fill:#eab308,stroke:#ca8a04,color:#000
-    classDef stella fill:#e5e7eb,stroke:#7c3aed,color:#6b7280,stroke-width:3px
+    classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
+    classDef prossimo fill:#eab308,stroke:#ca8a04,color:#000
     classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
 
-    class T0 quasi
-    class T2 stella
-    class T1,T3,T4,T5,T6 todo
+    class T0,T1,T2 fatto
+    class T3 prossimo
+    class T4,T5,T6 todo
 ```
+
+**T2 è il traguardo che dà credibilità al resto**: tutti i numeri che
+l'applicazione mostra sono calcolati da codice deterministico e testato. Nessun
+modello linguistico li ha toccati. T3 è il primo in cui un LLM entra davvero, e
+la regola R1 — il codice calcola, l'LLM racconta — smette di essere teorica.
 
 ---
 
@@ -89,46 +94,46 @@ graph LR
 
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
-| **Locale** | ✅ funzionante | `npm run dev`, giro di accesso completo provato |
-| **Neon (Postgres)** | ✅ attivo | 6 tabelle, 2 migrazioni applicate, database vuoto di dati |
+| **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
+| **Neon (Postgres)** | ✅ attivo | 16 tabelle, migrazioni applicate, popolato con 51 elementi e 222 transizioni sintetiche |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
-| **Vercel** | ❌ **inesistente** | nessun `vercel.json`, nessun `.vercel`, il dominio risponde `X-Vercel-Error: NOT_FOUND` |
+| **Vercel** | ✅ **online** | protezione disattivata, verificato `200`; accesso e isolamento funzionanti sul dominio pubblico |
 | **Upstash QStash** | ⬜ non serve ancora | chiavi presenti, primo uso previsto a T5 |
 
-### Perché Vercel manca
+### Come guardarci dentro
 
-Il progetto non è mai stato collegato a Vercel. Non è una dimenticanza tecnica: è un
-passaggio che richiede **un accesso interattivo al pannello** e la scelta di quale
-branch pubblicare, quindi non è automatizzabile da un agente.
+Istruzioni per il Product Owner in
+[`guardare-i-dati.md`](guardare-i-dati.md): dal sito pubblicato, in locale, o
+interrogando direttamente il database con SQL.
 
-Finché `main` resta al commit di scaffolding, pubblicarlo mostrerebbe comunque solo
-la pagina iniziale: il deploy ha senso **dopo** il merge dell'integrazione.
+**L'applicazione online e il computer di sviluppo usano lo stesso database.** Non
+ci sono due copie dei dati. È comodo per una dimostrazione e va cambiato prima di
+avere dati veri: oggi un `npm run seed` sbagliato tocca ciò che si vede online.
 
 ---
 
-## 4. Il collo di bottiglia attuale
+## 4. Dove siamo
 
 ```mermaid
 graph LR
-    A["6 branch<br/>di lavoro"] -->|"integrati"| B["integration/t0<br/>✅ 155 test"]
-    B -->|"PR #2 ✅"| C["main<br/>aggiornato"]
-    C -->|"collegamento<br/>👤 serve una persona"| D["Vercel<br/>online"]
+    A["T0<br/>fondamenta"] --> B["T1<br/>modello canonico"]
+    B --> C["T2<br/>metriche + dashboard"]
+    C --> D["T3<br/>Scrum Master AI"]
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
-    classDef bloccato fill:#f97316,stroke:#c2410c,color:#fff
-    classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
+    classDef prossimo fill:#eab308,stroke:#ca8a04,color:#000
 
     class A,B,C fatto
-    class D bloccato
+    class D prossimo
 ```
 
-Il codice di T0 è **in `main`**. Resta un solo passaggio, e richiede una persona:
-**collegare il repository a Vercel** e impostare le variabili d'ambiente, perché
-serve accesso al pannello.
+Nessun passaggio è più bloccato su una persona. Restano **due decisioni** del
+Product Owner, nessuna delle quali ferma lo sviluppo:
 
-Finché non è fatto, T0 non è ancora *dimostrabile*: la roadmap chiede «ci si
-registra come azienda **ed è online**». Procedura in
-[`messa-in-linea.md`](messa-in-linea.md).
+| Questione | Dove | Effetto se non decisa |
+|---|---|---|
+| **Q2** — un elemento bloccato fa parte del carico? | [glossario](domain-glossary.md) | il WIP continua a escluderlo |
+| Rotazione della password Neon | §5 qui sotto | nessuno finché i dati sono sintetici |
 
 ---
 
@@ -138,11 +143,15 @@ Cose note e volutamente rimandate, non sviste:
 
 | Voce | Dove è documentata | Quando va affrontata |
 |---|---|---|
-| Nessuna limitazione di frequenza sull'accesso | `AGENTS.md` §8.1 | prima di qualunque esposizione pubblica |
+| Nessuna limitazione di frequenza sull'accesso | `AGENTS.md` §8.1 | ora che il sito è pubblico, prima dei dati veri |
 | Revoca di `Membership` non immediata | ADR-0006 | prima di un uso reale |
 | Nessuna verifica dell'indirizzo email | ADR-0006 | dopo il PoC |
 | Nessun recupero password | — | dopo il PoC |
-| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 8 test Playwright su Chrome |
+| Password Neon comparsa in chiaro, mai ruotata | decisione consapevole del PO | prima dei dati veri |
+| Sviluppo e produzione condividono il database | §3 qui sopra | prima dei dati veri |
+| `reviewWaitTime` misura lo stato, non la pull request | [glossario](domain-glossary.md) | con il connettore GitHub |
+| Spec-first e agente revisore mai usati | `AGENTS.md` §5 | da T3 in poi |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 10 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 
 ---
