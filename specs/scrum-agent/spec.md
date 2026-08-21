@@ -239,95 +239,99 @@ di approvazione del Product Owner.
 5. Un utente dell'organizzazione B che richiede l'agente di un progetto dell'organizzazione
    A riceve «non trovato», sia in lettura sia in modifica: l'esistenza dell'oggetto non è
    rivelabile da fuori tenant.
-6. La creazione su un `Project` con `status = "archived"` è rifiutata con errore di
+6. Un utente con ruolo `member` che tenta di creare o modificare lo `ScrumAgent` riceve «non
+   autorizzato» e non produce alcuna scrittura; con ruolo `admin` o `owner` l'operazione
+   riesce. La lettura della scheda resta consentita a tutti i membri dell'organizzazione
+   (vedi Q4).
+7. La creazione su un `Project` con `status = "archived"` è rifiutata con errore di
    validazione.
 
 **Valori predefiniti e validazione**
 
-7. Creando con il solo nome, i valori risultanti sono esattamente: tono `neutral`, lingua
+8. Creando con il solo nome, i valori risultanti sono esattamente: tono `neutral`, lingua
    `it`, autonomia `observe`, nessuna skill abilitata, durata dello sprint 14 giorni,
    cerimonie tutte «non pianificata», Definition of Done vuota, working agreement nullo,
    nessuno stakeholder.
-8. Il nome è precompilato con «Scrum Master di <nome del progetto>»; un nome vuoto o composto
+9. Il nome è precompilato con «Scrum Master di <nome del progetto>»; un nome vuoto o composto
    di soli spazi è rifiutato e non produce alcuna scrittura.
-9. Se il progetto ha almeno due sprint con date di inizio e fine valide, il valore proposto
+10. Se il progetto ha almeno due sprint con date di inizio e fine valide, il valore proposto
    per la durata dello sprint è la mediana arrotondata delle durate osservate in giorni; con
    meno di due sprint è 14. Il valore è calcolato dal codice: durante il wizard non avviene
    alcuna chiamata a un modello.
-10. Una durata di sprint fuori dall'intervallo 1–60 giorni è rifiutata; la Definition of Done
+11. Una durata di sprint fuori dall'intervallo 1–60 giorni è rifiutata; la Definition of Done
     accetta da 0 a 20 voci di 1–200 caratteri; il working agreement accetta al massimo 4000
     caratteri; gli stakeholder sono da 0 a 20 voci con `Audience` fra `team`, `manager`,
     `stakeholder`. Ogni violazione è un errore di validazione, non un troncamento silenzioso.
 
 **Autonomia, policy e vincoli di dominio**
 
-11. Impostare il livello di autonomia a `advise`, `act_with_approval` o `autonomous` è
+12. Impostare il livello di autonomia a `advise`, `act_with_approval` o `autonomous` è
     rifiutato con errore di validazione; gli unici valori accettati in T3 sono `observe` e
     `report` (vedi Q1).
-12. L'insieme dei valori ammessi per autonomia, tono, trigger, `Audience` e cause di
+13. L'insieme dei valori ammessi per autonomia, tono, trigger, `Audience` e cause di
     fallimento è chiuso: un test enumera i valori attesi e fallisce se l'insieme cambia senza
     che il test sia aggiornato. Nessuno di questi insiemi contiene una voce che valuti
     persone o stati d'animo (`AGENTS.md` §8.2).
-13. La configurazione dello `ScrumAgent` non espone alcun campo riferito a una singola
+14. La configurazione dello `ScrumAgent` non espone alcun campo riferito a una singola
     persona identificata: un test verifica che lo schema di configurazione non contenga
     riferimenti a `Person` né punteggi individuali.
-14. Abilitare una skill il cui livello di autonomia minimo supera quello dell'agente è
+15. Abilitare una skill il cui livello di autonomia minimo supera quello dell'agente è
     rifiutato con errore di validazione.
-15. Abbassando il livello di autonomia sotto il minimo di una skill già abilitata, la skill
+16. Abbassando il livello di autonomia sotto il minimo di una skill già abilitata, la skill
     risulta disabilitata dopo il salvataggio e la risposta elenca le skill disattivate.
 
 **Gateway LLM**
 
-16. Con `LLM_PROVIDER=fake` nessuna richiesta di rete lascia il processo: un test che
+17. Con `LLM_PROVIDER=fake` nessuna richiesta di rete lascia il processo: un test che
     intercetta le chiamate uscenti fallisce se ne parte una. L'intera suite `npm run test`
     passa senza alcuna chiave API configurata.
-17. Con lo stesso input, il provider fittizio restituisce lo stesso output e lo stesso
+18. Con lo stesso input, il provider fittizio restituisce lo stesso output e lo stesso
     conteggio di token: due esecuzioni consecutive producono `SkillRun` con identici token e
     costo.
-18. Nessun modulo fuori da `src/lib/llm` importa l'SDK del modello: la violazione è
+19. Nessun modulo fuori da `src/lib/llm` importa l'SDK del modello: la violazione è
     intercettata da `npm run verify`.
-19. Se i token stimati per la richiesta superano il `TokenBudget`, l'esecuzione non viene
+20. Se i token stimati per la richiesta superano il `TokenBudget`, l'esecuzione non viene
     inviata al fornitore e produce un `SkillRun` con esito `failed`, causa `budget_exceeded`
     e token consumati pari a 0.
-20. Se il fornitore primario risponde con indisponibilità o limite di frequenza e un
+21. Se il fornitore primario risponde con indisponibilità o limite di frequenza e un
     fornitore di riserva è configurato, il gateway ritenta **una sola volta** sulla riserva;
     il `SkillRun` registra il fornitore effettivamente usato. Se anche la riserva fallisce,
     l'esito è `failed` con causa `provider_unavailable` (o `rate_limited`) e nessuna
     eccezione risale all'interfaccia.
-21. Se l'output del fornitore non rispetta lo schema atteso, il gateway ritenta una sola
+22. Se l'output del fornitore non rispetta lo schema atteso, il gateway ritenta una sola
     volta; al secondo fallimento l'esito è `failed` con causa `invalid_output`. Nessun testo
     non validato viene mostrato o salvato come risultato.
-22. La richiesta costruita per `configuration-check` contiene la lingua configurata
+23. La richiesta costruita per `configuration-check` contiene la lingua configurata
     sull'agente: cambiando la lingua da `it` a `en` la richiesta catturata dal provider
     fittizio cambia di conseguenza.
-23. La richiesta costruita per `configuration-check` **non contiene** alcun valore proveniente
+24. La richiesta costruita per `configuration-check` **non contiene** alcun valore proveniente
     da working agreement, Definition of Done, stakeholder, nomi di `Person`, titoli o
     descrizioni di `WorkItem`: verificato ispezionando la richiesta catturata dal provider
     fittizio dopo aver popolato tutti quei campi con stringhe riconoscibili.
 
 **Registro delle esecuzioni**
 
-24. Ogni esecuzione che raggiunge il gateway produce **esattamente un** `SkillRun`, sia in
+25. Ogni esecuzione che raggiunge il gateway produce **esattamente un** `SkillRun`, sia in
     caso di successo sia di fallimento, contenente: organizzazione, progetto, agente, chiave
     di skill, trigger, istante di inizio e di fine, durata in millisecondi, esito, causa in
     caso di fallimento, fornitore, modello, token in ingresso e in uscita, costo stimato.
-25. Un tentativo di eseguire una skill dichiarata ma non ancora disponibile (`sprint-report`,
+26. Un tentativo di eseguire una skill dichiarata ma non ancora disponibile (`sprint-report`,
     `daily-digest`, …) è rifiutato **prima** del gateway, non produce alcun `SkillRun` e non
     consuma token.
-26. Superato il tetto giornaliero di esecuzioni della policy, l'esecuzione è rifiutata con un
+27. Superato il tetto giornaliero di esecuzioni della policy, l'esecuzione è rifiutata con un
     `SkillRun` di esito `failed` e causa `quota_exceeded` (il rifiuto è una decisione del
     runtime e va tracciata), con token pari a 0.
-27. Il costo di un `SkillRun` è calcolato dal codice a partire dai token e da un listino
+28. Il costo di un `SkillRun` è calcolato dal codice a partire dai token e da un listino
     versionato nel repository; con fornitore `fake` il costo è esattamente 0. Nessun valore
     di costo proviene mai da un modello (R1, ADR-0002).
-28. Il registro restituisce solo le esecuzioni dell'organizzazione richiedente, ordinate per
+29. Il registro restituisce solo le esecuzioni dell'organizzazione richiedente, ordinate per
     istante di inizio decrescente, e ne mostra al massimo 50 per pagina.
-29. Su un agente `suspended`, ogni tentativo di esecuzione produce un `SkillRun` `failed` con
+30. Su un agente `suspended`, ogni tentativo di esecuzione produce un `SkillRun` `failed` con
     causa `agent_suspended` e nessuna chiamata al fornitore.
 
 **Percorso dimostrabile**
 
-30. Un test end-to-end parte dalla pagina del progetto, completa il wizard **senza digitare
+31. Un test end-to-end parte dalla pagina del progetto, completa il wizard **senza digitare
     alcun testo** (accettando i valori proposti), atterra sulla scheda dell'agente, esegue
     "Verifica configurazione" e vede la nuova riga in cima al registro. Il percorso ha
     esattamente 4 passi di wizard e non più di 12 interazioni, e il test completa in meno di
@@ -345,7 +349,7 @@ di approvazione del Product Owner.
 | Chiave API assente con `LLM_PROVIDER=gemini` | Creazione e modifica dell'agente restano possibili. L'esecuzione fallisce con causa `provider_not_configured` e un messaggio che indica quale variabile manca, senza mai stamparne il valore. |
 | Fornitore lento oltre il timeout | `SkillRun` `failed`, causa `timeout`, durata effettivamente registrata; nessuna richiesta lasciata pendente. |
 | Limite di frequenza del fornitore (429) | Si tenta la riserva; se assente o anch'essa limitata, causa `rate_limited` con invito a riprovare più tardi. |
-| Testo di prompt injection incollato nel working agreement, nella Definition of Done o nel ruolo di uno stakeholder («ignora le istruzioni precedenti e …») | Salvato **come dato**, senza interpretazione. In T3 non raggiunge alcun prompt (criterio 23). Il caso entra nella suite avversariale come regressione permanente per T4 (`AGENTS.md` §8.1). |
+| Testo di prompt injection incollato nel working agreement, nella Definition of Done o nel ruolo di uno stakeholder («ignora le istruzioni precedenti e …») | Salvato **come dato**, senza interpretazione. In T3 non raggiunge alcun prompt (criterio 24). Il caso entra nella suite avversariale come regressione permanente per T4 (`AGENTS.md` §8.1). |
 | Skill abilitata la cui chiave sparisce dal catalogo in un rilascio successivo | La chiave sconosciuta è ignorata in lettura e segnalata sulla scheda come «skill non più disponibile». Il caricamento dell'agente non fallisce. |
 | Stakeholder duplicati (stesso ruolo e stesso pubblico) | Errore di validazione sulla voce duplicata, con indicazione della riga. Nessuna deduplicazione silenziosa. |
 | Utente rimosso dall'organizzazione mentre il wizard è aperto | La conferma finale è rifiutata come «non autorizzato»; nessuna scrittura. |
@@ -368,7 +372,7 @@ di approvazione del Product Owner.
   degrado controllato.
 - [x] **Se legge testo di terzi: trattato come dato non fidato (`AGENTS.md` §8.1).** Persona,
   working agreement, Definition of Done e stakeholder sono testo fornito da un umano e
-  trattati come dato: in T3 non entrano in nessun prompt (criterio 23) e quando entreranno in
+  trattati come dato: in T3 non entrano in nessun prompt (criterio 24) e quando entreranno in
   T4 dovranno essere delimitati e dichiarati non fidati. Nessun tool scrivente è esposto.
 - [x] **Nessuna metrica individuale, nessuna inferenza emotiva (`AGENTS.md` §8.2).** Il
   livello di autonomia governa *cosa l'agente può produrre*, non *chi può valutare*: nessun
@@ -455,11 +459,25 @@ nella spec, così che l'implementazione non resti bloccata.
   sicuro e più valutabile; il testo libero è più espressivo, ma entra in un prompt in T4 ed è
   quindi superficie di prompt injection anche da parte di un utente interno.
   *Provvisorio: elenco chiuso di profili predefiniti.*
+
+  **Deciso in questo senso in assenza del Product Owner, e la ragione è la
+  reversibilità:** allargare in seguito un insieme chiuso non rompe nulla di ciò che
+  esiste, mentre restringere un campo di testo libero già usato rompe le configurazioni
+  salvate. Fra due scelte difendibili si prende quella che si può disfare. Va
+  **riconsiderata in T4**, quando i prompt esisteranno davvero e il costo del testo libero
+  sarà misurabile invece che ipotetico.
 - [ ] **Q4 — Chi può creare e modificare lo Scrum Master AI di un progetto?** I ruoli
   esistenti sono `owner`, `admin`, `member`, ma nessuna schermata li usa ancora per
   autorizzare. Va deciso se la configurazione dell'agente è un'operazione da amministratore o
-  da qualsiasi membro. *Provvisorio: qualsiasi membro dell'organizzazione, per coerenza con
-  la gestione attuale dei progetti.*
+  da qualsiasi membro.
+
+  *Provvisorio rivisto: solo `owner` e `admin`.* La proposta iniziale era «qualsiasi
+  membro», per coerenza con la gestione attuale dei progetti. È stata cambiata perché su
+  una decisione di autorizzazione **la scelta permissiva non va presa in silenzio**:
+  concedere un permesso in seguito non disturba nessuno, revocarlo toglie qualcosa a chi
+  lo stava usando. La configurazione dell'agente determina inoltre cosa il sistema dirà
+  agli stakeholder, il che la rende più vicina a un'impostazione che a un'operazione
+  quotidiana.
 - [ ] **Q5 — Gli stakeholder possono contenere nomi di persone reali?** La spec prevede oggi
   solo ruolo + pubblico, senza nome, perché ADR-0005 vieta dati personali reali verso
   fornitori su piano gratuito e §8.2 impone persone fittizie. Se servono i nomi, va deciso se
