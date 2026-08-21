@@ -66,6 +66,55 @@ Il livello che rende il prodotto indipendente dallo strumento di origine.
 | `SprintScopeEvent` | Variazione di perimetro | Ingresso o uscita di un `WorkItem` da uno `Sprint`, con istante e verso (`added` \| `removed`). | `scopeChange` è definita come lavoro aggiunto o rimosso **dopo** l'inizio dello sprint, e `carryOver` richiede di sapere che l'item era nello sprint precedente. Un `sprintId` sul `WorkItem` dice dove si trova **adesso** e perde entrambe le informazioni: è lo stesso motivo per cui ADR-0003 rende `StateTransition` un'entità di primo livello invece di leggere lo stato corrente. |
 | `SourceSystem` | Sistema di origine | Fonte da cui un connettore traduce: `seed` \| `github` \| `jira`. | ADR-0003 impone `sourceSystem` e `sourceId` su ogni entità canonica. `seed` è membro a pieno titolo, non un espediente per i test: è ciò che permette di costruire metriche e skill prima di avere una credenziale reale. |
 
+---
+
+## 5.bis Questioni aperte — decide il Product Owner
+
+> Ambiguità incontrate scrivendo il codice. `AGENTS.md` §10.1 vieta di indovinare:
+> restano qui finché non vengono risolte.
+
+### Q1 — `in_review` conta come stato attivo?
+
+**Dove si è manifestata.** Scrivendo `flowEfficiency` in `src/metrics`.
+
+**Il conflitto.** Il glossario definisce `wip` come «work item contemporaneamente
+in stati attivi (`in_progress`, `in_review`)», quindi `in_review` è attivo. Ma
+definisce anche `flowEfficiency` come «tempo in stati attivi ÷ tempo totale di
+attraversamento», e con quella lista **un collo di bottiglia in revisione diventa
+invisibile**: un elemento che passa da `in_progress` a `in_review` a `done` senza
+mai bloccarsi ottiene efficienza 1, anche se è rimasto quattro giorni in attesa
+che qualcuno lo guardasse.
+
+Verificato sui dati sintetici: l'efficienza mediana è esattamente 1 mentre
+l'attesa in revisione cresce da ore a giorni.
+
+**Perché non l'ho deciso io.** Le due definizioni servono scopi diversi e
+entrambe le letture sono difendibili:
+
+- `in_review` **è** lavoro in corso — occupa una posizione nel flusso, e per
+  questo conta nel WIP;
+- `in_review` **è** attesa — nessuno ci sta lavorando finché un revisore non lo
+  apre.
+
+Il modello canonico non distingue «in attesa di revisione» da «in revisione»,
+perché quasi nessuna fonte espone quella differenza.
+
+**Opzioni.**
+
+1. **Lasciare com'è.** `flowEfficiency` misura «nel flusso ÷ totale» e scende
+   solo con `blocked`. Il collo di bottiglia si legge in `reviewWaitTime`, che
+   lo misura direttamente. Costo: un cruscotto che mostra «efficienza 100%» a
+   una squadra sommersa dalle revisioni.
+2. **Escludere `in_review` dagli stati attivi** ai soli fini di
+   `flowEfficiency`, lasciandolo nel WIP. Costo: due definizioni di «attivo»
+   nello stesso sistema, da spiegare ogni volta.
+3. **Aggiungere uno stato canonico** `review_wait`. Costo: i connettori devono
+   saperlo dedurre, e quasi nessuna fonte lo espone.
+
+**Stato:** in attesa di decisione. Nel frattempo vale l'opzione 1, che è la
+lettura letterale del glossario, e il limite è dichiarato nel codice.
+
+
 ### Eventi Scrum
 
 | Codice | Italiano |
