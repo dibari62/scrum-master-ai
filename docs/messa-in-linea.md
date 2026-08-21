@@ -10,30 +10,46 @@ Due operazioni distinte: **integrare** e **pubblicare**. Vanno fatte in quest'or
 > **Fatto per T0** — PR #2, mergiata il 20/08/2026. La procedura resta qui perché
 > vale per ogni integrazione futura.
 
-### Perché serve una persona
+### Due account GitHub, e quale conta
 
-`AGENTS.md` §5 vieta i commit diretti su `main`: si passa da una pull request.
-Un agente non può aprirla. Le tre vie disponibili sono state provate tutte e
-falliscono per la stessa ragione:
+Su questa macchina convivono due identità GitHub, ed è la fonte di un errore che
+sembra insormontabile:
 
-| Via | Esito |
-|---|---|
-| Server MCP GitHub | `403 Unauthorized: As an Enterprise Managed User…` |
-| Integrazione GitHub di VS Code | stesso errore |
-| GitKraken | richiede un accesso interattivo |
+| Chi | Dove vive | Cosa può fare su questo repository |
+|---|---|---|
+| Account **aziendale** (Enterprise Managed User) | sessione di VS Code, server MCP, GitKraken | **niente in scrittura**: risponde `403` |
+| Account **`dibari62`** | Git Credential Manager | tutto: è il proprietario del repository |
 
-Il blocco è sull'**account**, non sullo strumento: un utente gestito da
-un'azienda non può scrivere su un repository personale. Non c'è configurazione
-che lo aggiri, quindi il passaggio resta manuale.
+Il repository appartiene a `dibari62`, ma VS Code è autenticato con l'account
+aziendale. Ne segue che ogni strumento integrato fallisce con
+`403 Unauthorized: As an Enterprise Managed User…`, mentre `git push` funziona
+senza problemi: git usa credenziali diverse, e sono quelle giuste.
 
-### Passi
+**La conseguenza pratica:** per aprire una pull request non si passa
+dall'interfaccia di VS Code, si usa il token che git già possiede.
 
-1. Apri questo link: arriva direttamente al modulo, con titolo e descrizione già
-   compilati.
+```bash
+git credential fill      # protocol=https, host=github.com
+```
+
+restituisce `username=dibari62` e il token associato, spendibile sull'API REST
+di GitHub. Con quello, una pull request si apre da riga di comando senza toccare
+l'interfaccia.
+
+> Il token **non va mai** stampato, scritto su file, né passato come argomento
+> di un comando: nell'elenco dei processi sarebbe visibile a chiunque sia sulla
+> macchina. Va letto e usato nello stesso processo.
+
+### Aprire la pull request
+
+1. Apri il modulo già compilato, sostituendo il nome del branch:
 
    ```
-   https://github.com/dibari62/scrum-master-ai/compare/main...integration/t0?expand=1
+   https://github.com/dibari62/scrum-master-ai/compare/main...NOME-BRANCH?expand=1
    ```
+
+   Assicurati di essere autenticato su GitHub **come `dibari62`**, non con
+   l'account aziendale: da quest'ultimo il pulsante non compare.
 
 2. Clicca il pulsante verde **Create pull request**.
 
