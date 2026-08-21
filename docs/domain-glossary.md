@@ -245,6 +245,30 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | `act_with_approval` | Prepara l'azione, ma serve conferma esplicita |
 | `autonomous` | Agisce su azioni whitelistate a basso rischio. Mai il default. |
 
+### Aggiunte proposte — T3, in attesa di approvazione
+
+> Introdotte scrivendo la specifica di T3 ([`specs/scrum-agent/spec.md`](../specs/scrum-agent/spec.md)).
+> Restano qui finché il Product Owner non le approva; una
+> volta approvate vanno assorbite nella tabella sopra.
+
+| Codice | Italiano | Definizione | Perché serve |
+|---|---|---|---|
+| `ProjectContext` | Contesto di progetto | Come lavora questo team: durata dello sprint, calendario delle cerimonie, Definition of Done, working agreement, stakeholder. **Dichiarato dall'umano, non dedotto dai dati.** | La roadmap lo richiede in T3 e nessun termine esistente lo copre. Va distinto dal modello canonico: il canonico dice cosa è *successo*, il contesto dice come il team ha *deciso* di lavorare. |
+| `CeremonySchedule` | Calendario delle cerimonie | Per ciascun evento Scrum, giorno della settimana e ora, oppure «non pianificata». | Gli eventi Scrum esistono già nel glossario come nomi; mancava il modo di dire *quando* si tengono in un progetto concreto. |
+| `DefinitionOfDone` | Definizione di Fatto | Elenco di condizioni che un `WorkItem` deve soddisfare perché questo team lo consideri `done`. | Termine standard di Scrum, usato dalla roadmap. Non va confuso con lo stato canonico `done`, che dice solo dove si trova l'elemento. |
+| `WorkingAgreement` | Patto di squadra | Regole di collaborazione che la squadra si è data. Testo libero, trattato come **dato non fidato** (§8.1). | Richiesto dalla roadmap. La qualifica «non fidato» è parte della definizione, non una nota a margine: è testo che finirà accanto a un prompt. |
+| `Stakeholder` | Portatore di interesse | Destinatario delle comunicazioni dell'agente, qualificato da un ruolo e da un `Audience`. **Non** è una `Person` del modello canonico. | Senza la distinzione, «stakeholder» finirebbe confuso con i membri del team presenti nelle fonti dati, con conseguenze diverse sulla privacy. |
+| `AgentPersona` | Persona | Il ruolo che lo `ScrumAgent` assume nel comunicare (es. facilitatore, analista di flusso). Influenza il registro, **mai i fatti**. | «Persona» da solo collide con `Person`: il codice usa `AgentPersona` per non lasciare ambiguità. |
+| `AgentTone` | Tono | Registro comunicativo: `neutral` \| `concise` \| `supportive` \| `formal`. | Insieme chiuso: un tono libero è un canale di iniezione nel prompt. |
+| `AgentStatus` | Stato dell'agente | `active` \| `suspended`. | Serve poter fermare un agente senza cancellarne configurazione e storia. |
+| `AgentPolicy` | Policy | Vincoli operativi applicati **dal codice**: budget di token per esecuzione, tetto giornaliero di esecuzioni, divieti non disattivabili. | Distingue ciò che è configurabile da ciò che è imposto: i divieti di §8.2 sono policy che l'utente vede ma non può togliere. |
+| `SkillCatalog` | Catalogo delle skill | Dichiarazione, nel codice, delle skill esistenti: chiave, trigger ammessi, autonomia minima, budget. Non modificabile dall'utente. | Una skill è una funzione tipizzata (ADR-0004): l'elenco è codice, non dato dell'utente. |
+| `SkillKey` | Chiave di skill | Identificatore stabile di una skill (`configuration-check`, `sprint-report`, …). | Le abilitazioni persistite devono riferire una chiave stabile, non un nome visualizzato. |
+| `SkillRunStatus` | Esito | `succeeded` \| `failed`. | `SkillRun` esiste già in glossario con «esito», ma senza valori: due agenti in parallelo ne inventerebbero due insiemi diversi. |
+| `SkillRunFailureCause` | Causa di fallimento | `budget_exceeded` \| `quota_exceeded` \| `provider_not_configured` \| `provider_unavailable` \| `rate_limited` \| `timeout` \| `invalid_output` \| `agent_suspended`. | «Fallito» senza causa non è diagnosticabile, e l'interfaccia deve dire cosa fare. |
+| `LlmProvider` | Fornitore di modello | `gemini` \| `groq` \| `fake` (ADR-0005). Registrato su ogni `SkillRun`. | Con un fallback fra due fornitori, sapere chi ha servito una richiesta è parte del registro. |
+| `TokenBudget` | Budget di token | Tetto massimo di token per una singola esecuzione, dichiarato dalla skill e riducibile dalla policy. | ADR-0004 impone che ogni skill dichiari un budget; serve il nome del concetto. |
+
 ---
 
 ## 5. Termini da non usare
@@ -259,3 +283,5 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | agente (per lo Scrum Master del progetto) | `ScrumAgent` |
 | sentiment | indicatore di processo aggregato |
 | performance del team (come giudizio) | metrica di flusso |
+| «persona» (per il carattere dello Scrum Master AI) | `AgentPersona` — `Person` è il membro del team nelle fonti dati |
+| «stakeholder» come sinonimo di membro del team | `Stakeholder` è un destinatario di comunicazioni, `Person` è chi lavora nel progetto |
