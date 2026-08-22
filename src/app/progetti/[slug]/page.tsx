@@ -133,6 +133,13 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           <Link href={elementi} className="underline underline-offset-4">
             vedi gli elementi
           </Link>
+          {" · "}
+          <Link
+            href={`/progetti/${project.slug}/scrum-master`}
+            className="underline underline-offset-4"
+          >
+            Scrum Master AI
+          </Link>
         </p>
       </header>
 

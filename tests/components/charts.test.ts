@@ -9,6 +9,7 @@ import {
   ticks,
 } from "@/components/charts/scale";
 import {
+  formatCostUsd,
   formatDuration,
   formatEstimate,
   formatNumber,
@@ -150,6 +151,39 @@ describe("formatNumber e formatPercent", () => {
     // numero senza unità rende quell'errore invisibile.
     expect(formatEstimate(3, "hours")).toContain("ore");
     expect(formatEstimate(3, "points")).toContain("punti");
+  });
+
+  it("non appiattiscono a «0 min» una durata inferiore al minuto", () => {
+    /*
+     * Il registro delle esecuzioni mostrava «0 min» per una chiamata durata
+     * cinquanta millisecondi: si legge come «nessun tempo», non come «meno di
+     * un minuto». È lo stesso errore di stampare 0 dove una metrica non è
+     * disponibile, e su un registro che esiste per misurare è l'unico
+     * intervallo che non può collassare.
+     */
+    expect(formatDuration(50)).toBe("50 ms");
+    expect(formatDuration(1500)).toBe("1,5 s");
+    expect(formatDuration(45_000)).toBe("45 s");
+  });
+
+  it("continuano a scalare l'unità sopra il minuto", () => {
+    expect(formatDuration(90_000)).toBe("2 min");
+    expect(formatDuration(2 * 60 * 60 * 1000)).toBe("2 ore");
+    expect(formatDuration(3 * 24 * 60 * 60 * 1000)).toBe("3 giorni");
+  });
+
+  it("dicono «nessun costo» invece di una fila di zeri", () => {
+    // Con il fornitore fittizio nulla è stato speso e nulla poteva esserlo:
+    // «0,000000» inviterebbe a chiedersi se il numero sia semplicemente
+    // mancato.
+    expect(formatCostUsd(0)).toBe("nessun costo");
+  });
+
+  it("mostrano sei decimali per non arrotondare a zero una chiamata piccola", () => {
+    const formatted = formatCostUsd(0.000123);
+
+    expect(formatted).toContain("0,000123");
+    expect(formatted).toContain("USD");
   });
 });
 

@@ -6,7 +6,8 @@
  * calculation — so it happens once, here, at the last possible moment.
  */
 
-const MS_PER_MINUTE = 60 * 1000;
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
@@ -16,9 +17,22 @@ const MS_PER_DAY = 24 * MS_PER_HOUR;
  * "3 giorni" rather than "72 ore", "4 ore" rather than "0,17 giorni". The unit
  * changes with the magnitude because a single fixed unit is always wrong at one
  * end of the range.
+ *
+ * The sub-minute range exists because of the run register. A model call that
+ * took fifty milliseconds was displayed as "0 min", which reads as *no time at
+ * all* rather than *less than a minute* — the same failure as printing `0`
+ * where a metric is unavailable. On a register whose purpose is measuring, that
+ * is the one range that must not collapse.
  */
 export function formatDuration(milliseconds: number): string {
   if (!Number.isFinite(milliseconds) || milliseconds < 0) return "—";
+
+  if (milliseconds < MS_PER_SECOND) return `${Math.round(milliseconds)} ms`;
+
+  if (milliseconds < MS_PER_MINUTE) {
+    const seconds = milliseconds / MS_PER_SECOND;
+    return `${formatNumber(seconds, 1)} s`;
+  }
 
   if (milliseconds < MS_PER_HOUR) {
     const minutes = Math.round(milliseconds / MS_PER_MINUTE);
@@ -32,6 +46,26 @@ export function formatDuration(milliseconds: number): string {
 
   const days = milliseconds / MS_PER_DAY;
   return `${formatNumber(days, 1)} ${days === 1 ? "giorno" : "giorni"}`;
+}
+
+/**
+ * An estimated cost in US dollars.
+ *
+ * Six decimals, in Italian conventions, because a call on a free tier costs a
+ * fraction of a cent and rounding to the cent would show every run as free.
+ *
+ * Exact zero is written as words rather than as `0,000000`: with the fake
+ * provider nothing was spent and nothing could have been, and a row of zeroes
+ * invites the reader to wonder whether the figure simply failed to arrive.
+ */
+export function formatCostUsd(amount: number): string {
+  if (!Number.isFinite(amount) || amount < 0) return "—";
+  if (amount === 0) return "nessun costo";
+
+  return `${amount.toLocaleString("it-IT", {
+    minimumFractionDigits: 6,
+    maximumFractionDigits: 6,
+  })} USD`;
 }
 
 /** A number with Italian conventions: comma for decimals, no trailing zeros. */
