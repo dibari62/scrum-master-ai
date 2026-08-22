@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,6 +26,15 @@ type MetricCardProps = {
   /** One line explaining what the number means. */
   readonly hint?: string | undefined;
   readonly emphasis?: "normal" | "warning";
+  /**
+   * Where the number can be opened.
+   *
+   * Optional, and the card looks the same without it, but a figure that leads
+   * somewhere is a figure that can be checked instead of believed. The card
+   * receives the address ready-made: deciding *which* items are behind a metric
+   * is the page's business, not this component's.
+   */
+  readonly href?: string | undefined;
 };
 
 /** Shown instead of a number: never `0`, never an empty cell. */
@@ -35,9 +46,10 @@ export function MetricCard({
   detail,
   hint,
   emphasis = "normal",
+  href,
 }: MetricCardProps) {
-  return (
-    <div className="grid gap-1 rounded-lg border p-4">
+  const body = (
+    <>
       <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {label}
       </p>
@@ -55,6 +67,19 @@ export function MetricCard({
       <p className="text-muted-foreground text-xs">{detail}</p>
 
       {hint ? <p className="text-muted-foreground mt-1 text-xs">{hint}</p> : null}
-    </div>
+    </>
+  );
+
+  if (!href) {
+    return <div className="grid gap-1 rounded-lg border p-4">{body}</div>;
+  }
+
+  return (
+    <Link
+      href={href}
+      className="hover:border-foreground/30 grid gap-1 rounded-lg border p-4 transition-colors"
+    >
+      {body}
+    </Link>
   );
 }

@@ -8,7 +8,12 @@ import {
   polylinePath,
   ticks,
 } from "@/components/charts/scale";
-import { formatDuration, formatNumber, formatPercent } from "@/lib/format";
+import {
+  formatDuration,
+  formatEstimate,
+  formatNumber,
+  formatPercent,
+} from "@/lib/format";
 
 /**
  * La matematica dei grafici è testata perché una scala sbagliata produce un
@@ -129,6 +134,22 @@ describe("formatNumber e formatPercent", () => {
 
   it("formattano una quota come percentuale", () => {
     expect(formatPercent(0.25)).toBe("25%");
+  });
+
+  it("accordano l'unità della stima con il numero", () => {
+    // Diceva «1 punti». Un dettaglio, ma su una pagina che chiede di essere
+    // creduta sui numeri anche la lingua sbagliata toglie credibilità.
+    expect(formatEstimate(1, "points")).toBe("1 punto");
+    expect(formatEstimate(5, "points")).toBe("5 punti");
+    expect(formatEstimate(1, "hours")).toBe("1 ora");
+    expect(formatEstimate(4, "hours")).toBe("4 ore");
+  });
+
+  it("non assumono mai i punti: l'unità è sempre scritta", () => {
+    // Il glossario è esplicito: punti e ore non si sommano fra loro, e un
+    // numero senza unità rende quell'errore invisibile.
+    expect(formatEstimate(3, "hours")).toContain("ore");
+    expect(formatEstimate(3, "points")).toContain("punti");
   });
 });
 
