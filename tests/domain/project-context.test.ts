@@ -82,14 +82,20 @@ describe("Definition of Done (criterio 11)", () => {
     expect(definitionOfDoneSchema.safeParse(["   "]).success).toBe(false);
   });
 
-  it("tronca il limite dichiarato, mai il testo", () => {
-    // Un troncamento silenzioso cambierebbe il significato di una condizione
-    // di completamento senza dirlo a nessuno.
+  it("rifiuta una voce troppo lunga invece di accorciarla in silenzio", () => {
+    /*
+     * Il titolo precedente diceva «tronca il limite, mai il testo» ma il corpo
+     * verificava solo un rifiuto, che è la stessa asserzione del test qui
+     * sopra. Ciò che serve davvero è la prova che nel caso di rifiuto non
+     * esistano dati parziali: un troncamento silenzioso cambierebbe il
+     * significato di una condizione di completamento senza dirlo a nessuno.
+     */
     const result = definitionOfDoneSchema.safeParse([
       voce(MAX_DEFINITION_OF_DONE_ENTRY_LENGTH + 50),
     ]);
 
     expect(result.success).toBe(false);
+    if (!result.success) expect(result).not.toHaveProperty("data");
   });
 });
 

@@ -178,11 +178,9 @@ describe("coerenza di un'esecuzione registrata", () => {
     ).toBe(false);
   });
 
-  it("con il fornitore fittizio il costo è esattamente zero (criterio 28)", () => {
-    const conFake = aRun({ provider: "fake", estimatedCostUsd: 0 });
-
-    expect(validSkillRunSchema.safeParse(conFake).success).toBe(true);
-  });
+  it.todo(
+    "criterio 28: il costo viene calcolato dal listino versionato — arriva con il gateway",
+  );
 });
 
 describe("budget di token", () => {

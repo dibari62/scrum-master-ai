@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_MAX_RUNS_PER_DAY,
   DEFAULT_SPRINT_LENGTH_DAYS,
+  MAX_RUNS_PER_DAY_LIMIT,
   agentPersonaSchema,
   agentToneSchema,
   autonomyAtLeast,
   autonomyLevelSchema,
   createScrumAgentInputSchema,
+  dailyRunLimitSchema,
+  defaultScrumAgentName,
   effectiveTokenBudget,
   scrumAgentSchema,
   selectableAutonomyLevelSchema,
@@ -75,6 +79,25 @@ describe("livelli di autonomia (criterio 12, questione Q1)", () => {
     expect(result.success).toBe(true);
   });
 
+  it.each(["advise", "act_with_approval", "autonomous"])(
+    "rifiuta %s anche in modifica, non solo in creazione",
+    (level) => {
+      /*
+       * La modifica è il percorso in cui qualcuno proverà davvero ad alzare
+       * l'autonomia: alla creazione si accettano i valori proposti, è dopo che
+       * si va a cercare l'interruttore. Se un domani quella riga tornasse a
+       * usare il vocabolario completo, senza questo test nessuno se ne
+       * accorgerebbe.
+       */
+      const result = updateScrumAgentInputSchema.safeParse({
+        autonomyLevel: level,
+        expectedUpdatedAt: new Date("2026-08-22T10:00:00Z"),
+      });
+
+      expect(result.success).toBe(false);
+    },
+  );
+
   it("resta capace di leggere un livello scritto prima della restrizione", () => {
     // Il vocabolario e la policy sono due cose diverse: restringere ciò che si
     // può scegliere non deve rendere illeggibile ciò che è già nel database.
@@ -82,10 +105,25 @@ describe("livelli di autonomia (criterio 12, questione Q1)", () => {
     expect(selectableAutonomyLevelSchema.safeParse("autonomous").success).toBe(false);
   });
 
-  it("i livelli selezionabili sono un sottoinsieme del vocabolario", () => {
-    for (const level of selectableAutonomyLevelSchema.options) {
-      expect(autonomyLevelSchema.options).toContain(level);
-    }
+  it("il vocabolario ha cinque livelli e se ne possono scegliere due", () => {
+    /*
+     * Enumerati a mano, come per il tono e la persona.
+     *
+     * La prima versione confrontava `selectableAutonomyLevelSchema.options` con
+     * `autonomyLevelSchema.options`: essendo il primo costruito con `.extract()`
+     * dal secondo, l'inclusione è vera per costruzione e il test non poteva
+     * fallire. Peggio, copriva un buco: il criterio 13 elenca l'autonomia fra
+     * gli insiemi che vanno enumerati, e l'enumerazione non c'era.
+     */
+    expect([...autonomyLevelSchema.options].sort()).toEqual([
+      "act_with_approval",
+      "advise",
+      "autonomous",
+      "observe",
+      "report",
+    ]);
+
+    expect([...selectableAutonomyLevelSchema.options].sort()).toEqual(["observe", "report"]);
   });
 
   it("ordina i livelli dal più cauto al più autonomo", () => {
@@ -167,7 +205,6 @@ describe("nessun riferimento a una singola persona (criterio 14)", () => {
     // La distinzione conta: se un giorno diventasse testo libero o un
     // riferimento a `Person`, questo test lo direbbe.
     expect(scrumAgentSchema.shape.persona).toBe(agentPersonaSchema);
-    expect(agentPersonaSchema.options.length).toBeGreaterThan(0);
   });
 });
 
@@ -219,5 +256,89 @@ describe("budget di token della policy", () => {
   it("la policy può solo abbassare, mai alzare", () => {
     expect(effectiveTokenBudget(policy(1000), 4000)).toBe(1000);
     expect(effectiveTokenBudget(policy(9000), 4000)).toBe(4000);
+  });
+});
+
+describe("tetto giornaliero di esecuzioni (questione Q6)", () => {
+  it("il valore provvisorio è cinquanta al giorno", () => {
+    // Provvisorio in attesa del Product Owner: l'àncora serve a far notare la
+    // modifica se qualcuno lo cambia senza che Q6 sia stata decisa.
+    expect(DEFAULT_MAX_RUNS_PER_DAY).toBe(50);
+  });
+
+  it("rifiuta zero: un tetto a zero non è un tetto, è un blocco", () => {
+    expect(dailyRunLimitSchema.safeParse(0).success).toBe(false);
+    expect(dailyRunLimitSchema.safeParse(-1).success).toBe(false);
+  });
+
+  it("rifiuta mezze esecuzioni", () => {
+    expect(dailyRunLimitSchema.safeParse(10.5).success).toBe(false);
+  });
+
+  it("ha un tetto proprio: intercetta uno zero di troppo", () => {
+    expect(dailyRunLimitSchema.safeParse(MAX_RUNS_PER_DAY_LIMIT).success).toBe(true);
+    expect(dailyRunLimitSchema.safeParse(MAX_RUNS_PER_DAY_LIMIT + 1).success).toBe(false);
+  });
+});
+
+describe("skill abilitate", () => {
+  it("rifiuta la stessa skill due volte", () => {
+    // Una chiave ripetuta significa che chi chiama sta descrivendo qualcosa
+    // che non ha capito: collassarla in silenzio nasconderebbe l'equivoco.
+    const result = createScrumAgentInputSchema.safeParse({
+      name: NAME,
+      enabledSkillKeys: ["configuration-check", "configuration-check"],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rifiuta una skill che questo rilascio non dichiara", () => {
+    expect(
+      createScrumAgentInputSchema.safeParse({ name: NAME, enabledSkillKeys: ["inventata"] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("accetta una skill dichiarata", () => {
+    expect(
+      createScrumAgentInputSchema.safeParse({
+        name: NAME,
+        enabledSkillKeys: ["configuration-check"],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("nome proposto dal wizard (criteri 9, 8 e 31)", () => {
+  it("compone il nome dal progetto", () => {
+    expect(defaultScrumAgentName("Checkout")).toBe("Scrum Master di Checkout");
+  });
+
+  it("resta entro il limite anche con un nome di progetto lunghissimo", () => {
+    /*
+     * Il caso che rompeva il criterio 31: nome del progetto e nome
+     * dell'agente hanno lo stesso limite, quindi un progetto abbastanza lungo
+     * produceva una proposta oltre il limite, e il wizard non era più
+     * completabile «senza digitare nulla».
+     */
+    const lungo = "Rifacimento completo del flusso di pagamento ".repeat(5);
+    const proposto = defaultScrumAgentName(lungo);
+
+    expect(createScrumAgentInputSchema.safeParse({ name: proposto }).success).toBe(true);
+  });
+
+  it("dichiara di aver accorciato, invece di interrompersi a metà parola", () => {
+    const lungo = "Rifacimento completo del flusso di pagamento ".repeat(5);
+
+    expect(defaultScrumAgentName(lungo).endsWith("…")).toBe(true);
+  });
+
+  it("regge una parola sola lunghissima senza ridursi al prefisso", () => {
+    const parolona = "x".repeat(300);
+    const proposto = defaultScrumAgentName(parolona);
+
+    expect(createScrumAgentInputSchema.safeParse({ name: proposto }).success).toBe(true);
+    expect(proposto.length).toBeGreaterThan(60);
   });
 });

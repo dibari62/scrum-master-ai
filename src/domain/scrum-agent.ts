@@ -133,8 +133,15 @@ export function autonomyAtLeast(level: AutonomyLevel, required: AutonomyLevel): 
 /** Enough for a demonstration, low enough to protect a free tier from a loop (spec Q6). */
 export const DEFAULT_MAX_RUNS_PER_DAY = 50;
 
+/**
+ * A ceiling on the ceiling.
+ *
+ * The daily cap protects the free tier; this protects against the cap itself
+ * being set to something that defeats the purpose. A thousand runs a day is far
+ * beyond any plausible use of this product and well past every free quota, so
+ * the bound catches a typo — an extra zero — rather than a preference.
+ */
 export const MAX_RUNS_PER_DAY_LIMIT = 1000;
-
 export const dailyRunLimitSchema = z.number().int().positive().max(MAX_RUNS_PER_DAY_LIMIT);
 
 /**
@@ -189,6 +196,40 @@ export const DEFAULT_AGENT_PERSONA: AgentPersona = "facilitator";
 export const DEFAULT_AGENT_TONE: AgentTone = "neutral";
 export const DEFAULT_AGENT_LANGUAGE: AgentLanguage = "it";
 export const DEFAULT_AUTONOMY_LEVEL: SelectableAutonomyLevel = "observe";
+
+/** The longest a display name may be, mirroring `displayNameSchema`. */
+const MAX_AGENT_NAME_LENGTH = 120;
+
+const AGENT_NAME_PREFIX = "Scrum Master di ";
+
+/**
+ * The name the wizard proposes (criterio 9).
+ *
+ * Lives here rather than in the interface because it is a rule about a domain
+ * value, and a rule written in a page gets written a second time in the test
+ * that checks the page — at which point the two can disagree.
+ *
+ * The truncation is the point. Both the project name and the agent name are
+ * `displayNameSchema`, capped at the same length: a project called something
+ * long enough would produce a proposal one character over the limit, and the
+ * wizard could no longer be completed *without typing anything*, which criteri
+ * 8 and 31 require. Cutting on a word boundary and adding an ellipsis says the
+ * name was shortened, instead of leaving a sentence that stops mid-word.
+ */
+export function defaultScrumAgentName(projectName: string): string {
+  const proposed = `${AGENT_NAME_PREFIX}${projectName.trim()}`;
+  if (proposed.length <= MAX_AGENT_NAME_LENGTH) return proposed;
+
+  const room = MAX_AGENT_NAME_LENGTH - AGENT_NAME_PREFIX.length - 1;
+  const cut = proposed.slice(AGENT_NAME_PREFIX.length, AGENT_NAME_PREFIX.length + room);
+  const lastSpace = cut.lastIndexOf(" ");
+
+  // Only cut on a word boundary if one is reasonably close, otherwise a single
+  // very long word would be trimmed down to almost nothing.
+  const kept = lastSpace > room / 2 ? cut.slice(0, lastSpace) : cut.trimEnd();
+
+  return `${AGENT_NAME_PREFIX}${kept}…`;
+}
 
 export const scrumAgentSchema = z.object({
   id: scrumAgentIdSchema,
