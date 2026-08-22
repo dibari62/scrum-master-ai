@@ -89,7 +89,9 @@ quando arriverà il momento.
 | `AUTH_GITHUB_SECRET` | facoltativa | idem |
 | `LOG_LEVEL` | no | se vuota: `info` in produzione |
 | `DATABASE_URL_UNPOOLED` | no | serve solo alle migrazioni, già applicate |
-| `LLM_*`, `JOB_SECRET`, `QSTASH_*` | no | da T3 e T5 |
+| `LLM_PROVIDER` | da T3 | `gemini` \| `groq` \| `fake` |
+| `GEMINI_API_KEY`, `GROQ_API_KEY` | da T3 | **una per fornitore**, mai una condivisa (ADR-0005) |
+| `JOB_SECRET`, `QSTASH_*` | da T5 | job schedulati |
 
 Senza `AUTH_GITHUB_ID` e `AUTH_GITHUB_SECRET` l'applicazione funziona: il pulsante
 «Continua con GitHub» semplicemente non compare, e resta l'accesso con email e
@@ -106,6 +108,19 @@ password.
 >
 > È il motivo per cui **non si copia `.env.local` dentro Vercel**: si inseriscono
 > solo le variabili della tabella qui sopra, una per una.
+
+> **⚠️ Attenzione a `LLM_API_KEY`.** Su Vercel oggi esiste una variabile chiamata
+> `LLM_API_KEY`, una chiave sola per tutti i fornitori. **Il codice non la
+> leggerà mai.** ADR-0005 prevede una chiave **per fornitore** —
+> `GEMINI_API_KEY` e `GROQ_API_KEY` — e il motivo è scritto lì: *«una riserva che
+> richiede di riscrivere a mano la credenziale non è una riserva»*. Il passaggio
+> al fornitore di scorta deve costare il cambio di una sola variabile, non uno
+> scambio di segreti sotto pressione durante una dimostrazione.
+>
+> Va rinominata quando arriverà il gateway di T3. Fino ad allora è innocua:
+> `LLM_PROVIDER=fake` non fa alcuna chiamata di rete e non legge alcuna chiave.
+> Il fallimento sarebbe silenzioso — nessun errore, semplicemente il fornitore
+> risulterebbe non configurato — quindi vale la pena saperlo prima.
 
 ### Passi
 
