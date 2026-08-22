@@ -116,6 +116,8 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
 
   const sprintCycle = current ? presentDuration(current.flow.cycleTime.median) : null;
 
+  const elementi = `/progetti/${project.slug}/elementi`;
+
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
       <header className="grid gap-1">
@@ -127,37 +129,51 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
         <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
         <p className="text-muted-foreground text-sm">
           {formatNumber(sprints.length)} sprint · {formatNumber(dashboard.peopleCount)}{" "}
-          persone · dati al {formatDate(dashboard.asOf)}
+          persone · dati al {formatDate(dashboard.asOf)} ·{" "}
+          <Link href={elementi} className="underline underline-offset-4">
+            vedi gli elementi
+          </Link>
         </p>
       </header>
 
       <section className="grid gap-3">
         <h2 className="text-lg font-medium">Il flusso, nel complesso</h2>
 
+        {/*
+         * Ogni riquadro porta agli elementi che lo compongono.
+         *
+         * Il filtro nel collegamento corrisponde al denominatore scritto sul
+         * riquadro: "su 44 elementi" apre esattamente quei 44. Se i due
+         * numeri divergessero, la pagina starebbe mentendo su cosa ha contato.
+         */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Cycle time mediano"
             value={cycleMedian.value}
             detail={cycleMedian.detail}
             hint="Dal primo avvio alla prima chiusura."
+            href={`${elementi}?conclusi=1`}
           />
           <MetricCard
             label="Cycle time all'85°"
             value={cycleP85.value}
             detail={cycleP85.detail}
             hint="La maggior parte degli elementi chiude entro questo tempo."
+            href={`${elementi}?conclusi=1`}
           />
           <MetricCard
             label="Lead time mediano"
             value={leadMedian.value}
             detail={leadMedian.detail}
             hint="Dalla creazione alla chiusura: include l'attesa in backlog."
+            href={`${elementi}?conclusi=1`}
           />
           <MetricCard
             label="Lavoro in corso"
             value={wipNow.value}
             detail={wipNow.detail}
             hint="Elementi presi in carico e non ancora chiusi. Esclude i bloccati."
+            href={`${elementi}?stato=in_progress`}
           />
         </div>
 
@@ -170,12 +186,14 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
               flow.reopenRate.available && flow.reopenRate.value > 0.15 ? "warning" : "normal"
             }
             hint="Quota di elementi tornati indietro dopo essere stati chiusi."
+            href={`${elementi}?conclusi=1`}
           />
           <MetricCard
             label="Efficienza di flusso mediana"
             value={efficiency.value}
             detail={efficiency.detail}
             hint="Quanto del tempo in lavorazione è stato lavoro e non coda. Nel software è normale che sia bassa."
+            href={elementi}
           />
           {/*
            * Accanto all'efficienza, non altrove: l'efficienza dice che del
@@ -187,6 +205,7 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             value={reviewWait.value}
             detail={reviewWait.detail}
             hint="Da quando un elemento entra in revisione a quando qualcuno lo sblocca."
+            href={`${elementi}?stato=in_review`}
           />
         </div>
       </section>
@@ -231,18 +250,21 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
                   : "normal"
               }
               hint="Elementi entrati a sprint iniziato."
+              href={`${elementi}?sprint=${current.sprint.id}`}
             />
             <MetricCard
               label="Lavoro trascinato"
               value={carriedNow.value}
               detail={carriedNow.detail}
               hint="Elementi non conclusi alla chiusura."
+              href={`${elementi}?sprint=${current.sprint.id}`}
             />
             <MetricCard
               label="Cycle time mediano dello sprint"
               value={sprintCycle.value}
               detail={sprintCycle.detail}
               hint="Da confrontare con gli sprint precedenti, qui sotto."
+              href={`${elementi}?sprint=${current.sprint.id}&conclusi=1`}
             />
           </div>
         </section>

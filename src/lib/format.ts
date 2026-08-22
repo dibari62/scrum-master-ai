@@ -44,16 +44,47 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
-/** A ratio as a percentage. */
+/**
+ * A ratio as a percentage.
+ */
 export function formatPercent(ratio: number, decimals = 0): string {
   if (!Number.isFinite(ratio)) return "—";
 
   return `${formatNumber(ratio * 100, decimals)}%`;
 }
 
+/**
+ * An estimate with its unit, in agreement.
+ *
+ * The unit is never dropped, and never assumed: a team estimating in hours and
+ * one estimating in points produce numbers that must not be summed, and the
+ * glossary is explicit that story points are not the default.
+ */
+export function formatEstimate(value: number, unit: "points" | "hours"): string {
+  const amount = formatNumber(value, 1);
+
+  if (unit === "hours") return `${amount} ${value === 1 ? "ora" : "ore"}`;
+  return `${amount} ${value === 1 ? "punto" : "punti"}`;
+}
+
 /** A date as day and month, for an axis label. */
 export function formatShortDate(instant: Date): string {
   return instant.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+/**
+ * Day, month and time.
+ *
+ * For a timeline, where two moves on the same day are common and a date alone
+ * would make them look simultaneous.
+ */
+export function formatShortDateTime(instant: Date): string {
+  return instant.toLocaleString("it-IT", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function formatDate(instant: Date): string {

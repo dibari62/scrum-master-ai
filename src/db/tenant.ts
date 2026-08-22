@@ -143,6 +143,25 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         ),
 
     /**
+     * A single item.
+     *
+     * Filtered by organization as well as by id, so a caller holding an
+     * identifier from another tenant gets nothing rather than the row. The
+     * identifier is a UUID and therefore hard to guess, but "hard to guess" is
+     * not an access control (§8.4).
+     */
+    workItemById: (workItemId: WorkItemId) =>
+      db
+        .select()
+        .from(workItems)
+        .where(
+          and(
+            eq(workItems.organizationId, organizationId),
+            eq(workItems.id, workItemId),
+          ),
+        ),
+
+    /**
      * One item's history, oldest first.
      *
      * Ordering happens in the database because the index covers exactly this
