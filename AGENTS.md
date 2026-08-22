@@ -202,12 +202,20 @@ npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
 npm run test          # vitest run
 npm run boundaries    # verifica le direzioni di dipendenza di §4
-npm run test:e2e      # playwright
+npm run test:e2e      # playwright (richiede RUN_E2E=1)
 npm run eval          # eval degli output LLM (richiede API key)
 npm run db:generate   # genera migrazione Drizzle dallo schema
 npm run db:migrate    # applica migrazioni
+npm run db:inspect    # ispezione in sola lettura del database
 npm run seed          # popola il DB con lo scenario sintetico
 ```
+
+**Ambiente ostile.** Questa macchina è dietro un proxy che ispeziona il traffico
+TLS e ha due identità GitHub, di cui una senza permessi di scrittura. Gli
+strumenti per lavorarci e la spiegazione degli intoppi ricorrenti stanno in
+[`docs/ripartire-da-zero.md`](docs/ripartire-da-zero.md). **Leggilo prima di
+concludere che qualcosa è impossibile:** i tre fallimenti che sembravano muri
+distinti avevano una causa sola.
 
 ### Regole di test
 

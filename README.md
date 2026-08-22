@@ -85,11 +85,13 @@ Il progetto è sviluppato con una squadra di agenti AI specializzati.
 | Documento | Contenuto |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | regole operative sempre attive |
+| [`docs/ripartire-da-zero.md`](docs/ripartire-da-zero.md) | **come riprendere il progetto da una macchina vuota** |
 | [`docs/agent-workflow.md`](docs/agent-workflow.md) | come si lavora con la squadra |
 | [`docs/domain-glossary.md`](docs/domain-glossary.md) | vocabolario vincolante |
 | [`docs/architecture/`](docs/architecture/) | decisioni e loro motivazione |
 | [`docs/roadmap.md`](docs/roadmap.md) | ordine di costruzione |
-| [`.github/agents/`](.github/agents/) | gli undici ruoli |
+| [`docs/guardare-i-dati.md`](docs/guardare-i-dati.md) | come ispezionare i dati di prova |
+| [`.github/agents/`](.github/agents/) | i dodici ruoli |
 
 I ruoli compaiono nel selettore della chat di VS Code.
 Il ciclo tipico: `product-analyst` → `architect` → implementazione →
@@ -104,12 +106,23 @@ npm run verify        # typecheck + lint + test + confini — il contratto di "f
 npm run dev           # sviluppo locale
 npm run build         # build di produzione
 npm run test          # test unitari e di integrazione
-npm run test:e2e      # test end-to-end            (non ancora implementato: T0/T1)
+npm run test:e2e      # test end-to-end su Chrome        (richiede RUN_E2E=1)
 npm run eval          # valutazione degli output LLM, richiede una chiave (T4)
-npm run db:generate   # genera una migrazione dallo schema        (T1)
-npm run db:migrate    # applica le migrazioni                     (T1)
-npm run seed          # popola il database con lo scenario sintetico (T1)
+npm run db:generate   # genera una migrazione dallo schema
+npm run db:migrate    # applica le migrazioni
+npm run db:inspect    # cosa c'è davvero nel database — sola lettura
+npm run seed          # popola il database con lo scenario sintetico
 npm run boundaries    # verifica i confini architetturali
+```
+
+Strumenti per lavorare in questo ambiente, documentati in
+[`docs/ripartire-da-zero.md`](docs/ripartire-da-zero.md):
+
+```bash
+npm run dev:user -- add        # account temporaneo per ispezionare pagine protette
+npm run dev:user -- remove     # e per rimuoverlo
+npm run diagnose:tls -- <host> # perché una connessione TLS fallisce
+npm run gh -- pr-status <owner> <repo> <n>   # pull request dalla riga di comando
 ```
 
 Gli script marcati con un traguardo esistono già ma **escono con errore** finché la parte
