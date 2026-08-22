@@ -1,7 +1,7 @@
 import type { Query } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { createDatabase, forOrganization, type TenantScope } from "@/db";
+import { createDatabase, forOrganization, MAX_SKILL_RUN_PAGE_SIZE, type TenantScope } from "@/db";
 import type { TenantReadName, TenantWriteName } from "@/db";
 import { organizationIdSchema, projectIdSchema, sprintIdSchema, userIdSchema, workItemIdSchema } from "@/domain";
 
@@ -61,6 +61,11 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   commentsByWorkItem: (scope) => scope.reads.commentsByWorkItem(WORK_ITEM_ID).toSQL(),
   impedimentsByProject: (scope) => scope.reads.impedimentsByProject(PROJECT_ID).toSQL(),
   pullRequestsByProject: (scope) => scope.reads.pullRequestsByProject(PROJECT_ID).toSQL(),
+
+  scrumAgentByProject: (scope) => scope.reads.scrumAgentByProject(PROJECT_ID).toSQL(),
+  projectContextByProject: (scope) =>
+    scope.reads.projectContextByProject(PROJECT_ID).toSQL(),
+  skillRunsByProject: (scope) => scope.reads.skillRunsByProject(PROJECT_ID).toSQL(),
 };
 
 /** Same contract for writes: an unlisted write breaks the build. */
@@ -95,12 +100,42 @@ describe("isolamento fra organizzazioni: letture", () => {
     expect(fromA.sql).toBe(fromB.sql);
   });
 
-  it.each(["projects", "projectById", "projectBySlug", "memberships", "membershipByUserId"] as const)(
+  it.each(["projects", "projectById", "projectBySlug", "memberships", "membershipByUserId", "scrumAgentByProject", "projectContextByProject", "skillRunsByProject"] as const)(
     "%s filtra esplicitamente su organization_id",
     (name) => {
       expect(READS[name](scopeA).sql).toContain('"organization_id"');
     },
   );
+});
+
+/**
+ * Il registro delle esecuzioni (criterio 29).
+ *
+ * L'ordinamento e il tetto appartengono alla lettura condivisa, non alla
+ * pagina: una vista che li reimplementasse potrebbe scordarne uno, e il primo
+ * sintomo sarebbe una query che scarica l'intera storia di un progetto.
+ */
+describe("registro delle esecuzioni", () => {
+  it("ordina per istante di inizio decrescente", () => {
+    expect(scopeA.reads.skillRunsByProject(PROJECT_ID).toSQL().sql).toContain(
+      '"started_at" desc',
+    );
+  });
+
+  it("non restituisce mai più di una pagina, qualunque limite arrivi", () => {
+    const query = scopeA.reads.skillRunsByProject(PROJECT_ID, 5_000).toSQL();
+
+    expect(query.params).toContain(MAX_SKILL_RUN_PAGE_SIZE);
+    expect(query.params).not.toContain(5_000);
+  });
+
+  it("accetta una pagina più corta di quella massima", () => {
+    expect(scopeA.reads.skillRunsByProject(PROJECT_ID, 10).toSQL().params).toContain(10);
+  });
+
+  it("non degenera in un limite privo di senso", () => {
+    expect(scopeA.reads.skillRunsByProject(PROJECT_ID, 0).toSQL().params).toContain(1);
+  });
 });
 
 describe("isolamento fra organizzazioni: scritture", () => {
