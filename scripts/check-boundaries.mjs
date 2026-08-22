@@ -63,10 +63,31 @@ const RULES = [
 /** Imports allowed only inside specific directories. */
 const CONFINED = [
   {
-    match: (spec) => /^(ai|@ai-sdk\/|langchain|@langchain\/)/.test(spec),
-    allowedIn: ["src/lib/llm", "src/agents"],
+    /*
+     * The model SDK, and nothing else, reaches the gateway.
+     *
+     * `src/agents` used to be allowed here too, which contradicted both
+     * ADR-0004 — "l'accesso al modello passa esclusivamente dal gateway in
+     * src/lib/llm" — and criterio 19 of the T3 spec, which requires this very
+     * check to catch a violation. A skill that could call the SDK directly
+     * would bypass budget, fallback and cost measurement in one line.
+     */
+    match: (spec) => /^(ai|@ai-sdk\/)/.test(spec),
+    allowedIn: ["src/lib/llm"],
     reason:
-      "All model calls must go through the gateway in src/lib/llm (ADR-0004).",
+      "All model calls must go through the gateway in src/lib/llm (ADR-0004, criterio 19).",
+  },
+  {
+    /*
+     * Graph orchestration belongs to skills, not to the gateway.
+     *
+     * ADR-0004 admits a graph only where a capability needs durable state or
+     * human approval in the middle — that is a property of a skill, so the
+     * dependency lives with them and never leaks into the transport layer.
+     */
+    match: (spec) => /^(langchain|@langchain\/)/.test(spec),
+    allowedIn: ["src/agents"],
+    reason: "Graph orchestration is confined to src/agents (ADR-0004).",
   },
   {
     match: (spec) => /^(drizzle-orm|postgres|pg|@neondatabase)/.test(spec),
