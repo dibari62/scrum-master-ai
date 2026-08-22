@@ -34,6 +34,10 @@ export const commentIdSchema = identifier<"CommentId">();
 export const impedimentIdSchema = identifier<"ImpedimentId">();
 export const pullRequestIdSchema = identifier<"PullRequestId">();
 
+export const scrumAgentIdSchema = identifier<"ScrumAgentId">();
+export const projectContextIdSchema = identifier<"ProjectContextId">();
+export const skillRunIdSchema = identifier<"SkillRunId">();
+
 export type OrganizationId = z.infer<typeof organizationIdSchema>;
 export type UserId = z.infer<typeof userIdSchema>;
 export type MembershipId = z.infer<typeof membershipIdSchema>;
@@ -48,3 +52,7 @@ export type PersonId = z.infer<typeof personIdSchema>;
 export type CommentId = z.infer<typeof commentIdSchema>;
 export type ImpedimentId = z.infer<typeof impedimentIdSchema>;
 export type PullRequestId = z.infer<typeof pullRequestIdSchema>;
+
+export type ScrumAgentId = z.infer<typeof scrumAgentIdSchema>;
+export type ProjectContextId = z.infer<typeof projectContextIdSchema>;
+export type SkillRunId = z.infer<typeof skillRunIdSchema>;
