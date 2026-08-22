@@ -9,7 +9,7 @@ import {
 
 import { EMPTY_TOTALS, totalEstimates, type EstimateTotals } from "./estimates";
 import { groupByWorkItem, stateAt } from "./history";
-import { available, unavailable, type MetricResult } from "./result";
+import { available, median, unavailable, type MetricResult } from "./result";
 
 /**
  * Sprint metrics: what the team committed to, what it finished, and what moved
@@ -287,4 +287,41 @@ export function workInProgress(
   }
 
   return available(count, byItem.size);
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * The typical length of this team's sprints, in whole days.
+ *
+ * Lives here rather than beside the wizard that shows it because it is a
+ * calculation over canonical `Sprint`s, and R1 puts every calculation in code
+ * that is pure and tested. The wizard proposes the number; it does not work it
+ * out.
+ *
+ * The median, not the mean: one sprint cut short by a holiday would drag an
+ * average away from the length the team actually works to, which is the value
+ * being asked for.
+ *
+ * Sprints whose dates make no sense are excluded rather than clamped — a sprint
+ * ending before it starts is a defect in the source, and silently treating it
+ * as zero days would let that defect quietly shorten the proposal.
+ */
+export function typicalSprintLengthDays(
+  sprints: readonly Sprint[],
+): MetricResult<number> {
+  const lengths = sprints
+    .map((sprint) => sprint.endsAt.getTime() - sprint.startsAt.getTime())
+    .filter((span) => span > 0)
+    .map((span) => span / MS_PER_DAY);
+
+  // Fewer than two observations is not a habit, it is an accident. Reporting
+  // "unavailable" lets the caller say so, instead of presenting one sprint as
+  // if it were a pattern.
+  if (lengths.length < 2) return unavailable("no-qualifying-data", lengths.length);
+
+  const middle = median(lengths);
+  if (!middle.available) return unavailable("no-qualifying-data", lengths.length);
+
+  return available(Math.max(1, Math.round(middle.value)), lengths.length);
 }

@@ -25,6 +25,7 @@ import { eq } from "drizzle-orm";
 
 import { createDatabase } from "../src/db/client";
 import { memberships, organizations, userCredentials, users } from "../src/db/schema";
+import { organizationRoleSchema } from "../src/domain";
 import { hashPassword } from "../src/lib/password";
 
 /**
@@ -49,6 +50,19 @@ async function main(): Promise<void> {
 
   const db = createDatabase(url);
   const command = process.argv[2] ?? "list";
+
+  /*
+   * The role matters, so it is a parameter.
+   *
+   * Some screens are restricted to `owner`/`admin`, which means a single
+   * hard-coded `member` could only ever exercise the refusal. Both paths have
+   * to be walkable to know either of them works.
+   */
+  const roleArgument = process.argv[3] ?? "member";
+  const role = organizationRoleSchema.safeParse(roleArgument);
+  if (!role.success) {
+    throw new Error(`ruolo sconosciuto: ${roleArgument}. Usa owner | admin | member.`);
+  }
 
   const existing = await db.select().from(users).where(eq(users.email, EMAIL));
 
@@ -103,11 +117,12 @@ async function main(): Promise<void> {
     db.insert(userCredentials).values({ userId, passwordHash }),
     db
       .insert(memberships)
-      .values({ organizationId: organization.id, userId, role: "member" }),
+      .values({ organizationId: organization.id, userId, role: role.data }),
   ]);
 
   console.log(`account temporaneo aggiunto a "${organization.name}"`);
   console.log(`  email:    ${EMAIL}`);
+  console.log(`  ruolo:    ${role.data}`);
   console.log(`  password: ${PASSWORD}`);
   console.log("");
   console.log("RICORDA di rimuoverlo: npm run dev:user -- remove");

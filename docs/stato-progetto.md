@@ -3,8 +3,8 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **22/08/2026** — T0, T1 e T2 in `main` (PR #2 → #15),
-> applicazione online, T3 iniziato dalla specifica.
+> Ultimo aggiornamento: **22/08/2026** — T0, T1, T2 e T3 in `main` (PR #2 → #18),
+> applicazione online. Si crea uno Scrum Master AI in meno di dieci secondi.
 
 ---
 
@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 386 test<br/>Playwright · 15 test e2e"]
+        S3["Vitest · 519 test<br/>Playwright · 15 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -28,9 +28,10 @@ graph TB
 
     subgraph DB["🗄️ Database"]
         D1["Modello canonico Zod<br/>4 entità di tenancy"]
-        D2["Schema Drizzle<br/>16 tabelle create"]
+        D2["Schema Drizzle<br/>19 tabelle create"]
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
+        D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
     end
 
     subgraph UI["🖥️ Interfaccia"]
@@ -40,7 +41,7 @@ graph TB
         U4["Area azienda"]
         U5["Dashboard metriche"]
         U7["Elementi e storia<br/>degli stati"]
-        U6["Scrum Master AI"]
+        U6["Scrum Master AI<br/>creazione e registro"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -50,16 +51,15 @@ graph TB
     class S1,S2,S3,S4 fatto
     class I1,I2,I3 fatto
     class I4 todo
-    class D1,D2,D3,D4 fatto
-    class U1,U2,U3,U4,U5,U7 fatto
-    class U6 todo
+    class D1,D2,D3,D4,D5 fatto
+    class U1,U2,U3,U4,U5,U6,U7 fatto
 ```
 
-**Come leggerlo:** scheletro, database e metriche sono solidi e verificati in un
-browser, non solo dai test. Ogni numero della dashboard è ora **apribile**: si
-arriva agli elementi che lo compongono e alla storia degli stati da cui è
-calcolato. Resta da costruire lo Scrum Master AI vero e proprio — la parte che dà
-il nome al prodotto. I job schedulati non servono ancora.
+**Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
+dai test. Ogni numero della dashboard è **apribile** fino alla storia degli stati da
+cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un registro
+delle esecuzioni. Restano da costruire le **skill** — le capacità che producono
+report e digest — che sono T4.
 
 ---
 
@@ -81,15 +81,20 @@ graph LR
     classDef prossimo fill:#eab308,stroke:#ca8a04,color:#000
     classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
 
-    class T0,T1,T2 fatto
-    class T3 prossimo
-    class T4,T5,T6 todo
+    class T0,T1,T2,T3 fatto
+    class T4 prossimo
+    class T5,T6 todo
 ```
 
 **T2 è il traguardo che dà credibilità al resto**: tutti i numeri che
 l'applicazione mostra sono calcolati da codice deterministico e testato. Nessun
-modello linguistico li ha toccati. T3 è il primo in cui un LLM entra davvero, e
-la regola R1 — il codice calcola, l'LLM racconta — smette di essere teorica.
+modello linguistico li ha toccati.
+
+**T3 ha costruito l'oggetto e l'infrastruttura, non le capacità.** Esiste lo
+Scrum Master AI di un progetto, esiste il gateway verso un modello con budget e
+fornitore di riserva, esiste il registro che annota costo ed esito di ogni
+esecuzione. Ma nessun report è ancora stato prodotto: quello è T4, ed è lì che la
+regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 
 ---
 
@@ -123,24 +128,23 @@ graph LR
     B --> C["T2<br/>metriche + dashboard"]
     C --> C1["T2.1<br/>si entra nei numeri"]
     C1 --> D["T3<br/>Scrum Master AI"]
-    D --> D1["spec ✅"]
-    D --> D2["contratti Zod"]
-    D --> D3["gateway LLM"]
-    D --> D4["wizard"]
+    D --> E["T4<br/>prime skill"]
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
     classDef prossimo fill:#eab308,stroke:#ca8a04,color:#000
-    classDef todo fill:#e5e7eb,stroke:#9ca3af,color:#6b7280
 
-    class A,B,C,C1,D1 fatto
-    class D,D2 prossimo
-    class D3,D4 todo
+    class A,B,C,C1,D fatto
+    class E prossimo
 ```
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
 vedere quali. Un numero in cui non si può entrare è un numero che si deve
 accettare per fede.
+
+**T3 è dimostrabile e cronometrato:** dalla dashboard alla scheda dell'agente con
+un'esecuzione registrata, in meno di dieci secondi, senza digitare nulla oltre a
+confermare i valori proposti. La roadmap chiedeva due minuti.
 
 Nessun passaggio è più bloccato su una persona. Restano **tre** cose che
 attendono il Product Owner, nessuna delle quali ferma lo sviluppo:
@@ -152,10 +156,9 @@ attendono il Product Owner, nessuna delle quali ferma lo sviluppo:
 | Rotazione della password Neon | §5 qui sotto | nessuno finché i dati sono sintetici |
 
 Le **otto questioni aperte** della specifica di T3 hanno tutte una risposta
-provvisoria motivata, quindi non bloccano nulla. Due sono già state decise (Q3 e
-Q4) applicando lo stesso criterio: **fra due scelte difendibili si prende quella
-reversibile**, e su un'autorizzazione non si sceglie mai la permissiva in
-silenzio.
+provvisoria motivata. Tre sono già state decise (Q3, Q4 e Q6) applicando lo stesso
+criterio: **fra due scelte difendibili si prende quella reversibile**, e su
+un'autorizzazione non si sceglie mai la permissiva in silenzio.
 
 ---
 
