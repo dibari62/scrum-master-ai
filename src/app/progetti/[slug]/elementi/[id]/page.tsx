@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { MetricCard } from "@/components/charts/metric-card";
 import { Timeline, type TimelineEntry } from "@/components/charts/timeline";
+import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   organizationIdSchema,
@@ -109,22 +109,14 @@ export default async function WorkItemPage({ params }: PageProps) {
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
       <header className="grid gap-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/progetti" className="underline underline-offset-4">
-            Progetti
-          </Link>
-          {" · "}
-          <Link href={`/progetti/${project.slug}`} className="underline underline-offset-4">
-            {project.name}
-          </Link>
-          {" · "}
-          <Link
-            href={`/progetti/${project.slug}/elementi`}
-            className="underline underline-offset-4"
-          >
-            Elementi
-          </Link>
-        </p>
+        <Breadcrumb
+          trail={[
+            { label: "Progetti", href: "/progetti" },
+            { label: project.name, href: `/progetti/${project.slug}` },
+            { label: "Elementi", href: `/progetti/${project.slug}/elementi` },
+            { label: item.title },
+          ]}
+        />
 
         <h1 className="text-2xl font-semibold tracking-tight">{item.title}</h1>
 
@@ -155,7 +147,7 @@ export default async function WorkItemPage({ params }: PageProps) {
       <section className="grid gap-3">
         <h2 className="text-lg font-medium">I numeri di questo elemento</h2>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
           <MetricCard
             label="Cycle time"
             value={cycle.value}

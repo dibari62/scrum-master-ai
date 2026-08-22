@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  approximateTextWidth,
-  barChartGutters,
   linearScale,
   niceDomain,
   polylinePath,
@@ -188,58 +186,30 @@ describe("formatNumber e formatPercent", () => {
 });
 
 /**
- * Le fasce laterali del grafico a barre erano fisse, e tagliavano
- * "31 punti · 3 senza stima" in "31 punti · 3 senza": un'etichetta troncata si
- * legge come una frase compiuta e dice qualcosa che il dato non dice.
+ * Il grafico a barre non è più un SVG.
+ *
+ * Il `viewBox` fisso a 720 unità veniva scalato al 39% dentro una colonna da
+ * telefono, e le etichette finivano rese a 3,9 pixel — misurati. I test che
+ * stavano qui verificavano il calcolo delle fasce laterali di quell'SVG:
+ * descrivevano bene un problema che ora non esiste, e mantenerli avrebbe
+ * significato tenere in vita del codice solo perché era testato.
+ *
+ * Le proporzioni ora le esprime il CSS, che è nato per questo. Ciò che resta da
+ * verificare è la resa sul server, in `bar-chart.test.tsx`.
  */
-describe("fasce del grafico a barre", () => {
-  const GUTTER = {
-    totalWidth: 720,
-    labelFontSize: 12,
-    valueFontSize: 11,
-  };
+describe("dominio del grafico a barre", () => {
+  it("parte sempre da zero", () => {
+    // Un grafico a barre tagliato sopra lo zero trasforma una differenza del
+    // cinque per cento in un raddoppio visivo.
+    const [min] = niceDomain([95, 100]);
 
-  it("lascia spazio all'etichetta di valore più lunga", () => {
-    const longest = "31 punti · 3 senza stima";
-    const { valueWidth } = barChartGutters({
-      ...GUTTER,
-      labels: ["Sprint 1"],
-      values: [longest, "15 punti"],
-    });
-
-    expect(valueWidth).toBeGreaterThanOrEqual(approximateTextWidth(longest, 11));
+    expect(min).toBe(0);
   });
 
-  it("non lascia che le fasce mangino tutta l'area del grafico", () => {
-    const { labelWidth, valueWidth } = barChartGutters({
-      ...GUTTER,
-      labels: ["Un nome di sprint assurdamente lungo che nessuno scriverebbe mai"],
-      values: ["e un valore altrettanto improbabile da mostrare qui accanto"],
-    });
+  it("lascia spazio sopra il valore più alto", () => {
+    const [, max] = niceDomain([100]);
 
-    expect(GUTTER.totalWidth - labelWidth - valueWidth).toBeGreaterThanOrEqual(160);
-  });
-
-  it("quando lo spazio manca riduce entrambe, non solo una", () => {
-    const { labelWidth, valueWidth } = barChartGutters({
-      ...GUTTER,
-      labels: ["Un nome di sprint assurdamente lungo che nessuno scriverebbe mai"],
-      values: ["e un valore altrettanto improbabile da mostrare qui accanto"],
-    });
-
-    expect(labelWidth).toBeGreaterThan(0);
-    expect(valueWidth).toBeGreaterThan(0);
-  });
-
-  it("regge un grafico senza testo da misurare", () => {
-    const { labelWidth, valueWidth } = barChartGutters({
-      ...GUTTER,
-      labels: [],
-      values: [],
-    });
-
-    expect(labelWidth).toBeGreaterThanOrEqual(0);
-    expect(valueWidth).toBeGreaterThanOrEqual(0);
-    expect(Number.isFinite(labelWidth)).toBe(true);
+    expect(max).toBeGreaterThan(100);
   });
 });
+
