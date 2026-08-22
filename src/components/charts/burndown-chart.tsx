@@ -1,4 +1,5 @@
 import { formatNumber, formatShortDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import { linearScale, niceDomain, polylinePath, ticks } from "./scale";
 
@@ -28,8 +29,28 @@ type BurndownChartProps = {
 };
 
 const WIDTH = 720;
-const HEIGHT = 260;
-const PADDING = { top: 16, right: 16, bottom: 32, left: 44 };
+const HEIGHT = 220;
+const PADDING = { top: 16, right: 16, bottom: 16, left: 48 };
+
+/**
+ * The vertical axis labels: hidden where they could not be read.
+ *
+ * A `viewBox` 720 units wide is scaled to fit its column, and *within the range
+ * we call "phone" that factor nearly doubles* — 0,39 at 375 pixels, 0,75 at
+ * 639. No single declared size is right across that, which is the flaw at the
+ * heart of putting text inside a scalable drawing.
+ *
+ * So below the breakpoint the numbers are not shrunk, they are dropped, and the
+ * gridlines they annotated stay. The chart keeps showing the shape; the actual
+ * figures are stated as real text underneath, where they can be read at any
+ * width and selected. Rendering something illegible would be the same mistake
+ * as printing `0` where a metric is unavailable: it looks like information and
+ * is not.
+ *
+ * Above the breakpoint the scale settles between 0,75 and 1,11, which two
+ * declared sizes can cover honestly.
+ */
+const AXIS_TEXT = "max-sm:hidden text-[14px] md:text-[11px]";
 
 export function BurndownChart({
   points,
@@ -44,6 +65,9 @@ export function BurndownChart({
       </p>
     );
   }
+
+  const first = points[0];
+  const last = points[points.length - 1];
 
   const plotWidth = WIDTH - PADDING.left - PADDING.right;
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom;
@@ -101,7 +125,7 @@ export function BurndownChart({
               y={y.to(tick)}
               textAnchor="end"
               dominantBaseline="middle"
-              className="fill-muted-foreground text-[10px]"
+              className={cn("fill-muted-foreground", AXIS_TEXT)}
             >
               {formatNumber(tick)}
             </text>
@@ -139,23 +163,29 @@ export function BurndownChart({
             <title>{`${formatShortDate(point.at)}: ${formatNumber(point.remaining)} ${unitLabel}`}</title>
           </circle>
         ))}
-
-        {points.map((point, index) =>
-          // Only the first, last and middle labels: a two-week sprint would
-          // otherwise overlap its own axis.
-          index === 0 || index === points.length - 1 || index === Math.floor(points.length / 2) ? (
-            <text
-              key={`label-${point.at.toISOString()}`}
-              x={x.to(index)}
-              y={HEIGHT - 8}
-              textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
-            >
-              {formatShortDate(point.at)}
-            </text>
-          ) : null,
-        )}
       </svg>
+
+      {/*
+       * Le date sono testo HTML, non etichette dentro l'SVG.
+       *
+       * Erano l'ultimo problema rimasto della scalatura: nell'intervallo che
+       * chiamiamo «telefono» il fattore di scala passa da 0,39 a 0,75, quasi
+       * il doppio, quindi *nessuna* dimensione dichiarata può essere giusta
+       * per tutta la fascia. Portate fuori dall'SVG, restano alla dimensione
+       * della pagina a qualunque larghezza — e si possono selezionare, che
+       * un'etichetta disegnata non permette.
+       *
+       * L'asse verticale resta dentro: sono quattro numeri corti, che a 8,5
+       * pixel si leggono ancora, e servono accanto alla griglia che etichettano.
+       */}
+      <div className="text-muted-foreground flex items-baseline justify-between gap-3 text-xs">
+        <span>{first ? formatShortDate(first.at) : ""}</span>
+        <span className="tabular-nums">
+          da {formatNumber(first?.remaining ?? 0)} a {formatNumber(last?.remaining ?? 0)}{" "}
+          {unitLabel}
+        </span>
+        <span>{last ? formatShortDate(last.at) : ""}</span>
+      </div>
 
       <p className="text-muted-foreground text-xs">
         La linea tratteggiata è l&apos;andamento ideale dal lavoro impegnato a zero. Se

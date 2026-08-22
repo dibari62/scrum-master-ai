@@ -63,7 +63,7 @@ export function Timeline({ entries }: TimelineProps) {
   }
 
   return (
-    <ol className="grid gap-0">
+    <ol className="grid gap-0" aria-label="Storia degli stati">
       {entries.map((entry, index) => {
         const last = index === entries.length - 1;
 

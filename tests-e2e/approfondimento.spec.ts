@@ -63,7 +63,10 @@ test.describe("approfondimento dei numeri", () => {
 
     // Almeno un passaggio in lavorazione: senza, il cycle time non esisterebbe
     // e la pagina starebbe mostrando un numero senza fondamento.
-    const timeline = page.locator("ol");
+    // Selezionata per nome accessibile, non per nome di tag: quando le
+    // briciole di pane sono diventate anch'esse una lista ordinata, un
+    // `locator("ol")` ha smesso di sapere quale delle due volesse.
+    const timeline = page.getByRole("list", { name: "Storia degli stati" });
     await expect(timeline).toContainText("In lavorazione");
 
     // Il tempo di lavorazione dev'essere dichiarato come tale: e la distinzione
@@ -78,7 +81,10 @@ test.describe("approfondimento dei numeri", () => {
     await page.locator("main ul li a").first().click();
     await page.waitForURL("**/elementi/**");
 
-    const last = page.locator("ol li").last();
+    const last = page
+      .getByRole("list", { name: "Storia degli stati" })
+      .getByRole("listitem")
+      .last();
     await expect(last).toContainText("Concluso");
     await expect(last).not.toContainText("adesso");
   });

@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 519 test<br/>Playwright · 15 test e2e"]
+        S3["Vitest · 525 test<br/>Playwright · 27 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -58,8 +58,9 @@ graph TB
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
 dai test. Ogni numero della dashboard è **apribile** fino alla storia degli stati da
 cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un registro
-delle esecuzioni. Restano da costruire le **skill** — le capacità che producono
-report e digest — che sono T4.
+delle esecuzioni. Le pagine sono verificate **a 375, 640, 768 e 1280 pixel**: nessun
+testo sotto i 10 pixel resi, nessuno sbordamento laterale. Restano da costruire le
+**skill** — le capacità che producono report e digest — che sono T4.
 
 ---
 
@@ -178,9 +179,10 @@ Cose note e volutamente rimandate, non sviste:
 | `reviewWaitTime` misura lo stato, non la pull request | [glossario](domain-glossary.md) | con il connettore GitHub |
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |
-| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 15 test Playwright su Chrome |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 27 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
+| Le pagine non erano mai state provate su uno schermo stretto | — | ~~mai misurato~~ **fatto**: le etichette dei grafici si rendevano a 3,9 pixel su telefono |
 
 ---
 

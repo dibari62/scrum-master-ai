@@ -5,6 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { BarChart, type Bar } from "@/components/charts/bar-chart";
 import { BurndownChart } from "@/components/charts/burndown-chart";
 import { MetricCard } from "@/components/charts/metric-card";
+import { Breadcrumb } from "@/components/navigation/breadcrumb";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -121,26 +123,31 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
       <header className="grid gap-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/progetti" className="underline underline-offset-4">
-            Progetti
-          </Link>
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+        <Breadcrumb
+          trail={[
+            { label: "Progetti", href: "/progetti" },
+            { label: project.name },
+          ]}
+        />
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h1>
         <p className="text-muted-foreground text-sm">
           {formatNumber(sprints.length)} sprint · {formatNumber(dashboard.peopleCount)}{" "}
-          persone · dati al {formatDate(dashboard.asOf)} ·{" "}
-          <Link href={elementi} className="underline underline-offset-4">
-            vedi gli elementi
-          </Link>
-          {" · "}
-          <Link
-            href={`/progetti/${project.slug}/scrum-master`}
-            className="underline underline-offset-4"
-          >
-            Scrum Master AI
-          </Link>
+          persone · dati al {formatDate(dashboard.asOf)}
         </p>
+
+        {/*
+         * Le due destinazioni come pulsanti, non come collegamenti in mezzo a
+         * una frase: erano annegate nella riga dei conteggi, dove nessuno le
+         * cercava, e su telefono finivano a capo staccate dal loro contesto.
+         */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={elementi}>Vedi gli elementi</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/progetti/${project.slug}/scrum-master`}>Scrum Master AI</Link>
+          </Button>
+        </div>
       </header>
 
       <section className="grid gap-3">
@@ -152,8 +159,13 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
          * Il filtro nel collegamento corrisponde al denominatore scritto sul
          * riquadro: "su 44 elementi" apre esattamente quei 44. Se i due
          * numeri divergessero, la pagina starebbe mentendo su cosa ha contato.
+         *
+         * Due colonne già da 480 pixel: a una sola, le sei metriche
+         * costringevano a scorrere tre schermate di telefono per vedere il
+         * quadro d'insieme, che è esattamente ciò che una dashboard esiste per
+         * evitare.
          */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Cycle time mediano"
             value={cycleMedian.value}
@@ -184,7 +196,7 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
           <MetricCard
             label="Tasso di riapertura"
             value={reopen.value}
@@ -246,7 +258,7 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               label="Lavoro aggiunto dopo l'inizio"
               value={addedNow.value}

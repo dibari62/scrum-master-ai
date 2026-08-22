@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import {
   organizationIdSchema,
   workItemStateSchema,
@@ -88,10 +89,20 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
     <Link
       key={`${label}-${href}`}
       href={href}
+      /*
+       * `min-h-9` e `px-3`: il bersaglio di tocco.
+       *
+       * A `py-1` questi filtri erano alti diciotto pixel — sotto i
+       * quarantaquattro che le linee guida di Apple e Google indicano come
+       * minimo, e affiancati abbastanza da far sbagliare il dito. Su
+       * scrivania non cambia nulla; su telefono è la differenza fra usarli e
+       * combatterli.
+       */
       className={cn(
-        "rounded-md border px-2.5 py-1 text-xs transition-colors",
+        "inline-flex min-h-9 items-center rounded-md border px-3 text-xs transition-colors",
         active ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted",
       )}
+      aria-current={active ? "true" : undefined}
     >
       {label}
     </Link>
@@ -100,15 +111,13 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
   return (
     <main className="mx-auto grid max-w-4xl gap-6 px-6 py-12">
       <header className="grid gap-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/progetti" className="underline underline-offset-4">
-            Progetti
-          </Link>
-          {" · "}
-          <Link href={`/progetti/${project.slug}`} className="underline underline-offset-4">
-            {project.name}
-          </Link>
-        </p>
+        <Breadcrumb
+          trail={[
+            { label: "Progetti", href: "/progetti" },
+            { label: project.name, href: `/progetti/${project.slug}` },
+            { label: "Elementi" },
+          ]}
+        />
 
         <h1 className="text-2xl font-semibold tracking-tight">Elementi</h1>
 
@@ -161,7 +170,15 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
                 href={`/progetti/${project.slug}/elementi/${row.item.id}`}
                 className="hover:border-foreground/30 block rounded-lg border p-3 transition-colors"
               >
-                <div className="flex items-baseline justify-between gap-4">
+                {/*
+                 * Il titolo va a capo, la durata resta su una riga sua.
+                 *
+                 * Affiancati con `justify-between`, un titolo lungo su schermo
+                 * stretto spingeva la durata fuori vista o la schiacciava
+                 * contro il bordo. Il tempo è il motivo per cui si apre questo
+                 * elenco: è l'ultima cosa che può cedere.
+                 */}
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <span className="text-sm font-medium">{row.item.title}</span>
                   <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                     {row.cycleTime.available
@@ -183,15 +200,6 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
           ))}
         </ul>
       )}
-
-      <p className="text-muted-foreground text-sm">
-        <Link
-          href={`/progetti/${project.slug}`}
-          className="underline underline-offset-4"
-        >
-          Torna alla dashboard
-        </Link>
-      </p>
     </main>
   );
 }

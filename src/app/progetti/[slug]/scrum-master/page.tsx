@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -97,15 +97,13 @@ export default async function ScrumMasterPage({ params }: PageProps) {
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
       <header className="grid gap-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/progetti" className="underline underline-offset-4">
-            Progetti
-          </Link>
-          {" · "}
-          <Link href={`/progetti/${slug}`} className="underline underline-offset-4">
-            {project.name}
-          </Link>
-        </p>
+        <Breadcrumb
+          trail={[
+            { label: "Progetti", href: "/progetti" },
+            { label: project.name, href: `/progetti/${slug}` },
+            { label: "Scrum Master AI" },
+          ]}
+        />
 
         <h1 className="text-2xl font-semibold tracking-tight">{agent.name}</h1>
 
@@ -119,38 +117,52 @@ export default async function ScrumMasterPage({ params }: PageProps) {
         <h2 className="text-lg font-medium">Configurazione</h2>
 
         <Card>
-          <CardContent className="grid gap-3 pt-6 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Skill abilitate</span>
-              <span>
-                {agent.enabledSkillKeys.length === 0
-                  ? "nessuna"
-                  : agent.enabledSkillKeys.join(", ")}
-              </span>
-            </div>
-
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Esecuzioni al giorno</span>
-              <span className="tabular-nums">{formatNumber(agent.policy.maxRunsPerDay)}</span>
-            </div>
-
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Budget di token</span>
-              <span className="tabular-nums">
-                {agent.policy.maxTokensPerRun === null
-                  ? "quello dichiarato dalla skill"
-                  : formatNumber(agent.policy.maxTokensPerRun)}
-              </span>
-            </div>
-
-            {context ? (
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Durata dello sprint</span>
-                <span className="tabular-nums">
-                  {formatNumber(context.sprintLengthDays)} giorni
-                </span>
+          <CardContent className="pt-6">
+            {/*
+             * Un elenco di definizioni, non righe con `justify-between`.
+             *
+             * Affiancare etichetta e valore funziona finché il valore è corto:
+             * «quello dichiarato dalla skill» su schermo stretto veniva
+             * schiacciato contro il bordo. Impilati sotto i 640 pixel e
+             * affiancati sopra, entrambi restano leggibili — e un `dl` dice a
+             * un lettore di schermo che sono coppie, cosa che due `span`
+             * affiancati non dicono.
+             */}
+            <dl className="grid gap-3 text-sm">
+              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
+                <dt className="text-muted-foreground">Skill abilitate</dt>
+                <dd className="sm:text-right">
+                  {agent.enabledSkillKeys.length === 0
+                    ? "nessuna"
+                    : agent.enabledSkillKeys.join(", ")}
+                </dd>
               </div>
-            ) : null}
+
+              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
+                <dt className="text-muted-foreground">Esecuzioni al giorno</dt>
+                <dd className="tabular-nums sm:text-right">
+                  {formatNumber(agent.policy.maxRunsPerDay)}
+                </dd>
+              </div>
+
+              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
+                <dt className="text-muted-foreground">Budget di token</dt>
+                <dd className="tabular-nums sm:text-right">
+                  {agent.policy.maxTokensPerRun === null
+                    ? "quello dichiarato dalla skill"
+                    : formatNumber(agent.policy.maxTokensPerRun)}
+                </dd>
+              </div>
+
+              {context ? (
+                <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
+                  <dt className="text-muted-foreground">Durata dello sprint</dt>
+                  <dd className="tabular-nums sm:text-right">
+                    {formatNumber(context.sprintLengthDays)} giorni
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
           </CardContent>
         </Card>
 
@@ -221,12 +233,16 @@ export default async function ScrumMasterPage({ params }: PageProps) {
           <ul className="grid gap-2">
             {runs.map((run) => (
               <li key={run.id} className="rounded-lg border p-3">
-                <div className="flex items-baseline justify-between gap-4">
+                {/*
+                 * L'esito va a capo, la durata resta leggibile: una causa di
+                 * fallimento lunga («Il fornitore ha applicato un limite di
+                 * frequenza») su schermo stretto spingeva la durata contro il
+                 * bordo.
+                 */}
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <span className="text-sm font-medium">
                     {run.status === "succeeded" ? "Riuscita" : "Fallita"}
-                    {run.failureCause
-                      ? ` — ${FAILURE_LABELS[run.failureCause]}`
-                      : ""}
+                    {run.failureCause ? ` — ${FAILURE_LABELS[run.failureCause]}` : ""}
                   </span>
                   <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                     {formatDuration(run.durationMs)}
