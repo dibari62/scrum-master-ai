@@ -14,3 +14,5 @@ export * from "./sprints";
 export * from "./work-items";
 export * from "./sprint-scope";
 export * from "./collaboration";
+
+export * from "./scrum-agent";

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import type {
   CreateMembershipInput,
@@ -18,13 +18,25 @@ import {
   memberships,
   organizations,
   people,
+  projectContexts,
   projects,
   pullRequests,
+  scrumAgents,
+  skillRuns,
   sprintScopeEvents,
   sprints,
   stateTransitions,
   workItems,
 } from "./schema";
+
+/**
+ * The register never returns more than one page (criterio 29).
+ *
+ * A ceiling rather than a suggestion: the run register is the one table that
+ * grows without bound, and an unpaginated read of it would eventually fetch a
+ * project's whole history over an HTTP driver on a free tier.
+ */
+export const MAX_SKILL_RUN_PAGE_SIZE = 50;
 
 /**
  * Tenant-scoped access to the database.
@@ -258,6 +270,67 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
             eq(pullRequests.projectId, projectId),
           ),
         ),
+
+    /**
+     * The Scrum Master AI and its register.
+     *
+     * The tenant predicate is what turns criterio 5 into a property of the
+     * helper rather than a habit of every caller: a user of organization B
+     * asking for the agent of a project of organization A reads nothing, in
+     * exactly the same way as if the agent did not exist. "Not found" and "not
+     * yours" have to be indistinguishable, and they are indistinguishable
+     * because the query cannot tell them apart either.
+     */
+
+    /** At most one row: `scrum_agents_project_key` guarantees it. */
+    scrumAgentByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(scrumAgents)
+        .where(
+          and(
+            eq(scrumAgents.organizationId, organizationId),
+            eq(scrumAgents.projectId, projectId),
+          ),
+        ),
+
+    /**
+     * The context is read on its own and not joined to the agent: it is scoped
+     * to the project, it exists independently of the agent's status, and the
+     * card shows the two as separate sections.
+     */
+    projectContextByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(projectContexts)
+        .where(
+          and(
+            eq(projectContexts.organizationId, organizationId),
+            eq(projectContexts.projectId, projectId),
+          ),
+        ),
+
+    /**
+     * The run register: most recent first, one page at a time (criterio 29).
+     *
+     * A caller asking for more than a page gets a page. Clamping rather than
+     * throwing because the limit is a protection, not a validation of user
+     * input: the worst outcome of a wrong argument should be a shorter list,
+     * never a failed page. Ordering and limiting happen in the database, on the
+     * index that covers exactly these three columns.
+     */
+    skillRunsByProject: (projectId: ProjectId, limit: number = MAX_SKILL_RUN_PAGE_SIZE) =>
+      db
+        .select()
+        .from(skillRuns)
+        .where(
+          and(
+            eq(skillRuns.organizationId, organizationId),
+            eq(skillRuns.projectId, projectId),
+          ),
+        )
+        .orderBy(desc(skillRuns.startedAt))
+        .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_SKILL_RUN_PAGE_SIZE)),
   } as const;
 
   const writes = {

@@ -2,9 +2,25 @@ import { getTableColumns } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { generateSeedBatch } from "@/connectors/seed";
-import { toWorkItemRow, workItemEstimate } from "@/db/rows";
-import { workItems } from "@/db/schema";
-import { organizationIdSchema, projectIdSchema, workItemSchema } from "@/domain";
+import {
+  projectContextStructures,
+  scrumAgentPolicy,
+  toProjectContextRow,
+  toScrumAgentRow,
+  toSkillRunRow,
+  toWorkItemRow,
+  workItemEstimate,
+} from "@/db/rows";
+import { projectContexts, scrumAgents, skillRuns, workItems } from "@/db/schema";
+import {
+  organizationIdSchema,
+  projectContextSchema,
+  projectIdSchema,
+  scrumAgentSchema,
+  skillRunSchema,
+  workItemSchema,
+  UNSCHEDULED_CEREMONIES,
+} from "@/domain";
 
 const ORGANIZATION_ID = organizationIdSchema.parse("3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21");
 const PROJECT_ID = projectIdSchema.parse("9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905");
@@ -92,5 +108,158 @@ describe("conversione fra modello canonico e righe", () => {
     const row = toWorkItemRow(anItem({ value: 3, unit: "points" }));
 
     expect(Object.keys(row).sort()).toEqual(Object.keys(getTableColumns(workItems)).sort());
+  });
+});
+
+const AGENT_ID = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
+const CONTEXT_ID = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+const RUN_ID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6";
+
+function anAgent(policy: { maxTokensPerRun: number | null; maxRunsPerDay: number }) {
+  return scrumAgentSchema.parse({
+    id: AGENT_ID,
+    organizationId: ORGANIZATION_ID,
+    projectId: PROJECT_ID,
+    name: "Scrum Master di Checkout",
+    persona: "facilitator",
+    tone: "neutral",
+    language: "it",
+    autonomyLevel: "observe",
+    status: "active",
+    enabledSkillKeys: ["configuration-check"],
+    policy,
+    createdAt: new Date("2026-05-01T08:00:00Z"),
+    updatedAt: new Date("2026-05-01T08:00:00Z"),
+  });
+}
+
+/**
+ * Lo stesso difetto di `estimate`, un traguardo più tardi: `policy` è un
+ * oggetto canonico su due colonne, e `max_tokens_per_run` è annullabile — quindi
+ * facoltativa in scrittura. Senza questi test, un mappatore che la dimentica
+ * scrive «nessun tetto dichiarato» su ogni agente e nulla fallisce.
+ */
+describe("conversione dello ScrumAgent", () => {
+  it("scrive la policy nelle due colonne separate", () => {
+    const row = toScrumAgentRow(anAgent({ maxTokensPerRun: 4_000, maxRunsPerDay: 20 }));
+
+    expect(row.maxTokensPerRun).toBe(4_000);
+    expect(row.maxRunsPerDay).toBe(20);
+  });
+
+  it("conserva «non ridurre» come null e non come zero", () => {
+    const row = toScrumAgentRow(anAgent({ maxTokensPerRun: null, maxRunsPerDay: 50 }));
+
+    expect(row.maxTokensPerRun).toBeNull();
+  });
+
+  it("ricostruisce la policy nell'andata e ritorno", () => {
+    const policy = { maxTokensPerRun: 1_500, maxRunsPerDay: 7 };
+
+    expect(scrumAgentPolicy(toScrumAgentRow(anAgent(policy)))).toEqual(policy);
+  });
+
+  it("rifiuta un tetto giornaliero che il dominio non ammette", () => {
+    expect(() => scrumAgentPolicy({ maxTokensPerRun: null, maxRunsPerDay: 0 })).toThrow();
+  });
+
+  it("riempie ogni colonna della tabella", () => {
+    const row = toScrumAgentRow(anAgent({ maxTokensPerRun: null, maxRunsPerDay: 50 }));
+
+    expect(Object.keys(row).sort()).toEqual(
+      Object.keys(getTableColumns(scrumAgents)).sort(),
+    );
+  });
+});
+
+describe("conversione del ProjectContext", () => {
+  const context = projectContextSchema.parse({
+    id: CONTEXT_ID,
+    organizationId: ORGANIZATION_ID,
+    projectId: PROJECT_ID,
+    sprintLengthDays: 14,
+    ceremonies: {
+      ...UNSCHEDULED_CEREMONIES,
+      daily_scrum: { dayOfWeek: "monday", timeOfDay: "09:30" },
+    },
+    definitionOfDone: ["Test verdi", "Revisione approvata"],
+    workingAgreement: null,
+    stakeholders: [{ role: "Direzione commerciale", audience: "stakeholder" }],
+    createdAt: new Date("2026-05-01T08:00:00Z"),
+    updatedAt: new Date("2026-05-01T08:00:00Z"),
+  });
+
+  it("riempie ogni colonna della tabella", () => {
+    expect(Object.keys(toProjectContextRow(context)).sort()).toEqual(
+      Object.keys(getTableColumns(projectContexts)).sort(),
+    );
+  });
+
+  it("conserva le tre strutture annidate nell'andata e ritorno", () => {
+    const row = toProjectContextRow(context);
+
+    expect(projectContextStructures(row)).toEqual({
+      ceremonies: context.ceremonies,
+      definitionOfDone: context.definitionOfDone,
+      stakeholders: context.stakeholders,
+    });
+  });
+
+  it("distingue «non pianificata» da «non risposta»: la cerimonia c'è, vale null", () => {
+    const structures = projectContextStructures(toProjectContextRow(context));
+
+    expect(structures.ceremonies.sprint_planning).toBeNull();
+    expect(structures.ceremonies.daily_scrum).toEqual({
+      dayOfWeek: "monday",
+      timeOfDay: "09:30",
+    });
+  });
+
+  /**
+   * Il prezzo della scelta di `jsonb`: la colonna accetta qualunque JSON, e
+   * `$type<...>()` è una dichiarazione, non un controllo. La verifica avviene
+   * qui, in lettura, una volta sola.
+   */
+  it("rifiuta un pubblico che il dominio non conosce invece di propagarlo", () => {
+    expect(() =>
+      projectContextStructures({
+        ceremonies: UNSCHEDULED_CEREMONIES,
+        definitionOfDone: [],
+        stakeholders: [{ role: "Direzione", audience: "consiglio-di-amministrazione" }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("conversione dello SkillRun", () => {
+  it("riempie ogni colonna, comprese quelle annullabili", () => {
+    const run = skillRunSchema.parse({
+      id: RUN_ID,
+      organizationId: ORGANIZATION_ID,
+      projectId: PROJECT_ID,
+      scrumAgentId: AGENT_ID,
+      skillKey: "configuration-check",
+      trigger: "on_demand",
+      startedAt: new Date("2026-05-02T10:00:00Z"),
+      finishedAt: new Date("2026-05-02T10:00:02Z"),
+      durationMs: 2_000,
+      status: "succeeded",
+      failureCause: null,
+      provider: "fake",
+      model: "fake-1",
+      inputTokens: 120,
+      outputTokens: 45,
+      estimatedCostUsd: 0,
+      createdAt: new Date("2026-05-02T10:00:02Z"),
+      updatedAt: new Date("2026-05-02T10:00:02Z"),
+    });
+
+    const row = toSkillRunRow(run);
+
+    expect(Object.keys(row).sort()).toEqual(Object.keys(getTableColumns(skillRuns)).sort());
+    // Il fornitore che ha servito davvero l'esecuzione: se il mappatore lo
+    // dimenticasse, il registro direbbe «nessun fornitore contattato».
+    expect(row.provider).toBe("fake");
+    expect(row.model).toBe("fake-1");
   });
 });
