@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 622 test<br/>Playwright · 38 test e2e"]
+        S3["Vitest · 635 test<br/>Playwright · 38 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -143,8 +143,8 @@ graph LR
 da capo a fondo tranne che per l'archiviazione e la schermata: seleziona
 l'evidenza, scrive ogni numero, compone la richiesta, chiama il gateway, valida
 lo schema della risposta e **rifiuta** un resoconto che citi una cifra che nessuna
-metrica ha prodotto. Mancano la persistenza del report con la sua istantanea, la
-schermata, e il dataset dorato in `evals/`.
+metrica ha prodotto. Esiste il dataset dorato con cinque casi e il runner delle
+eval. Mancano la persistenza del report con la sua istantanea e la schermata.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
@@ -192,6 +192,7 @@ Cose note e volutamente rimandate, non sviste:
 | `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 38 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
+| `npm run eval` era un segnaposto | `AGENTS.md` §6 | ~~finché non c'era un output LLM da valutare~~ **fatto**: dataset dorato di cinque casi e runner. Il controllo di CI «Valutazione output LLM» ora esegue qualcosa |
 | Le pagine non erano mai state provate su uno schermo stretto | — | ~~mai misurato~~ **fatto**: le etichette dei grafici si rendevano a 3,9 pixel su telefono |
 
 ---
