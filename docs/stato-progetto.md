@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 525 test<br/>Playwright · 27 test e2e"]
+        S3["Vitest · 532 test<br/>Playwright · 38 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -42,6 +42,7 @@ graph TB
         U5["Dashboard metriche"]
         U7["Elementi e storia<br/>degli stati"]
         U6["Scrum Master AI<br/>creazione e registro"]
+        U8["Catalogo metriche<br/>come si calcola ogni numero"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -52,7 +53,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 todo
     class D1,D2,D3,D4,D5 fatto
-    class U1,U2,U3,U4,U5,U6,U7 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -169,6 +170,7 @@ Cose note e volutamente rimandate, non sviste:
 
 | Voce | Dove è documentata | Quando va affrontata |
 |---|---|---|
+| **I test end-to-end non girano in CI** | [flusso di lavoro](agent-workflow.md) §3.1 | serve un database separato dai dati mostrati online. Ha già lasciato passare un difetto: l'intestazione fissa che rubava i clic |
 | Nessuna limitazione di frequenza sull'accesso | `AGENTS.md` §8.1 | ora che il sito è pubblico, prima dei dati veri |
 | Revoca di `Membership` non immediata | ADR-0006 | prima di un uso reale |
 | Nessuna verifica dell'indirizzo email | ADR-0006 | dopo il PoC |
@@ -179,7 +181,7 @@ Cose note e volutamente rimandate, non sviste:
 | `reviewWaitTime` misura lo stato, non la pull request | [glossario](domain-glossary.md) | con il connettore GitHub |
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |
-| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 27 test Playwright su Chrome |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 38 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
 | Le pagine non erano mai state provate su uno schermo stretto | — | ~~mai misurato~~ **fatto**: le etichette dei grafici si rendevano a 3,9 pixel su telefono |

@@ -25,3 +25,5 @@ export * from "./collaboration";
 export * from "./skill";
 export * from "./project-context";
 export * from "./scrum-agent";
+
+export * from "./metric-catalog";

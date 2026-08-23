@@ -334,7 +334,16 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
 
       <footer className="text-muted-foreground border-t pt-6 text-xs">
         Tutti i numeri di questa pagina sono calcolati in codice deterministico e
-        testato. Nessuno è stato prodotto da un modello linguistico.
+        testato. Nessuno è stato prodotto da un modello linguistico.{" "}
+        {/*
+         * L'affermazione porta a dove si può controllare. Una dichiarazione di
+         * affidabilità che non si può verificare chiede fiducia, ed è proprio
+         * la fiducia che rende pericoloso un numero sbagliato.
+         */}
+        <Link href="/metriche" className="hover:text-foreground underline underline-offset-4">
+          Come si calcolano
+        </Link>
+        .
       </footer>
     </main>
   );
