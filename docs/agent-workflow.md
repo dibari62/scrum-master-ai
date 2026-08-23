@@ -76,6 +76,60 @@ di revisionare e comincia a riscrivere, perdendo il distacco che lo rende utile.
 I pulsanti di **handoff** in fondo alla risposta di un agente attivano il passaggio
 successivo mantenendo il contesto.
 
+> **Non è un orchestratore automatico.** Non esiste, oggi, un programma che chiami
+> gli agenti in sequenza da solo. Il diagramma qui sopra è un *ordine di lavoro*
+> che viene applicato a mano: chi sviluppa decide quale agente serve e quando.
+> Un orchestratore che li invocasse in automatico è una cosa che si può
+> costruire, ma sarebbe un pezzo di prodotto in più da mantenere, e finché la
+> squadra è una persona più un assistente il guadagno è dubbio. Va deciso, non
+> dato per esistente.
+
+---
+
+## 3.1 La pipeline di verifica: cosa controlla e cosa no
+
+Questa è la parte che conta davvero, perché è l'unica che dice "no".
+
+```
+  commit su un branch
+        │
+        ▼
+  npm run verify           in locale, prima di aprire la PR
+   ├── typecheck           i tipi tornano
+   ├── lint                lo stile e le regole automatiche
+   ├── test (Vitest)       532 test unitari e di integrazione
+   └── boundaries          nessuna dipendenza va nella direzione sbagliata
+        │
+        ▼
+  push  ──►  GitHub Actions            (.github/workflows/ci.yml)
+   ├── Confini architetturali
+   ├── Typecheck, lint e test
+   ├── Build di produzione
+   └── Valutazione output LLM          solo su richiesta: costa e chiama un modello vero
+        │
+        ▼
+  merge su main  ──►  Vercel pubblica in automatico
+```
+
+### Cosa **non** viene controllato automaticamente
+
+| Controllo | Dove gira | Perché non è in CI |
+|---|---|---|
+| **Test end-to-end** (Playwright) | solo in locale, con `RUN_E2E=1` | scrivono su un database reale, e oggi sviluppo e produzione condividono lo stesso database: farli girare in CI toccherebbe i dati che si vedono online |
+| Valutazione degli output LLM | su richiesta | chiama un modello vero, quindi costa |
+
+**Questo buco ha già lasciato passare un difetto.** L'intestazione fissa
+introdotta con la PR #19 copriva qualunque elemento il browser portasse in vista:
+il pulsante «Verifica configurazione» risultava irraggiungibile in quattro
+finestre su cinque. Typecheck, lint, 525 test e la CI erano tutti verdi, perché
+nessuno di loro apre un browser e chiede *chi riceve davvero questo clic*.
+
+La contromisura, oggi, è una regola di condotta e non un automatismo: **la suite
+end-to-end si esegue in locale prima di ogni merge**. Ha un limite noto — una
+regola può essere dimenticata, un controllo automatico no. Chiuderlo richiede un
+database separato per i test, che è registrato come debito in
+[`stato-progetto.md`](stato-progetto.md).
+
 ---
 
 ## 4. Regole di ingaggio

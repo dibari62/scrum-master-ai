@@ -17,6 +17,11 @@ import type { ReactNode } from "react";
  * action lives in `src/app`, and `src/components` may not reach into it — the
  * boundary check enforces that, and it is right to: a presentational component
  * that knew how to end a session would be deciding something.
+ *
+ * Its height comes from `--app-header-height` because `scroll-padding-top` in
+ * the stylesheet must reserve exactly that much room. When the two were
+ * separate numbers, anything the browser scrolled into view landed underneath
+ * this bar and the clicks went to the bar instead.
  */
 export function AppHeader({ signOut }: { readonly signOut?: ReactNode }) {
   return (
@@ -26,7 +31,10 @@ export function AppHeader({ signOut }: { readonly signOut?: ReactNode }) {
        * di scorrimento l'uscita non deve essere a un viaggio di ritorno di
        * distanza.
        */}
-      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-4 px-6">
+      <div
+        className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6"
+        style={{ height: "var(--app-header-height)" }}
+      >
         <Link href="/progetti" className="text-sm font-semibold tracking-tight">
           Scrum&nbsp;Master&nbsp;AI
         </Link>

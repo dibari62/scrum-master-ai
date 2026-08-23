@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { signOutAction } from "@/app/(auth)/actions";
+import { SignOutButton } from "@/app/(auth)/sign-out-button";
 import { AppHeader } from "@/components/navigation/app-header";
 
 /**
@@ -14,24 +14,7 @@ import { AppHeader } from "@/components/navigation/app-header";
 export default function ProjectsLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <div className="min-h-screen">
-      <AppHeader
-        signOut={
-          /*
-           * Un modulo, non un collegamento: uscire cambia lo stato del server,
-           * e un cambiamento di stato non passa da una GET. Un prefetch o un
-           * antivirus che visita i collegamenti chiuderebbe la sessione da solo.
-           */
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              Esci
-            </button>
-          </form>
-        }
-      />
-
+      <AppHeader signOut={<SignOutButton />} />
       {children}
     </div>
   );

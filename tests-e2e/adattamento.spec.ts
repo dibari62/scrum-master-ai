@@ -31,6 +31,7 @@ const PAGES = [
   "/progetti",
   `/progetti/${PROJECT}`,
   `/progetti/${PROJECT}/elementi`,
+  "/metriche",
 ] as const;
 
 /** Below this a label stops being small text and becomes a smudge. */
@@ -139,4 +140,66 @@ test.describe("adattamento agli schermi", () => {
 
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(36);
   });
+
+  /**
+   * Whether a control that is *visible* is also *clickable*.
+   *
+   * The sticky header caused a defect that looked like nothing at all: the
+   * "Verifica configurazione" button rendered correctly, was enabled, and read
+   * as available to a screen reader — but whenever the browser scrolled it into
+   * view on its own (the Tab key, an in-page link, a field carrying an error)
+   * it landed underneath the header, and the click went to the header. Measured
+   * before the fix: unreachable in four window sizes out of five.
+   *
+   * No snapshot and no stylesheet review can see this. The question "who
+   * actually receives a click at these coordinates" is one only a laid-out page
+   * can answer, which is why it is asserted here rather than in a unit test.
+   */
+  const CONTROL_PAGES = [
+    `/progetti/${PROJECT}`,
+    `/progetti/${PROJECT}/elementi`,
+    `/progetti/${PROJECT}/scrum-master`,
+    "/metriche",
+  ] as const;
+
+  for (const height of [400, 900] as const) {
+    for (const path of CONTROL_PAGES) {
+      test(`i comandi di ${path} ricevono i clic con finestra alta ${height}px`, async ({
+        page,
+      }) => {
+        await page.setViewportSize({ width: 1280, height });
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+
+        const stolen = await page.evaluate(() => {
+          const blocked: string[] = [];
+
+          for (const control of document.querySelectorAll<HTMLElement>(
+            "main button, main a[href]",
+          )) {
+            if (control.getBoundingClientRect().height === 0) continue;
+
+            // Esattamente ciò che fa il browser da solo con il tasto Tab.
+            control.scrollIntoView();
+
+            const box = control.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+              box.left + box.width / 2,
+              box.top + box.height / 2,
+            );
+
+            if (hit !== control && !control.contains(hit)) {
+              const thief = hit?.closest("header") ? "l'intestazione fissa" : (hit?.tagName ?? "?");
+              blocked.push(`${control.textContent?.trim().slice(0, 24)} ← ${thief}`);
+            }
+          }
+
+          return blocked;
+        });
+
+        expect(stolen, `comandi visibili che non ricevono il proprio clic: ${stolen.join("; ")}`)
+          .toEqual([]);
+      });
+    }
+  }
 });

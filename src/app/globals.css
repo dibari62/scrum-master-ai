@@ -3,6 +3,16 @@
 /* Design tokens consumed by shadcn/ui components (cssVariables: true). */
 :root {
   --radius: 0.625rem;
+
+  /*
+   * Altezza dell'intestazione fissa, dichiarata una volta sola.
+   *
+   * La usano sia il componente che la disegna sia `scroll-padding-top`: se
+   * vivessero come due numeri separati, cambiarne uno lascerebbe l'altro
+   * indietro e i clic tornerebbero a finire sull'intestazione.
+   */
+  --app-header-height: 3.5rem;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -70,6 +80,22 @@
   * {
     border-color: var(--color-border);
     outline-color: color-mix(in oklch, var(--color-ring) 50%, transparent);
+  }
+
+  /*
+   * L'intestazione è fissa in cima e copre 56 pixel.
+   *
+   * Senza questa riga, ogni volta che il browser porta qualcosa in vista da
+   * solo — il tasto Tab, un collegamento interno, un campo con un errore —
+   * lo allinea al bordo superiore della finestra, cioè **sotto**
+   * l'intestazione. L'elemento si vede a metà e i clic finiscono
+   * sull'intestazione: misurato, il pulsante «Verifica configurazione»
+   * risultava irraggiungibile in 4 finestre su 5.
+   *
+   * `scroll-padding-top` dice al browser di lasciare quello spazio libero.
+   */
+  html {
+    scroll-padding-top: calc(var(--app-header-height) + 0.5rem);
   }
 
   body {
