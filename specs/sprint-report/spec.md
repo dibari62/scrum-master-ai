@@ -324,3 +324,27 @@ si può disfare.
       silenzio quello permissivo. Un numero sbagliato in un report inoltrato a
       uno stakeholder è il danno che questo intero progetto è costruito per
       evitare.
+
+---
+
+## 12. Limiti dichiarati della verifica di fedeltà
+
+La verifica implementata garantisce due cose e non una terza. Sono scritte qui
+perché un limite dichiarato si può affrontare, uno silenzioso no.
+
+**Garantisce che:**
+
+- non compaia alcuna quantità nuova: ogni cifra del testo è una di quelle che il
+  codice ha prodotto;
+- una quantità non migri su un'unità che non ha mai avuto — «31 giorni» viene
+  rifiutato se ciò che è stato misurato è «31 punti».
+
+**Non garantisce che** la cifra sia attribuita alla metrica giusta. Il controllo
+non capisce di quale metrica parla una frase: un testo che assegnasse una durata
+corretta alla durata sbagliata passerebbe. Chiuderlo richiede che il modello
+restituisca **riferimenti strutturati** invece di prosa, cioè che citi
+`metricId` e valore e sia il codice a comporre la frase. È un cambiamento di
+progetto, non una correzione, e va deciso.
+
+**Resta scoperto** un numero scritto a parole («trentuno») o in numeri romani:
+non contiene cifre e il controllo non lo vede.

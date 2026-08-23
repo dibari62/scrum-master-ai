@@ -38,6 +38,22 @@ export function resetIds(): void {
   counter = 0;
 }
 
+/**
+ * A valid UUID built from a short readable name.
+ *
+ * Tests read better with `uuidFor("trascinato")` than with a row of hex, and the
+ * mapping is deterministic so two runs agree. The schema demands a UUID and
+ * rightly refuses anything else; this satisfies it without making the test
+ * unreadable.
+ */
+export function uuidFor(name: string): string {
+  let hash = 0;
+  for (const character of name) hash = (hash * 31 + character.codePointAt(0)!) >>> 0;
+
+  const hex = hash.toString(16).padStart(8, "0");
+  return `${hex}-0000-4000-8000-${hex.padStart(12, "0")}`;
+}
+
 export function move(
   fromState: WorkItemState | null,
   toState: WorkItemState,
@@ -63,6 +79,7 @@ export function move(
 export function item(
   overrides: Partial<{
     id: string;
+    title: string;
     sourceCreatedAt: string;
     state: WorkItemState;
     estimate: { value: number; unit: "points" | "hours" } | null;
@@ -74,7 +91,7 @@ export function item(
     ...SCOPE,
     sourceId: `i-${overrides.id ?? WORK_ITEM_ID}`,
     kind: "story",
-    title: "Elemento di prova",
+    title: overrides.title ?? "Elemento di prova",
     description: null,
     state: overrides.state ?? "todo",
     estimate: overrides.estimate === undefined ? { value: 3, unit: "points" } : overrides.estimate,

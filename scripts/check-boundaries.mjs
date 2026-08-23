@@ -58,6 +58,22 @@ const RULES = [
       /(^|\/)\.\.\/(app|metrics|agents)(\/|$)/.test(spec) ||
       /^@\/(app|metrics|agents)(\/|$)/.test(spec),
   },
+  {
+    /*
+     * Skills consume metrics; they are consumed by the application.
+     *
+     * The arrow in AGENTS.md §4 runs `app → agents → metrics → domain`, and
+     * until now nothing enforced its right-hand side because `src/agents` did
+     * not exist. A skill that reached back into `app` would be a page and a
+     * capability at once, and could no longer be tested without a framework.
+     */
+    layer: "agents",
+    reason:
+      "src/agents is consumed by app, never the reverse, and does not translate external formats (AGENTS.md §4).",
+    forbid: (spec) =>
+      /(^|\/)\.\.\/(app|connectors|components)(\/|$)/.test(spec) ||
+      /^@\/(app|connectors|components)(\/|$)/.test(spec),
+  },
 ];
 
 /** Imports allowed only inside specific directories. */
