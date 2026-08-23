@@ -175,6 +175,13 @@ export type FidelityResult =
  * Every figure must be one of them and, when the text names a unit, must carry
  * the unit it was measured in.
  *
+ * `quotableNames` covers the proper names a report has to be able to write —
+ * «Sprint 4», a project called «Checkout 2». The digits in them are not
+ * measurements and refusing them would reject correct reports over a naming
+ * convention. They are admitted as bare numbers only: «Sprint 4» does not make
+ * «4 giorni» sayable, because the unit is still checked against what was
+ * actually measured.
+ *
  * **There is no allowance for "small" numbers.** An earlier version let anything
  * from zero to ten through as ordinary prose, on the argument that «restano
  * aperti 3 elementi» should not be refused. The argument was wrong: with an
@@ -185,8 +192,15 @@ export type FidelityResult =
 export function checkNumericFidelity(
   text: string,
   values: readonly CitableValue[],
+  quotableNames: readonly string[] = [],
 ): FidelityResult {
   const allowed = allowedFrom(values);
+  const fromNames = new Set<string>();
+
+  for (const name of quotableNames) {
+    for (const token of numericTokens(name)) fromNames.add(token);
+  }
+
   const strangers: string[] = [];
 
   const reject = (raw: string): void => {
@@ -200,12 +214,17 @@ export function checkNumericFidelity(
     if (isOrdinal(text, end)) continue;
 
     const token = normaliseNumber(raw);
+    const unit = unitAfter(text, end);
+
     if (!allowed.numbers.has(token)) {
+      // A name may be written, but only as a name: with a unit attached it is
+      // being used as a measurement, and no measurement backs it.
+      if (fromNames.has(token) && !unit) continue;
+
       reject(raw);
       continue;
     }
 
-    const unit = unitAfter(text, end);
     if (unit && !allowed.pairs.has(`${token}|${unit}`)) reject(`${raw} ${unit}`);
   }
 

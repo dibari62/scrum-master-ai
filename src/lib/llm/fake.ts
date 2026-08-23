@@ -72,11 +72,16 @@ export function createFakeProvider(): LlmProviderAdapter {
     complete: (request: LlmRequest): Promise<LlmResponse> => {
       const rendered = renderRequest(request);
 
-      const text = [
-        "[risposta simulata]",
-        `lingua: ${request.language}`,
-        `caratteri in ingresso: ${rendered.length}`,
-      ].join("\n");
+      // A caller that needs a particular shape says so; otherwise the stub
+      // answers in prose, naming what it was asked so one call is telling apart
+      // from another without the text ever varying for the same input.
+      const text =
+        request.stubResponse ??
+        [
+          "[risposta simulata]",
+          `lingua: ${request.language}`,
+          `caratteri in ingresso: ${rendered.length}`,
+        ].join("\n");
 
       return Promise.resolve({
         text,

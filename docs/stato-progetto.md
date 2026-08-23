@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 598 test<br/>Playwright · 38 test e2e"]
+        S3["Vitest · 622 test<br/>Playwright · 38 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -139,10 +139,12 @@ graph LR
     class E corso
 ```
 
-**T4 è cominciato.** La specifica di `sprint-report` è scritta, e il nucleo che la
-rende possibile esiste ed è testato: la selezione deterministica dell'evidenza,
-l'istantanea che scrive ogni numero, e il controllo di fedeltà numerica. Manca la
-chiamata al modello, la persistenza del report e la schermata.
+**T4 è cominciato.** La specifica di `sprint-report` è scritta, e la skill funziona
+da capo a fondo tranne che per l'archiviazione e la schermata: seleziona
+l'evidenza, scrive ogni numero, compone la richiesta, chiama il gateway, valida
+lo schema della risposta e **rifiuta** un resoconto che citi una cifra che nessuna
+metrica ha prodotto. Mancano la persistenza del report con la sua istantanea, la
+schermata, e il dataset dorato in `evals/`.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di

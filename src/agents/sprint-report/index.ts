@@ -10,4 +10,5 @@
  */
 export * from "./evidence";
 export * from "./fidelity";
+export * from "./generate";
 export * from "./snapshot";

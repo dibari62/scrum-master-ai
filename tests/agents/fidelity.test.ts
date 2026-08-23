@@ -214,3 +214,24 @@ describe("scappatoie chiuse", () => {
     });
   });
 });
+
+describe("nomi propri con una cifra dentro", () => {
+  it("il nome dello sprint si può scrivere", () => {
+    // «Sprint 4» è un nome, non una misura, e rifiutarlo respingerebbe report
+    // corretti per via di una convenzione di denominazione.
+    expect(
+      checkNumericFidelity("Lo sprint 4 si è chiuso.", VALUES, ["Sprint 4 — Conferma d'ordine"]),
+    ).toEqual({ faithful: true });
+  });
+
+  it("ma non si può usare come quantità", () => {
+    const result = checkNumericFidelity("Sono serviti 4 giorni.", VALUES, ["Sprint 4"]);
+
+    expect(result.faithful).toBe(false);
+  });
+
+  it("e non apre la porta agli altri numeri", () => {
+    expect(checkNumericFidelity("Sono stati chiusi 47 elementi.", VALUES, ["Sprint 4"]).faithful)
+      .toBe(false);
+  });
+});
