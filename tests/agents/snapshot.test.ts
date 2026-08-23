@@ -147,13 +147,16 @@ describe("istantanea delle metriche", () => {
   it("non somma mai stime in unità diverse", () => {
     const snapshot = buildSnapshot(
       input({
-        velocity: available({
-          points: 12,
-          hours: 30,
-          unestimatedCount: 0,
-          estimatedCount: 6,
-          mixed: true,
-        }),
+        velocity: available(
+          {
+            points: 12,
+            hours: 30,
+            unestimatedCount: 0,
+            estimatedCount: 6,
+            mixed: true,
+          },
+          6,
+        ),
       }),
     );
 
@@ -163,8 +166,24 @@ describe("istantanea delle metriche", () => {
     );
   });
 
-  it("distingue «nessuna stima» da «velocity zero»", () => {
+  it("con unità miste perde la somma ma non il conteggio", () => {
+    // Quante cose sono state chiuse resta vero anche quando le stime non si
+    // possono sommare: le unità diverse rendono priva di senso la somma, non
+    // il conteggio.
     const snapshot = buildSnapshot(
+      input({
+        velocity: available(
+          { points: 12, hours: 30, unestimatedCount: 0, estimatedCount: 6, mixed: true },
+          6,
+        ),
+      }),
+    );
+
+    expect(textOf(snapshot, "Elementi conclusi nello sprint")).toBe("6 elementi");
+  });
+
+  it("distingue «nessuna stima» da «velocity zero»", () => {
+    const senzaStime = buildSnapshot(
       input({
         velocity: available({
           points: null,
@@ -176,8 +195,24 @@ describe("istantanea delle metriche", () => {
       }),
     );
 
-    expect(textOf(snapshot, "Velocity")).toBeUndefined();
-    expect(snapshot.gaps.some((entry) => entry.metricId === "velocity")).toBe(true);
+    expect(textOf(senzaStime, "Velocity")).toBeUndefined();
+    expect(senzaStime.gaps.some((entry) => entry.metricId === "velocity")).toBe(true);
+
+    // Zero punti stimati è un fatto misurato, non una lacuna: va detto.
+    const veroZero = buildSnapshot(
+      input({
+        velocity: available({
+          points: 0,
+          hours: null,
+          unestimatedCount: 0,
+          estimatedCount: 4,
+          mixed: false,
+        }),
+      }),
+    );
+
+    expect(textOf(veroZero, "Velocity")).toBe("0 punti");
+    expect(veroZero.gaps.some((entry) => entry.metricId === "velocity")).toBe(false);
   });
 
   it("riporta le stime in ore quando il team stima in ore", () => {

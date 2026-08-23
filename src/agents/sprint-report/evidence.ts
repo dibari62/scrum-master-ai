@@ -96,17 +96,36 @@ export function selectEvidence(input: EvidenceInput): EvidenceSelection {
   const selected: EvidenceItem[] = [];
 
   for (const item of input.items) {
-    const history = byItem.get(item.id as WorkItemId) ?? [];
+    /*
+     * History is cut at `asOf` before anything is asked of it.
+     *
+     * Without this a report on a sprint that closed in August would see a
+     * reopening that happened in September and call the item «riaperto» — true
+     * later, false at the moment being reported on. A report describes an
+     * instant, and evidence from after that instant is not evidence.
+     */
+    const history = (byItem.get(item.id as WorkItemId) ?? []).filter(
+      (transition) => transition.occurredAt.getTime() <= input.asOf.getTime(),
+    );
+
     const reason = reasonFor(item, history, input);
     if (!reason) continue;
 
     selected.push({ workItemId: item.id, title: item.title, reason });
   }
 
-  // Stable within a reason: the input order is the canonical order, and a
-  // selection that reshuffled on every run would make two reports of the same
-  // sprint disagree about which items mattered.
-  selected.sort((a, b) => REASON_ORDER.indexOf(a.reason) - REASON_ORDER.indexOf(b.reason));
+  /*
+   * Priority first, then identifier.
+   *
+   * The tie-break is not decoration. With more items of one reason than the
+   * ceiling admits, the ones that survive would otherwise depend on the order
+   * the rows arrived in, and two reports on the same sprint would disagree about
+   * which items mattered.
+   */
+  selected.sort((a, b) => {
+    const byReason = REASON_ORDER.indexOf(a.reason) - REASON_ORDER.indexOf(b.reason);
+    return byReason !== 0 ? byReason : a.workItemId.localeCompare(b.workItemId);
+  });
 
   return {
     items: selected.slice(0, MAX_EVIDENCE_ITEMS),

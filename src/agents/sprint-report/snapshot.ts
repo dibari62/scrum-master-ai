@@ -74,6 +74,20 @@ function velocityValues(
 
   const totals = result.value;
 
+  /*
+   * The count is emitted first, and whatever happens to the estimates.
+   *
+   * How many items were finished stays true even when their estimates cannot be
+   * summed — mixed units make the *total* meaningless, not the tally. An earlier
+   * version returned early on mixed units and lost the count, so a sprint that
+   * had closed eight items reported nothing at all about them.
+   */
+  target.values.push({
+    metricId: "velocity",
+    label: "Elementi conclusi nello sprint",
+    text: `${formatNumber(result.sampleSize)} elementi`,
+  });
+
   if (totals.mixed) {
     target.gaps.push(gap("velocity", "Velocity", "mixed-estimate-units"));
     return;
@@ -85,23 +99,21 @@ function velocityValues(
       label: "Velocity",
       text: formatEstimate(totals.points, "points"),
     });
-  } else if (totals.hours !== null) {
+    return;
+  }
+
+  if (totals.hours !== null) {
     target.values.push({
       metricId: "velocity",
       label: "Velocity",
       text: formatEstimate(totals.hours, "hours"),
     });
-  } else {
-    // Work was done but nobody estimated it. That is a legitimate way to run a
-    // team, not a failure, and the report says so rather than showing zero.
-    target.gaps.push(gap("velocity", "Velocity", "no-qualifying-data"));
+    return;
   }
 
-  target.values.push({
-    metricId: "velocity",
-    label: "Elementi conclusi nello sprint",
-    text: `${formatNumber(result.sampleSize)} elementi`,
-  });
+  // Work was done but nobody estimated it. That is a legitimate way to run a
+  // team, not a failure, and the report says so rather than showing zero.
+  target.gaps.push(gap("velocity", "Velocity", "no-qualifying-data"));
 }
 
 export type SnapshotInput = {

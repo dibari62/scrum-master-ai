@@ -176,6 +176,92 @@ describe("selezione dell'evidenza", () => {
 
     expect(first.items).toEqual(second.items);
   });
+
+  it("sceglie gli stessi elementi anche se le righe arrivano in ordine diverso", () => {
+    // Oltre il tetto, senza un criterio di parità l'elemento escluso sarebbe
+    // quello che per caso è arrivato per ultimo: due report sullo stesso sprint
+    // non sarebbero d'accordo su cosa contava.
+    resetIds();
+    const items = Array.from({ length: 41 }, (_, index) => item({ id: uuidFor(`i${index}`) }));
+    const carried = new Set(items.map((entry) => entry.id) as WorkItemId[]);
+
+    const forward = selectEvidence(input({ items, carriedOver: carried }));
+    const backward = selectEvidence(input({ items: [...items].reverse(), carriedOver: carried }));
+
+    expect(forward.items).toEqual(backward.items);
+  });
+
+  it("non guarda ciò che è successo dopo l'istante del report", () => {
+    // Un elemento riaperto a settembre non era riaperto ad agosto. Un report
+    // descrive un istante, e un fatto successivo non è evidenza di quell'istante.
+    resetIds();
+    const a = item({ id: uuidFor("a") });
+    const history = [
+      move("in_progress", "done", "2026-08-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+      move("done", "in_progress", "2026-09-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+    ];
+
+    const selection = selectEvidence(
+      input({ items: [a], transitions: history, asOf: new Date("2026-08-10T00:00:00.000Z") }),
+    );
+
+    expect(selection.items).toEqual([]);
+  });
+
+  it("segnala la riapertura una volta che è avvenuta", () => {
+    resetIds();
+    const a = item({ id: uuidFor("a") });
+    const history = [
+      move("in_progress", "done", "2026-08-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+      move("done", "in_progress", "2026-09-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+    ];
+
+    const selection = selectEvidence(
+      input({ items: [a], transitions: history, asOf: new Date("2026-09-10T00:00:00.000Z") }),
+    );
+
+    expect(selection.items[0]?.reason).toBe("reopened");
+  });
+
+  it("segnala un cycle time oltre la soglia", () => {
+    resetIds();
+    const a = item({ id: uuidFor("a") });
+    const history = [
+      move("todo", "in_progress", "2026-08-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+      move("in_progress", "done", "2026-08-11T09:00:00.000Z", { workItemId: uuidFor("a") }),
+    ];
+
+    const selection = selectEvidence(
+      input({
+        items: [a],
+        transitions: history,
+        cycleTimeThresholdMs: 5 * DAY,
+        asOf: new Date("2026-08-20T00:00:00.000Z"),
+      }),
+    );
+
+    expect(selection.items[0]?.reason).toBe("long-cycle-time");
+  });
+
+  it("alla soglia esatta non segnala: la soglia è ciò che va superato", () => {
+    resetIds();
+    const a = item({ id: uuidFor("a") });
+    const history = [
+      move("todo", "in_progress", "2026-08-01T09:00:00.000Z", { workItemId: uuidFor("a") }),
+      move("in_progress", "done", "2026-08-06T09:00:00.000Z", { workItemId: uuidFor("a") }),
+    ];
+
+    const selection = selectEvidence(
+      input({
+        items: [a],
+        transitions: history,
+        cycleTimeThresholdMs: 5 * DAY,
+        asOf: new Date("2026-08-20T00:00:00.000Z"),
+      }),
+    );
+
+    expect(selection.items).toEqual([]);
+  });
 });
 
 describe("testo ostile fra l'evidenza", () => {

@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 572 test<br/>Playwright · 38 test e2e"]
+        S3["Vitest · 598 test<br/>Playwright · 38 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
