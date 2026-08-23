@@ -188,7 +188,8 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
       "Un campione al giorno, preso all'ora di inizio dello sprint, di quanto lavoro risultava ancora aperto in quell'istante.",
     unit: "points",
     excludes: [
-      "Nulla: la composizione dello sprint viene ricalcolata a ogni campione, così un elemento aggiunto a metà appare nel punto in cui è entrato.",
+      "Gli elementi conclusi e quelli annullati, che è esattamente ciò che fa scendere la linea.",
+      "Nessun elemento entrato a metà sprint viene ignorato: la composizione è ricalcolata a ogni campione, ed è per questo che la linea può salire.",
     ],
     unavailableWhen: "Lo sprint non ha una durata valida.",
     decision:
