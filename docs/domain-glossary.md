@@ -270,6 +270,24 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | `LlmProvider` | Fornitore di modello | `gemini` \| `groq` \| `fake` (ADR-0005). Registrato su ogni `SkillRun`. | Con un fallback fra due fornitori, sapere chi ha servito una richiesta è parte del registro. |
 | `TokenBudget` | Budget di token | Tetto massimo di token per una singola esecuzione, dichiarato dalla skill e riducibile dalla policy. | ADR-0004 impone che ogni skill dichiari un budget; serve il nome del concetto. |
 
+### Aggiunte proposte — T4, in attesa di approvazione
+
+> Introdotte scrivendo la specifica della prima skill che narra numeri
+> ([`specs/sprint-report/spec.md`](../specs/sprint-report/spec.md)). Restano qui finché il
+> Product Owner non le approva; una volta approvate vanno assorbite nella tabella sopra.
+
+| Codice | Italiano | Definizione | Perché serve |
+|---|---|---|---|
+| `MetricSnapshot` | Istantanea delle metriche | L'oggetto strutturato con tutti i valori prodotti da `src/metrics` per un `SprintReport`, congelato al momento della generazione e conservato insieme al report. | Un report va riletto fra tre mesi e deve continuare a dire gli stessi numeri. Ricalcolarli alla rilettura li farebbe cambiare sotto gli occhi del lettore; senza un nome, ogni agente chiamerebbe questa cosa in modo diverso. |
+| `CitableValue` | Valore citabile | Una stringa **già formattata dal codice** (numero, unità, data) che il modello è autorizzato a riportare nel testo, con il `metricId` da cui proviene. L'insieme dei valori citabili è chiuso. | È il meccanismo con cui R1 diventa verificabile invece che raccomandata: se ogni numero del testo deve appartenere a questo insieme, un numero inventato o calcolato dal modello è rilevabile da una macchina. |
+| `ReportEvidence` | Evidenza del report | L'insieme di `WorkItem` selezionati dal codice con regole deterministiche e passati al modello come **contenuto non fidato**, ciascuno con il motivo della selezione. | §9 impone il pre-filtro deterministico. «Gli elementi rilevanti» va nominato, altrimenti diventa «il contesto», che è tutto e niente. |
+| `EvidenceReason` | Motivo di selezione | Perché un `WorkItem` è finito nell'evidenza: `carry-over` \| `mid-sprint-addition` \| `long-review-wait` \| `reopened` \| `long-cycle-time`. Insieme chiuso, scritto dal codice. | Il motivo è un fatto calcolato, non un'interpretazione del modello. Averlo esplicito permette di verificare la selezione senza rileggere il prompt. |
+| `DataGap` | Lacuna di dato | La dichiarazione che una metrica **non è disponibile** per questo sprint, con il motivo. Scritta dal codice, mai dedotta dal modello. | «Sprint vuoto» e «sprint disastroso» devono essere distinguibili nel testo come lo sono già in `MetricResult`. Senza questo termine la traduzione fra i due livelli si perde. |
+| `AttentionPoint` | Punto di attenzione | Osservazione **di processo** contenuta in un report, obbligatoriamente ancorata a un `metricId` disponibile nell'istantanea. Non ha confidenza e non propone azioni. | Va distinto da `Insight`, che è un'entità persistita di T5 con evidenza, confidenza ed eventuale azione suggerita. Confonderli farebbe scivolare il livello di autonomia da `report` ad `advise` senza che nessuno lo decida. |
+| `ReportOrigin` | Origine del report | Chi ha prodotto il testo: `model` (narrato da un modello) \| `code` (composto dal codice, quando non c'è nulla da narrare). | Un report su uno sprint vuoto è legittimo ma non è stato scritto da un modello. Dichiararlo evita che una dimostrazione sembri usare l'IA dove non la usa. |
+| `GoldenDataset` | Dataset dorato | Insieme fisso di casi di ingresso, con le proprietà attese del risultato, su cui si valutano gli output di un modello. Vive in `evals/`. | `AGENTS.md` §6 lo usa già come espressione corrente ma non lo definisce; è l'unità di misura di ogni modifica a un prompt. |
+| `NumericFidelity` | Fedeltà numerica | Proprietà verificata su un output: ogni numero citato nel testo appartiene ai `CitableValue` dell'istantanea. | È il nome della verifica che la roadmap chiede in T4. Nominata, può essere una eval; non nominata, resta un'intenzione. |
+
 ---
 
 ## 5. Termini da non usare
@@ -286,3 +304,6 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | performance del team (come giudizio) | metrica di flusso |
 | «persona» (per il carattere dello Scrum Master AI) | `AgentPersona` — `Person` è il membro del team nelle fonti dati |
 | «stakeholder» come sinonimo di membro del team | `Stakeholder` è un destinatario di comunicazioni, `Person` è chi lavora nel progetto |
+| «contesto» (per gli elementi passati al modello) | `ReportEvidence` — «contesto» significa già `ProjectContext` |
+| «insight» (per un'osservazione dentro un report) | `AttentionPoint` — `Insight` è l'entità persistita di T5, con confidenza e azione |
+| «dato mancante» come sinonimo di zero | `DataGap` — l'assenza di una metrica è un fatto da dichiarare, non un valore |
