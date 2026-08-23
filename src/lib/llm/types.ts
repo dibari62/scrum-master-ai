@@ -38,6 +38,21 @@ export type LlmRequest = {
    * Absent in T3: `configuration-check` sends no project data at all.
    */
   readonly untrustedData?: readonly UntrustedBlock[] | undefined;
+  /**
+   * What the deterministic provider should answer, when a shape is required.
+   *
+   * A skill whose output must parse as JSON cannot be demonstrated against a
+   * stub that always replies in prose: the run would fail on `invalid_output`
+   * every time, and a capability nobody can see is a capability nobody can
+   * check. Declaring the canned answer at the call site keeps the stub generic —
+   * it knows nothing about reports — and keeps the shape next to the schema that
+   * defines it.
+   *
+   * **Ignored by every real provider.** A vendor is asked the question and
+   * answers it; this exists so that the answer has somewhere to come from when
+   * there is no vendor.
+   */
+  readonly stubResponse?: string | undefined;
   /** The ceiling for this call, already reconciled between skill and policy. */
   readonly maxTokens: number;
   /** Drives the language of the answer, never its content. */
