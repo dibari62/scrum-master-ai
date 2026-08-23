@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 532 test<br/>Playwright · 38 test e2e"]
+        S3["Vitest · 572 test<br/>Playwright · 38 test e2e"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -133,11 +133,16 @@ graph LR
     D --> E["T4<br/>prime skill"]
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
-    classDef prossimo fill:#eab308,stroke:#ca8a04,color:#000
+    classDef corso fill:#eab308,stroke:#ca8a04,color:#000
 
     class A,B,C,C1,D fatto
-    class E prossimo
+    class E corso
 ```
+
+**T4 è cominciato.** La specifica di `sprint-report` è scritta, e il nucleo che la
+rende possibile esiste ed è testato: la selezione deterministica dell'evidenza,
+l'istantanea che scrive ogni numero, e il controllo di fedeltà numerica. Manca la
+chiamata al modello, la persistenza del report e la schermata.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
@@ -181,6 +186,7 @@ Cose note e volutamente rimandate, non sviste:
 | `reviewWaitTime` misura lo stato, non la pull request | [glossario](domain-glossary.md) | con il connettore GitHub |
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |
+| L'agente `product-analyst` ha consegnato metà lavoro su T4 | — | ha scritto il vocabolario e non la specifica, lasciando un rimando a un file inesistente. Verificare sempre la consegna, non fidarsi del resoconto |
 | `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 38 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
