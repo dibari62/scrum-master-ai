@@ -37,11 +37,13 @@ export type SkillKey = z.infer<typeof skillKeySchema>;
 /**
  * Skills this release can actually execute.
  *
- * `configuration-check` is alone on purpose: T3 builds the object and the
- * plumbing, not the capabilities. Everything else is refused **before** the
- * gateway, so a declaration of intent never consumes a token.
+ * `sprint-report` joined `configuration-check` in T4. Everything else is refused
+ * **before** the gateway, so a declaration of intent never consumes a token.
  */
-const AVAILABLE_SKILL_KEYS: ReadonlySet<SkillKey> = new Set(["configuration-check"]);
+const AVAILABLE_SKILL_KEYS: ReadonlySet<SkillKey> = new Set([
+  "configuration-check",
+  "sprint-report",
+]);
 
 export function isSkillAvailable(key: SkillKey): boolean {
   return AVAILABLE_SKILL_KEYS.has(key);

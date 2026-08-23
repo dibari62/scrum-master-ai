@@ -23,6 +23,7 @@ import {
   pullRequests,
   scrumAgents,
   skillRuns,
+  sprintReports,
   sprintScopeEvents,
   sprints,
   stateTransitions,
@@ -37,6 +38,15 @@ import {
  * project's whole history over an HTTP driver on a free tier.
  */
 export const MAX_SKILL_RUN_PAGE_SIZE = 50;
+
+/**
+ * Reports are far heavier than runs: each carries its whole snapshot.
+ *
+ * A smaller page for the same reason the register has one — the card shows the
+ * recent ones, and fetching a project's entire reporting history over an HTTP
+ * driver on a free tier is a page that eventually stops loading.
+ */
+export const MAX_SPRINT_REPORT_PAGE_SIZE = 10;
 
 /**
  * Tenant-scoped access to the database.
@@ -331,6 +341,26 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         )
         .orderBy(desc(skillRuns.startedAt))
         .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_SKILL_RUN_PAGE_SIZE)),
+
+    /**
+     * Sprint reports, most recent first.
+     *
+     * Regenerating adds a report rather than replacing one (spec §11 Q3):
+     * deleting is irreversible and accumulating is not, so the history stays and
+     * the card shows the head of it.
+     */
+    sprintReportsByProject: (projectId: ProjectId, limit = MAX_SPRINT_REPORT_PAGE_SIZE) =>
+      db
+        .select()
+        .from(sprintReports)
+        .where(
+          and(
+            eq(sprintReports.organizationId, organizationId),
+            eq(sprintReports.projectId, projectId),
+          ),
+        )
+        .orderBy(desc(sprintReports.generatedAt))
+        .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_SPRINT_REPORT_PAGE_SIZE)),
   } as const;
 
   const writes = {
@@ -360,6 +390,25 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           and(
             eq(memberships.organizationId, organizationId),
             eq(memberships.userId, userId),
+          ),
+        )
+        .returning(),
+
+    /**
+     * Which capabilities an agent is allowed to run.
+     *
+     * T3 shipped `enabledSkillKeys` with no way to populate it: the wizard never
+     * set it and nothing could change it afterwards, so the field described a
+     * decision nobody could take. With a real skill to enable, it becomes one.
+     */
+    setEnabledSkills: (projectId: ProjectId, keys: readonly string[]) =>
+      db
+        .update(scrumAgents)
+        .set({ enabledSkillKeys: [...keys], updatedAt: new Date() })
+        .where(
+          and(
+            eq(scrumAgents.organizationId, organizationId),
+            eq(scrumAgents.projectId, projectId),
           ),
         )
         .returning(),
