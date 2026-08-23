@@ -45,21 +45,28 @@ function aRun(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("catalogo delle skill (perimetro di T3)", () => {
+describe("catalogo delle skill", () => {
   it("dichiara le skill future senza renderle eseguibili", () => {
-    // La specifica esclude esplicitamente le skill vere da T3. Dichiararle
-    // serve al catalogo; renderle eseguibili violerebbe il perimetro.
+    /*
+     * Dichiarare una skill serve al catalogo; renderla eseguibile è un'altra
+     * decisione. `sprint-report` è passata da dichiarata a eseguibile in T4,
+     * quando è stata costruita: le altre restano intenzioni.
+     */
     expect(isSkillAvailable("configuration-check")).toBe(true);
+    expect(isSkillAvailable("sprint-report")).toBe(true);
 
-    for (const key of ["sprint-report", "daily-digest", "project-qa"] as const) {
-      expect(isSkillAvailable(key), `${key} non deve essere eseguibile in T3`).toBe(false);
+    for (const key of ["daily-digest", "project-qa", "sprint-health"] as const) {
+      expect(isSkillAvailable(key), `${key} non è ancora costruita`).toBe(false);
     }
   });
 
-  it("in T3 esiste una sola skill eseguibile", () => {
+  it("eseguibile è un sottoinsieme proprio di dichiarata", () => {
+    // Se coincidessero, la distinzione fra ciò che il prodotto promette e ciò
+    // che sa fare sparirebbe, ed è esattamente la distinzione che serve.
     const eseguibili = skillKeySchema.options.filter(isSkillAvailable);
 
-    expect(eseguibili).toEqual(["configuration-check"]);
+    expect(eseguibili).toEqual(["configuration-check", "sprint-report"]);
+    expect(eseguibili.length).toBeLessThan(skillKeySchema.options.length);
   });
 
   it("rifiuta in ingresso una chiave che non esiste", () => {

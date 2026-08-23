@@ -3,11 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { organizationIdSchema, projectIdSchema } from "@/domain";
+import {
+  isKnownSkillKey,
+  isSkillAvailable,
+  organizationIdSchema,
+  projectIdSchema,
+  sprintIdSchema,
+} from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { auth } from "@/lib/auth";
-import { createAgent, loadAgent, parseWizardForm } from "@/lib/agents/scrum-agent";
+import { createAgent, loadAgent, mayConfigureAgent, parseWizardForm } from "@/lib/agents/scrum-agent";
 import { runConfigurationCheck } from "@/lib/agents/runtime";
+import { runSprintReport } from "@/lib/agents/sprint-report-runtime";
 
 /**
  * Server actions for the Scrum Master AI.
@@ -67,8 +74,7 @@ export async function createAgentAction(
   redirect(`/progetti/${slug}/scrum-master`);
 }
 
-export async function runConfigurationCheckAction(form: FormData): Promise<void> {
-  const session = await auth();
+export async function runConfigurationCheckAction(form: FormData): Promise<void> {  const session = await auth();
   if (!session?.organizationId) redirect("/accedi");
 
   const slug = form.get("slug");
@@ -105,6 +111,107 @@ export async function runConfigurationCheckAction(form: FormData): Promise<void>
     projectId,
     agent: loaded.agent,
     options: { runsToday },
+  });
+
+  revalidatePath(`/progetti/${slug}/scrum-master`);
+}
+
+/**
+ * Enables or disables a capability on this project's agent.
+ *
+ * T3 shipped `enabledSkillKeys` with nothing able to set it, so the card
+ * announced a decision nobody could take. With a real skill to enable, the
+ * announcement becomes a control.
+ */
+export async function setSkillEnabledAction(form: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  const key = form.get("skillKey");
+  if (typeof slug !== "string" || typeof key !== "string") redirect("/progetti");
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) redirect("/progetti");
+
+  const projectId = projectIdSchema.parse(project.id);
+  const loaded = await loadAgent(organizationId, projectId);
+  if (!loaded) redirect(`/progetti/${slug}`);
+
+  // Only an administrator configures the agent (spec Q4), and the check lives
+  // here as well as in the interface: a hidden button is not an authorisation.
+  if (!mayConfigureAgent(session.role)) redirect(`/progetti/${slug}/scrum-master`);
+
+  // Only a key the catalogue knows and this release can run. Anything else
+  // would write a value that `isSkillAvailable` will refuse later anyway.
+  if (!isKnownSkillKey(key) || !isSkillAvailable(key)) {
+    redirect(`/progetti/${slug}/scrum-master`);
+  }
+
+  const enabled = new Set(loaded.agent.enabledSkillKeys);
+  if (form.get("enable") === "1") enabled.add(key);
+  else enabled.delete(key);
+
+  await scope.writes.setEnabledSkills(projectId, [...enabled]);
+
+  revalidatePath(`/progetti/${slug}/scrum-master`);
+}
+
+/**
+ * The demonstration answer for the deterministic provider.
+ *
+ * Without it a stub that always replies in prose would fail the schema every
+ * time, and the capability would be invisible to anyone without a vendor key.
+ * It quotes only figures the snapshot supplies, so it passes the same fidelity
+ * check a real model's answer has to pass — a canned answer that cheated would
+ * be a demonstration of nothing.
+ */
+const DEMO_ANSWER = JSON.stringify({
+  summary:
+    "Lo sprint si è concluso e il lavoro portato a termine è quello riportato qui accanto. " +
+    "Il resoconto si limita a ciò che le misure dicono, senza aggiungere valutazioni sulle persone.",
+  flow:
+    "Il percorso degli elementi, dalla presa in carico alla chiusura, è descritto dalle durate " +
+    "riportate accanto a questo testo. Dove una misura non è calcolabile, viene dichiarata come tale.",
+  attentionPoints: [],
+});
+
+export async function runSprintReportAction(form: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  const sprintId = form.get("sprintId");
+  if (typeof slug !== "string" || typeof sprintId !== "string") redirect("/progetti");
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) redirect("/progetti");
+
+  const projectId = projectIdSchema.parse(project.id);
+  const loaded = await loadAgent(organizationId, projectId);
+  if (!loaded) redirect(`/progetti/${slug}`);
+
+  const runs = await scope.reads.skillRunsByProject(projectId);
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const runsToday = runs.filter(
+    (run) =>
+      run.scrumAgentId === loaded.agent.id && run.startedAt.getTime() >= startOfDay.getTime(),
+  ).length;
+
+  await runSprintReport({
+    organizationId,
+    projectId,
+    sprintId: sprintIdSchema.parse(sprintId),
+    agent: loaded.agent,
+    options: { runsToday, stubResponse: DEMO_ANSWER },
   });
 
   revalidatePath(`/progetti/${slug}/scrum-master`);

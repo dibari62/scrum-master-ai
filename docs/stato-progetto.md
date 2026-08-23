@@ -15,7 +15,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 635 test<br/>Playwright · 38 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 638 test<br/>Playwright · 42 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -32,6 +32,7 @@ graph TB
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
         D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
+        D6["Resoconti di sprint<br/>con la loro istantanea"]
     end
 
     subgraph UI["🖥️ Interfaccia"]
@@ -52,7 +53,7 @@ graph TB
     class S1,S2,S3,S4 fatto
     class I1,I2,I3 fatto
     class I4 todo
-    class D1,D2,D3,D4,D5 fatto
+    class D1,D2,D3,D4,D5,D6 fatto
     class U1,U2,U3,U4,U5,U6,U7,U8 fatto
 ```
 
@@ -131,20 +132,22 @@ graph LR
     C --> C1["T2.1<br/>si entra nei numeri"]
     C1 --> D["T3<br/>Scrum Master AI"]
     D --> E["T4<br/>prime skill"]
+    E --> F["T5<br/>salute e colli<br/>di bottiglia"]
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
     classDef corso fill:#eab308,stroke:#ca8a04,color:#000
 
-    class A,B,C,C1,D fatto
-    class E corso
+    class A,B,C,C1,D,E fatto
+    class F corso
 ```
 
-**T4 è cominciato.** La specifica di `sprint-report` è scritta, e la skill funziona
-da capo a fondo tranne che per l'archiviazione e la schermata: seleziona
-l'evidenza, scrive ogni numero, compone la richiesta, chiama il gateway, valida
-lo schema della risposta e **rifiuta** un resoconto che citi una cifra che nessuna
-metrica ha prodotto. Esiste il dataset dorato con cinque casi e il runner delle
-eval. Mancano la persistenza del report con la sua istantanea e la schermata.
+**T4 è completo nel suo primo perimetro.** Dalla scheda dello Scrum Master AI si
+abilita la skill, si genera il resoconto dell'ultimo sprint concluso e lo si legge
+**accanto ai numeri su cui si fonda**. Il testo viene rifiutato se cita una cifra
+che nessuna metrica ha prodotto. Il report è archiviato insieme alla sua
+istantanea, quindi riletto fra mesi dirà gli stessi numeri. Restano fuori dal
+perimetro dichiarato: gli altri due destinatari, `daily-digest`, il riscontro
+dell'utente e l'esecuzione schedulata.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
@@ -189,7 +192,7 @@ Cose note e volutamente rimandate, non sviste:
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |
 | L'agente `product-analyst` ha consegnato metà lavoro su T4 | — | ha scritto il vocabolario e non la specifica, lasciando un rimando a un file inesistente. Verificare sempre la consegna, non fidarsi del resoconto |
-| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 38 test Playwright su Chrome |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 42 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
 | `npm run eval` era un segnaposto | `AGENTS.md` §6 | ~~finché non c'era un output LLM da valutare~~ **fatto**: dataset dorato di cinque casi e runner. Il controllo di CI «Valutazione output LLM» ora esegue qualcosa |

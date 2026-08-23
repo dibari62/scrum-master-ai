@@ -16,3 +16,4 @@ export * from "./sprint-scope";
 export * from "./collaboration";
 
 export * from "./scrum-agent";
+export * from "./sprint-report";

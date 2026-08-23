@@ -66,6 +66,7 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   projectContextByProject: (scope) =>
     scope.reads.projectContextByProject(PROJECT_ID).toSQL(),
   skillRunsByProject: (scope) => scope.reads.skillRunsByProject(PROJECT_ID).toSQL(),
+  sprintReportsByProject: (scope) => scope.reads.sprintReportsByProject(PROJECT_ID).toSQL(),
 };
 
 /** Same contract for writes: an unlisted write breaks the build. */
@@ -79,6 +80,8 @@ const WRITES: Record<TenantWriteName, (scope: TenantScope) => Query> = {
   addMembership: (scope) =>
     scope.writes.addMembership({ userId: USER_ID, role: "member" }).toSQL(),
   removeMembership: (scope) => scope.writes.removeMembership(USER_ID).toSQL(),
+  setEnabledSkills: (scope) =>
+    scope.writes.setEnabledSkills(PROJECT_ID, ["sprint-report"]).toSQL(),
 };
 
 const readNames = Object.keys(READS) as ReadonlyArray<TenantReadName>;

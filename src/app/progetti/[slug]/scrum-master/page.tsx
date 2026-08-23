@@ -11,9 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  metricSnapshotSchema,
   organizationIdSchema,
   projectIdSchema,
   projectSchema,
+  reportContentSchema,
+  reportOriginSchema,
   type AgentPersona,
   type AgentStatus,
   type AutonomyLevel,
@@ -24,7 +27,11 @@ import { auth } from "@/lib/auth";
 import { loadAgent, mayConfigureAgent } from "@/lib/agents/scrum-agent";
 import { formatCostUsd, formatDate, formatDuration, formatNumber } from "@/lib/format";
 
-import { runConfigurationCheckAction } from "./actions";
+import {
+  runConfigurationCheckAction,
+  runSprintReportAction,
+  setSkillEnabledAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -90,9 +97,35 @@ export default async function ScrumMasterPage({ params }: PageProps) {
   if (!loaded) redirect(`/progetti/${slug}/scrum-master/crea`);
 
   const { agent, context } = loaded;
-  const runs = await scope.reads.skillRunsByProject(projectId);
+  const [runs, reportRows, sprintRows] = await Promise.all([
+    scope.reads.skillRunsByProject(projectId),
+    scope.reads.sprintReportsByProject(projectId),
+    scope.reads.sprintsByProject(projectId),
+  ]);
+
+  const reports = reportRows.map((row) => ({
+    id: row.id,
+    origin: reportOriginSchema.parse(row.origin),
+    content: reportContentSchema.parse(row.content),
+    snapshot: metricSnapshotSchema.parse(row.snapshot),
+    generatedAt: row.generatedAt,
+  }));
+
+  /*
+   * Only closed sprints can be reported on.
+   *
+   * The most recently closed one is offered, because it is the one a team asks
+   * about. Choosing among them is a control this screen does not need yet, and
+   * an empty dropdown is worse than a disabled button that says why.
+   */
+  const closedSprints = sprintRows
+    .filter((sprint) => sprint.completedAt !== null)
+    .sort((a, b) => b.endsAt.getTime() - a.endsAt.getTime());
+
+  const latestClosed = closedSprints[0];
 
   const canConfigure = mayConfigureAgent(session.role);
+  const reportSkillEnabled = agent.enabledSkillKeys.includes("sprint-report");
 
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
@@ -218,6 +251,160 @@ export default async function ScrumMasterPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
+      </section>
+
+      <section className="grid gap-3">
+        <h2 className="text-lg font-medium">Resoconto di sprint</h2>
+
+        <Card>
+          <CardContent className="grid gap-3 pt-6">
+            {latestClosed ? (
+              <>
+                <p className="text-muted-foreground text-sm">
+                  Genera il resoconto di <strong>{latestClosed.name}</strong>, l&apos;ultimo
+                  sprint concluso. I numeri sono calcolati dal codice: il modello li racconta e
+                  non può citarne altri.
+                </p>
+
+                {!canConfigure ? (
+                  <p className="text-muted-foreground text-sm">
+                    Serve un ruolo di amministratore per generare un resoconto.
+                  </p>
+                ) : reportSkillEnabled ? (
+                  <div className="flex flex-wrap gap-2">
+                    <form action={runSprintReportAction}>
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="sprintId" value={latestClosed.id} />
+                      <Button type="submit" disabled={agent.status === "suspended"}>
+                        Genera il resoconto
+                      </Button>
+                    </form>
+
+                    <form action={setSkillEnabledAction}>
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="skillKey" value="sprint-report" />
+                      <input type="hidden" name="enable" value="0" />
+                      <Button type="submit" variant="outline">
+                        Disabilita la skill
+                      </Button>
+                    </form>
+                  </div>
+                ) : (
+                  <>
+                    {/*
+                     * La configurazione viene rispettata, non decorata: se la
+                     * skill non è abilitata il comando non c'è, e al suo posto
+                     * c'è il modo di abilitarla. Un pulsante che fallisse
+                     * dicendo «non abilitata» sposterebbe sull'utente il compito
+                     * di indovinare dove si abilita.
+                     */}
+                    <p className="text-muted-foreground text-sm">
+                      Il resoconto di sprint non è fra le skill abilitate su questo Scrum Master
+                      AI.
+                    </p>
+
+                    <form action={setSkillEnabledAction}>
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="skillKey" value="sprint-report" />
+                      <input type="hidden" name="enable" value="1" />
+                      <Button type="submit">Abilita il resoconto di sprint</Button>
+                    </form>
+                  </>
+                )}
+              </>
+            ) : (
+              /*
+               * Il motivo scritto, non solo un pulsante grigio. Un comando
+               * disattivato senza spiegazione lascia chi legge a indovinare se
+               * manchi un permesso, un dato o se sia rotto qualcosa.
+               */
+              <p className="text-muted-foreground text-sm">
+                Nessuno sprint concluso: il resoconto di fine sprint si può generare solo su uno
+                sprint chiuso, perché su uno ancora aperto direbbe al passato numeri destinati a
+                cambiare.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {reports.length === 0 ? (
+          <Card>
+            <CardContent className="text-muted-foreground pt-6 text-sm">
+              Nessun resoconto generato.
+            </CardContent>
+          </Card>
+        ) : (
+          reports.map((report) => (
+            <Card key={report.id} data-report>
+              <CardHeader>
+                <CardTitle className="text-base" data-report-sprint>
+                  {report.snapshot.sprintName}
+                </CardTitle>
+                <CardDescription>
+                  {formatDate(report.generatedAt)} ·{" "}
+                  {report.origin === "model"
+                    ? "narrato da un modello"
+                    : "composto dal codice: non c'era nulla da narrare"}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="grid gap-4">
+                <div className="grid gap-3 text-sm" data-report-prose>
+                  <p>{report.content.summary}</p>
+                  <p>{report.content.flow}</p>
+
+                  {report.content.attentionPoints.length > 0 ? (
+                    <ul className="grid list-disc gap-1 pl-5">
+                      {report.content.attentionPoints.map((point) => (
+                        <li key={`${point.metricId}-${point.observation.slice(0, 12)}`}>
+                          {point.observation}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+
+                {/*
+                 * I numeri accanto al testo, non altrove.
+                 *
+                 * Chi legge deve poter confrontare senza cambiare pagina: è
+                 * l'unico modo in cui l'affermazione «le cifre vengono dal
+                 * codice» diventa qualcosa che si può controllare invece che
+                 * credere.
+                 */}
+                <div className="grid gap-2 border-t pt-4">
+                  <h3 className="text-sm font-medium">I numeri su cui si fonda</h3>
+
+                  <dl className="grid gap-1 text-sm sm:grid-cols-2">
+                    {report.snapshot.values.map((value) => (
+                      <div
+                        key={`${value.metricId}-${value.label}`}
+                        className="flex gap-2"
+                        data-report-figure
+                      >
+                        <dt className="text-muted-foreground">{value.label}:</dt>
+                        <dd className="font-medium">{value.text}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {report.snapshot.gaps.length > 0 ? (
+                    <div className="grid gap-1 pt-2">
+                      <h3 className="text-sm font-medium">Non calcolabili per questo sprint</h3>
+                      <ul className="text-muted-foreground grid list-disc gap-1 pl-5 text-sm">
+                        {report.snapshot.gaps.map((gap) => (
+                          <li key={`${gap.metricId}-${gap.label}`}>
+                            {gap.label}: {gap.explanation}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </section>
 
       <section className="grid gap-3">
