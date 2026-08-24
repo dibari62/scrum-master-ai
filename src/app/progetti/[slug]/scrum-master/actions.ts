@@ -113,7 +113,7 @@ export async function runConfigurationCheckAction(form: FormData): Promise<void>
     options: { runsToday },
   });
 
-  revalidatePath(`/progetti/${slug}/scrum-master`);
+  revalidatePath(`/progetti/${slug}/scrum-master/diario`);
 }
 
 /**
@@ -214,5 +214,16 @@ export async function runSprintReportAction(form: FormData): Promise<void> {
     options: { runsToday, stubResponse: DEMO_ANSWER },
   });
 
+  /*
+   * Si arriva dove il risultato si vede.
+   *
+   * Il comando sta nella schermata delle capacità e ciò che produce sta in
+   * quella dei resoconti: restare dove si era lascerebbe chi ha premuto il
+   * pulsante davanti a una pagina immutata, a chiedersi se sia successo
+   * qualcosa. `revalidatePath` su entrambe perché anche il conteggio nel menù
+   * è cambiato.
+   */
   revalidatePath(`/progetti/${slug}/scrum-master`);
+  revalidatePath(`/progetti/${slug}/scrum-master/resoconti`);
+  redirect(`/progetti/${slug}/scrum-master/resoconti`);
 }
