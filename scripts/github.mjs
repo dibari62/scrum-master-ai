@@ -21,20 +21,24 @@ import { readFileSync } from "node:fs";
  * command-line argument, where a process list would expose it.
  *
  * Usage:
- *   node scripts/github.mjs pr-open   <owner> <repo> <head> <base> <title> [bodyFile]
- *   node scripts/github.mjs pr-status <owner> <repo> <number>
- *   node scripts/github.mjs pr-merge  <owner> <repo> <number>
- *   node scripts/github.mjs ci-log    <owner> <repo> <number>
+ *   node scripts/github.mjs pr-open     <owner> <repo> <head> <base> <title> [bodyFile]
+ *   node scripts/github.mjs pr-status   <owner> <repo> <number>
+ *   node scripts/github.mjs pr-merge    <owner> <repo> <number>
+ *   node scripts/github.mjs ci-log      <owner> <repo> <number>
+ *   node scripts/github.mjs deployments <owner> <repo> [environment]
+ *   node scripts/github.mjs ping        <url>
  *
  * Behind a TLS-inspecting proxy, prefix with `node --use-system-ca`
  * (see `scripts/diagnose-tls.mjs`).
  */
 
 const USAGE = `uso:
-  node scripts/github.mjs pr-open   <owner> <repo> <head> <base> <titolo> [fileCorpo]
-  node scripts/github.mjs pr-status <owner> <repo> <numero>
-  node scripts/github.mjs pr-merge  <owner> <repo> <numero>
-  node scripts/github.mjs ci-log    <owner> <repo> <numero>`;
+  node scripts/github.mjs pr-open     <owner> <repo> <head> <base> <titolo> [fileCorpo]
+  node scripts/github.mjs pr-status   <owner> <repo> <numero>
+  node scripts/github.mjs pr-merge    <owner> <repo> <numero>
+  node scripts/github.mjs ci-log      <owner> <repo> <numero>
+  node scripts/github.mjs deployments <owner> <repo> [ambiente]
+  node scripts/github.mjs ping        <url>`;
 
 /**
  * Asks Git Credential Manager for the token it uses to push.
@@ -192,11 +196,79 @@ async function ciLog(client, [owner, repo, number]) {
   }
 }
 
+/**
+ * Where production is, and whether it is answering.
+ *
+ * **Why this is worth a command.** The published address was written down
+ * nowhere: `guardare-i-dati.md` said to look it up on Vercel, which is fine
+ * until somebody needs to check a deployment from a terminal — and then the one
+ * question that matters after a merge, *did it actually go out*, has no answer
+ * that does not involve a browser and a login.
+ *
+ * Vercel records every deployment against GitHub, so the answer is already in
+ * the repository's own history. This reads it back.
+ *
+ * The status check is deliberately separate from the deployment state. Vercel
+ * reporting `success` means the build finished, not that the application works:
+ * `next build` completes even with no environment variables at all, so a green
+ * deployment with a wrong `DATABASE_URL` looks exactly like a healthy one. The
+ * HTTP request is the part that distinguishes them.
+ */
+async function deployments(client, [owner, repo, environment = "Production"]) {
+  if (!owner || !repo) throw new Error(USAGE);
+
+  const found = await client.json(
+    `/repos/${owner}/${repo}/deployments?environment=${encodeURIComponent(environment)}&per_page=5`,
+  );
+
+  if (found.length === 0) {
+    console.log(`nessun deploy per l'ambiente "${environment}"`);
+    return;
+  }
+
+  for (const deployment of found) {
+    const statuses = await client.json(
+      `/repos/${owner}/${repo}/deployments/${deployment.id}/statuses?per_page=1`,
+    );
+
+    const latest = statuses[0];
+    const url = latest?.environment_url ?? latest?.target_url ?? "—";
+
+    console.log(`${deployment.sha.slice(0, 7)}  ${latest?.state ?? "sconosciuto"}  ${url}`);
+    console.log(`         creato: ${deployment.created_at}`);
+  }
+}
+
+/**
+ * Asks the published site whether it is alive.
+ *
+ * Follows redirects on purpose: a site behind Vercel's deployment protection
+ * answers with a redirect to a login page rather than an error, and reporting
+ * that as "up" would be the most misleading possible answer.
+ */
+async function ping(_client, [url]) {
+  if (!url) throw new Error(USAGE);
+
+  const response = await fetch(url, { redirect: "manual" });
+  const location = response.headers.get("location");
+
+  console.log(`${url} -> ${response.status}`);
+
+  if (location) {
+    console.log(`   rimanda a: ${location}`);
+    if (location.includes("vercel.com/login")) {
+      console.log("   il sito è in piedi ma NON è pubblico: Deployment Protection è attiva");
+    }
+  }
+}
+
 const COMMANDS = {
   "pr-open": prOpen,
   "pr-status": prStatus,
   "pr-merge": prMerge,
   "ci-log": ciLog,
+  deployments,
+  ping,
 };
 
 const [command, ...args] = process.argv.slice(2);

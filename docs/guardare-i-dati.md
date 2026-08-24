@@ -13,18 +13,40 @@ L'applicazione su Vercel e il computer di sviluppo **usano lo stesso database
 Neon**. Non ci sono due copie dei dati: quello che vedi online è esattamente
 quello che vede chi sviluppa.
 
-1. Apri l'indirizzo di produzione (lo trovi su Vercel, sezione **Domains** del
-   progetto)
+### Trovare l'indirizzo giusto
+
+L'indirizzo cambia a ogni pubblicazione. Per sapere qual è quello **attuale**,
+senza aprire Vercel:
+
+```powershell
+$env:NODE_OPTIONS = "--use-system-ca"
+npm run gh -- deployments dibari62 scrum-master-ai
+```
+
+Stampa gli ultimi cinque deploy di produzione, il più recente per primo, con il
+commit da cui vengono e l'esito. Per controllare che risponda:
+
+```powershell
+npm run gh -- ping https://<indirizzo>/
+```
+
+> **Non tirare a indovinare l'indirizzo.** `scrum-master.vercel.app` risponde
+> `200` e **non è questo progetto**: è un'applicazione di qualcun altro che si
+> chiama Kivora. È la trappola peggiore possibile, perché una verifica
+> superficiale conclude «è online» guardando il sito sbagliato. L'unico modo
+> affidabile è chiedere a Vercel quale indirizzo ha pubblicato, ed è ciò che fa
+> il comando qui sopra.
+
+### Il giro da fare
+
+1. Apri l'indirizzo di produzione
 2. **Accedi** — l'account è già registrato: `dibari62@gmail.com`
 3. Dall'area azienda premi **Vai ai progetti**
 4. Apri **Checkout**
 
-Vedi la dashboard: metriche di flusso, burndown dello sprint più recente,
-confronto fra i quattro sprint.
-
-> L'indirizzo `scrum-master-<codice>-...vercel.app` **cambia a ogni pubblicazione**.
-> Quello stabile, che punta sempre all'ultima versione, è nella pagina del
-> progetto su Vercel.
+Vedi la dashboard: in cima la **salute dello sprint in corso**, poi le metriche
+di flusso, il burndown dello sprint aperto e il confronto fra i quattro sprint.
+Da lì si arriva a elementi, sprint, persone, flusso di lavoro e impedimenti.
 
 ### Se hai dimenticato la password
 
