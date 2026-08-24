@@ -188,7 +188,7 @@ Tutti versionati, quindi disponibili su qualunque macchina.
 | `npm run dev:user -- add admin` | account temporaneo per ispezionare pagine protette |
 | `npm run dev:user -- remove` | **lo rimuove: non dimenticarlo** |
 | `npm run diagnose:tls -- <host>` | perché una connessione TLS fallisce |
-| `npm run gh -- <comando>` | pull request dalla riga di comando |
+| `npm run gh -- <comando>` | pull request, stato della CI, deploy e verifica del sito |
 | `npm run db:duplicates` | cerca dati duplicati e incoerenti, in sola lettura |
 | `npm run test:e2e` | Playwright su Chrome (richiede `RUN_E2E=1`) |
 

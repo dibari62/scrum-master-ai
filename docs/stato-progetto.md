@@ -119,7 +119,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
 | **Neon (Postgres)** | ✅ attivo | 18 tabelle popolate, migrazioni applicate: 51 elementi, 203 transizioni, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
-| **Vercel** | ✅ **online** | protezione disattivata, verificato `200`; accesso e isolamento funzionanti sul dominio pubblico |
+| **Vercel** | ✅ **online** | protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico. L'indirizzo corrente si trova con `npm run gh -- deployments dibari62 scrum-master-ai` |
 | **Upstash QStash** | ⬜ non serve ancora | chiavi presenti, primo uso previsto a T5 |
 
 ### Come guardarci dentro
@@ -244,6 +244,7 @@ Cose note e volutamente rimandate, non sviste:
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
 | `npm run eval` era un segnaposto | `AGENTS.md` §6 | ~~finché non c'era un output LLM da valutare~~ **fatto**: dataset dorato di cinque casi e runner. Il controllo di CI «Valutazione output LLM» ora esegue qualcosa |
 | Le pagine non erano mai state provate su uno schermo stretto | — | ~~mai misurato~~ **fatto**: le etichette dei grafici si rendevano a 3,9 pixel su telefono |
+| L'indirizzo di produzione non era scritto da nessuna parte | [messa-in-linea](messa-in-linea.md) §3 | ~~«lo trovi su Vercel»~~ **fatto**: `npm run gh -- deployments` lo chiede a Vercel. Serviva perché tirare a indovinare porta a `scrum-master.vercel.app`, che risponde `200` ed è il progetto di qualcun altro |
 | Cinque tabelle popolate e invisibili nell'interfaccia | — | ~~mai controllato~~ **fatto**: persone, sprint, bacheca, colonne e impedimenti hanno una pagina. Nessuno se n'era accorto perché nulla falliva: i dati c'erano, semplicemente non li vedeva nessuno |
 | I commenti e le pull request restano invisibili | — | 43 e 46 righe, senza schermata. È una scelta, non una svista: appartengono al singolo elemento e vanno mostrati lì, quando `reviewWaitTime` leggerà la pull request invece dello stato (voce qui sopra) |
 | Lo scenario sintetico non aveva uno sprint **in corso** | [spec sprint-health](../specs/sprint-health/spec.md) Q5 | ~~da affrontare prima di `sprint-health`~~ **fatto**: gli sprint si collocano all'indietro dall'istante di lettura, e il lotto viene troncato lì |

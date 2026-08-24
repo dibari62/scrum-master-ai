@@ -157,7 +157,50 @@ password.
    Riporta identificativo e segreto nelle variabili di Vercel e **rilancia il
    deploy**: le variabili si leggono all'avvio, non a caldo.
 
-### Verifica che sia davvero in piedi
+---
+
+## 3. Pubblicare un incremento successivo
+
+Dopo il primo collegamento a Vercel, pubblicare significa soltanto **portare il
+lavoro in `main`**: Vercel osserva quel branch e ricostruisce da solo. Non c'è
+un pulsante «deploy» da premere.
+
+Il giro completo, dalla riga di comando, senza toccare l'interfaccia di VS Code
+(che è autenticata con l'account sbagliato, §1):
+
+```powershell
+$env:NODE_OPTIONS = "--use-system-ca"
+
+git push -u origin <branch>
+npm run gh -- pr-open   dibari62 scrum-master-ai <branch> main "<titolo>" .git/CORPO.md
+npm run gh -- pr-status dibari62 scrum-master-ai <numero>   # attendi il verde
+npm run gh -- pr-merge  dibari62 scrum-master-ai <numero>
+git checkout main; git pull
+```
+
+`pr-merge` **si rifiuta** di procedere se un controllo è rosso o ancora in
+corso. Non è una comodità: è R5 resa meccanica, perché un'automazione che
+saltasse il controllo industrializzerebbe l'errore invece di toglierlo.
+
+### Trovare l'indirizzo pubblicato, e verificarlo
+
+```powershell
+npm run gh -- deployments dibari62 scrum-master-ai
+npm run gh -- ping https://<indirizzo>/
+```
+
+Il primo elenca gli ultimi cinque deploy di produzione con il commit da cui
+vengono; il secondo chiede al sito se risponde, e riconosce il rimando a
+`vercel.com/login` che significa «in piedi ma non pubblico».
+
+> **Non indovinare l'indirizzo.** `scrum-master.vercel.app` risponde `200` e
+> appartiene a un altro progetto. Una verifica frettolosa conclude «è online»
+> guardando l'applicazione di qualcun altro — l'esito peggiore possibile,
+> perché è un falso positivo che sembra una conferma.
+
+---
+
+## Verifica che sia davvero in piedi
 
 **Prima cosa: il sito potrebbe essere protetto.** Vercel attiva in modo predefinito
 *Deployment Protection*, che chiude il progetto a chiunque non sia autenticato sul
