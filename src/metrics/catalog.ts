@@ -908,6 +908,73 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/health.test.ts",
   },
   {
+    id: "bottleneck",
+    name: "Dove si accumula il tempo",
+    question: "Fra la presa in carico e la chiusura, in quale fase il lavoro resta fermo più a lungo?",
+    formula:
+      "La storia di ogni elemento viene scomposta nei tratti passati in ciascuno stato, dal primo ingresso in «in lavorazione» alla prima chiusura. I tratti si sommano per stato, e ogni fase riceve la propria quota sul tempo totale misurato.",
+    unit: "ratio",
+    excludes: [
+      "L'attesa in backlog, prima che il lavoro sia preso in carico: è una scelta di priorità, non un ingolfamento del flusso. Includerla farebbe risultare «da fare» il collo di bottiglia di quasi ogni progetto — vero e inutile.",
+      "Il tempo dopo la chiusura: un elemento concluso non attraversa più fasi, e contarlo misurerebbe da quanto è finito.",
+      "Gli elementi mai presi in carico: di loro non esiste un flusso da misurare.",
+      "Le fasi in cui qualcuno lavora, quando si sceglie il collo di bottiglia: chiamare così la lavorazione significherebbe dire alla squadra che l'ostacolo a finire il lavoro è farlo.",
+    ],
+    unavailableWhen:
+      "Nessun elemento è mai entrato in lavorazione, oppure tutto il tempo misurato è di durata nulla: «non è mai partito nulla» e «tutto è stato istantaneo» sono affermazioni diverse.",
+    inputs: [
+      {
+        entity: "StateTransition",
+        reads:
+          "la storia degli stati di ogni elemento, scomposta nei tratti passati in ciascuno stato",
+      },
+    ],
+    observation: {
+      kind: "between",
+      from: "il primo ingresso in «in lavorazione»",
+      to: "la prima chiusura, oppure l'istante di riferimento se l'elemento è ancora aperto",
+    },
+    operation: "ratio",
+    summarisedBy: ["median"],
+    sampleSizeMeaning:
+      "quanti elementi sono stati presi in carico almeno una volta, cioè su quanti la misura poggia — non quanti ne esistono",
+    referenceInstant: "parametro asOf",
+    edgeCases: [
+      {
+        situation: "La lavorazione è la fase che assorbe più tempo in assoluto.",
+        outcome:
+          "Viene mostrata come tale, ma il collo di bottiglia resta la maggiore fra le fasi di attesa.",
+        verifiedBy: "non nomina mai come collo di bottiglia una fase di lavorazione",
+      },
+      {
+        situation: "Non risulta alcuna attesa: il tempo è tutto lavorazione.",
+        outcome:
+          "Nessun collo di bottiglia viene nominato: eleggere il male minore a problema rende una diagnosi che nessuno legge più.",
+        verifiedBy: "senza alcuna attesa non nomina alcun collo di bottiglia",
+      },
+      {
+        situation: "Un elemento ha atteso a lungo in backlog prima di essere preso in carico.",
+        outcome: "Quel tempo resta fuori dalla misura (questione Q1).",
+        verifiedBy: "lascia fuori l'attesa prima della presa in carico",
+      },
+      {
+        situation: "Un elemento è ancora fermo in una fase in questo momento.",
+        outcome: "Il tratto in corso conta fino all'istante di riferimento.",
+        verifiedBy: "conta il tratto ancora in corso fino all'istante di riferimento",
+      },
+      {
+        situation: "Nessun elemento è mai stato preso in carico.",
+        outcome: "Nessun valore, con motivo «no-qualifying-data».",
+        verifiedBy: "non è disponibile se nessun elemento è mai stato preso in carico",
+      },
+    ],
+    decision:
+      "Nessuna soglia decide se una fase «conti» come collo di bottiglia (questione Q2, ancora aperta): la quota viaggia accanto al nome, così chi legge giudica se il 34% sia un ingolfamento o una distribuzione normale. Una soglia inventata nasconderebbe il dubbio invece di risolverlo.",
+    sourceFile: "src/metrics/bottleneck.ts",
+    sourceSymbol: "bottleneck",
+    testFile: "tests/metrics/bottleneck.test.ts",
+  },
+  {
     id: "sprint-length",
     name: "Durata tipica dello sprint",
     question: "Di quanti giorni sono, di solito, gli sprint di questo team?",

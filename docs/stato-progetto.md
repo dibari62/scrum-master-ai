@@ -16,7 +16,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 707 test<br/>Playwright · 81 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 727 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -46,7 +46,7 @@ graph TB
         U6["Scrum Master AI<br/>creazione e registro"]
         U8["Catalogo metriche<br/>come si calcola ogni numero"]
         U9["Persone · Sprint<br/>anagrafica e registro"]
-        U10["Flusso di lavoro<br/>colonne e limiti di WIP"]
+        U10["Flusso di lavoro<br/>colonne, limiti e<br/>dove si accumula il tempo"]
         U11["Impedimenti<br/>ostacoli e durata"]
         U12["Salute dello sprint<br/>giudizio, motivo, numeri"]
     end
@@ -194,6 +194,25 @@ a metà strada. La parte non ovvia è che uno sprint a metà **non ha una storia
 intera**: senza un taglio esplicito il database si sarebbe riempito di elementi
 conclusi *domani*, un difetto peggiore di quello risolto perché ogni singolo
 numero sarebbe rimasto plausibile.
+
+**Il collo di bottiglia chiude la parte diagnostica di T5.** Il semaforo dice
+*come* va lo sprint; questa metrica dice **dove** il lavoro si ferma. Sui dati
+sintetici riporta che il **73%** del tempo fra presa in carico e chiusura se ne
+va in revisione, e che solo il **16%** è lavorazione vera — coerente con
+l'efficienza di flusso mediana del 23%, che è la stessa storia misurata per
+elemento invece che per fase.
+
+Due scelte dichiarate. Il collo di bottiglia si sceglie **solo fra le fasi di
+attesa**: chiamare così la lavorazione significherebbe dire a una squadra che
+l'ostacolo a finire il lavoro è farlo. E l'attesa **in backlog resta fuori**,
+perché è una scelta di priorità e non un ingolfamento — includerla farebbe
+risultare «da fare» il collo di bottiglia di quasi ogni progetto, cosa vera e
+inutile.
+
+**La scheda dello Scrum Master AI è diventata quattro schermate con un menù.**
+Una sola pagina rispondeva a quattro domande insieme, e separarle con delle
+intestazioni non bastava: chi leggeva doveva comunque capire quale paragrafo
+appartenesse a quale domanda.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
