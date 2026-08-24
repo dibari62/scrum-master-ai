@@ -47,6 +47,27 @@ import {
 
 const PROJECT_SLUG = "checkout";
 
+/**
+ * Writing is opt-in, and that is a decision taken after the risk materialised.
+ *
+ * **What happened.** Development and production share one Neon database — a
+ * deliberate simplification, recorded in the debt table. On 24/08 a routine
+ * `npm run seed` rewrote the data being shown on the public site. Nothing was
+ * lost, because the data is synthetic and regenerating it was the intent, but
+ * the same keystroke during a demonstration would have emptied the screen
+ * somebody was looking at.
+ *
+ * The real fix is two databases, and it needs someone with the Neon console
+ * (see `docs/messa-in-linea.md`). Until then this is what stands between a
+ * habit and an accident: the script says which host it is about to rewrite and
+ * what it would remove, and does nothing unless asked twice.
+ *
+ * A dry run by default rather than a confirmation prompt: a prompt is answered
+ * without reading by the third time, while a run that changes nothing is safe
+ * *even when* nobody read it.
+ */
+const WRITE_FLAG = "--conferma";
+
 async function main(): Promise<void> {
   if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
@@ -54,6 +75,19 @@ async function main(): Promise<void> {
   if (!url) {
     throw new Error("DATABASE_URL non impostata: copia .env.example in .env.local.");
   }
+
+  const write = process.argv.includes(WRITE_FLAG);
+
+  /*
+   * L'host prima di tutto il resto, e sempre.
+   *
+   * È l'unica informazione che distingue «sto rigenerando i miei dati» da «sto
+   * riscrivendo quelli che si vedono online», e finché i due database sono lo
+   * stesso è anche l'unica difesa che rimane.
+   */
+  console.log(`database: ${new URL(url).host}`);
+  console.log(write ? "modalità:  SCRITTURA" : "modalità:  prova a vuoto (nulla verrà scritto)");
+  console.log("");
 
   const db = createDatabase(url);
 
@@ -80,19 +114,28 @@ async function main(): Promise<void> {
 
   const project =
     existing[0] ??
-    (
-      await db
-        .insert(projects)
-        .values({
-          organizationId: organization.id,
-          name: "Checkout",
-          slug: PROJECT_SLUG,
-          description: "Rifacimento del flusso di pagamento. Dati sintetici.",
-        })
-        .returning()
-    )[0];
+    (write
+      ? (
+          await db
+            .insert(projects)
+            .values({
+              organizationId: organization.id,
+              name: "Checkout",
+              slug: PROJECT_SLUG,
+              description: "Rifacimento del flusso di pagamento. Dati sintetici.",
+            })
+            .returning()
+        )[0]
+      : undefined);
 
-  if (!project) throw new Error("Impossibile creare il progetto di prova.");
+  if (!project) {
+    // In prova a vuoto il progetto non viene creato: creare qualcosa sarebbe
+    // già una scrittura, ed è esattamente ciò che questa modalità promette di
+    // non fare.
+    console.log(`Il progetto «${PROJECT_SLUG}» non esiste ancora.`);
+    console.log(`Verrebbe creato. Esegui con ${WRITE_FLAG} per procedere.`);
+    return;
+  }
 
   console.log(`Organizzazione: ${organization.name}`);
   console.log(`Progetto:       ${project.name} (${project.slug})`);
@@ -143,7 +186,17 @@ async function main(): Promise<void> {
     ["persone", people],
   ] as const;
 
-  for (const [, table] of deletions) {
+  for (const [label, table] of deletions) {
+    const present = await db
+      .select({ id: table.id })
+      .from(table)
+      .where(and(eq(table.projectId, project.id), eq(table.sourceSystem, "seed")));
+
+    if (!write) {
+      if (present.length > 0) console.log(`  - ${label}: ${present.length} da rimuovere`);
+      continue;
+    }
+
     await db
       .delete(table)
       .where(and(eq(table.projectId, project.id), eq(table.sourceSystem, "seed")));
@@ -205,6 +258,11 @@ async function main(): Promise<void> {
   ];
 
   for (const [label, count, run] of insertions) {
+    if (!write) {
+      console.log(`  + ${label}: ${count}`);
+      continue;
+    }
+
     if (count === 0) {
       console.log(`  ${label}: nessuna riga`);
       continue;
@@ -215,6 +273,13 @@ async function main(): Promise<void> {
   }
 
   console.log("");
+
+  if (!write) {
+    console.log("Nessuna modifica: era una prova a vuoto.");
+    console.log(`Per scrivere davvero: npm run seed -- ${WRITE_FLAG}`);
+    return;
+  }
+
   console.log("Dati sintetici caricati.");
 }
 

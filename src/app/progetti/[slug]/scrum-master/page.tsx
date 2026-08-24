@@ -8,7 +8,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   metricSnapshotSchema,
@@ -17,9 +16,7 @@ import {
   projectSchema,
   reportContentSchema,
   reportOriginSchema,
-  type AgentPersona,
-  type AgentStatus,
-  type AutonomyLevel,
+  isKnownSkillKey,
   type SkillRunFailureCause,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
@@ -37,6 +34,7 @@ import {
   runSprintReportAction,
   setSkillEnabledAction,
 } from "./actions";
+import { AUTONOMY, PERSONA, SKILLS, STATUS } from "./labels";
 
 export const dynamic = "force-dynamic";
 
@@ -47,24 +45,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: `Scrum Master AI · ${slug} · Scrum Master AI` };
 }
 
-const PERSONA_LABELS: Readonly<Record<AgentPersona, string>> = {
-  facilitator: "Facilitatore",
-  flow_analyst: "Analista di flusso",
-  stakeholder_communicator: "Comunicatore verso stakeholder",
-};
-
-const AUTONOMY_LABELS: Readonly<Record<AutonomyLevel, string>> = {
-  observe: "Osserva",
-  report: "Riferisce",
-  advise: "Consiglia",
-  act_with_approval: "Agisce con approvazione",
-  autonomous: "Autonomo",
-};
-
-const STATUS_LABELS: Readonly<Record<AgentStatus, string>> = {
-  active: "Attivo",
-  suspended: "Sospeso",
-};
+const PERSONA_LABELS = PERSONA;
+const AUTONOMY_LABELS = AUTONOMY;
+const STATUS_LABELS = STATUS;
 
 /**
  * Every failure says what happened **and what to do about it**.
@@ -82,6 +65,16 @@ const FAILURE_LABELS: Readonly<Record<SkillRunFailureCause, string>> = {
   invalid_output: "La risposta non rispettava il formato atteso",
   agent_suspended: "Lo Scrum Master AI è sospeso",
 };
+
+/**
+ * How many runs the technical log shows before it stops.
+ *
+ * The register had grown to eighteen near-identical lines and took up more of
+ * the page than everything a reader actually came for. It is a trace, not a
+ * feature: the recent ones answer "did it work and what did it cost", and the
+ * rest answer nothing anybody was asking.
+ */
+const RUNS_SHOWN = 5;
 
 export default async function ScrumMasterPage({ params }: PageProps) {
   const session = await auth();
@@ -163,7 +156,7 @@ export default async function ScrumMasterPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
-      <header className="grid gap-1">
+      <header className="grid gap-3">
         <Breadcrumb
           trail={[
             { label: "Progetti", href: "/progetti" },
@@ -172,132 +165,110 @@ export default async function ScrumMasterPage({ params }: PageProps) {
           ]}
         />
 
-        <h1 className="text-2xl font-semibold tracking-tight">{agent.name}</h1>
+        <div className="grid gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">{agent.name}</h1>
 
-        <p className="text-muted-foreground text-sm">
-          {PERSONA_LABELS[agent.persona]} · {AUTONOMY_LABELS[agent.autonomyLevel]} ·{" "}
-          {STATUS_LABELS[agent.status]} · lingua {agent.language}
-        </p>
+          {/*
+           * Che cosa sia, prima di qualunque impostazione.
+           *
+           * La pagina si apriva con «Configurazione», che è la risposta a una
+           * domanda che il lettore non ha ancora avuto modo di porsi. Chi arriva
+           * qui la prima volta non sa se stia guardando un modello, un servizio
+           * o un elenco di preferenze — e senza quella frase ogni riga
+           * successiva è un dettaglio di qualcosa di ignoto.
+           */}
+          <p className="text-sm">
+            È lo Scrum Master AI di questo progetto:{" "}
+            <strong>legge i numeri già calcolati dal codice e ne scrive una lettura</strong>.
+            Non è un modello addestrato — è una configurazione, la memoria di questo
+            progetto e un elenco di capacità che si accendono una alla volta.
+          </p>
+        </div>
+
+        {/*
+         * Lo stato con le sue etichette, non quattro parole di fila.
+         *
+         * Prima diceva «Facilitatore · Osserva · Attivo · lingua it»: quattro
+         * valori senza nome, di cui almeno due incomprensibili a chi non ha
+         * compilato il modulo di creazione. Le spiegazioni esistevano già in
+         * quel modulo e venivano buttate via proprio qui.
+         */}
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Stato</dt>
+            <dd>
+              <span className="font-medium">{STATUS_LABELS[agent.status].label}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {STATUS_LABELS[agent.status].explanation}
+              </span>
+            </dd>
+          </div>
+
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Quanto può spingersi</dt>
+            <dd>
+              <span className="font-medium">
+                {AUTONOMY_LABELS[agent.autonomyLevel].label}
+              </span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {AUTONOMY_LABELS[agent.autonomyLevel].explanation}
+              </span>
+            </dd>
+          </div>
+
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Come si pone</dt>
+            <dd>
+              <span className="font-medium">{PERSONA_LABELS[agent.persona].label}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {PERSONA_LABELS[agent.persona].explanation}
+              </span>
+            </dd>
+          </div>
+
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs">Lingua in cui scrive</dt>
+            <dd className="font-medium">
+              {agent.language === "it" ? "Italiano" : agent.language}
+            </dd>
+          </div>
+        </dl>
       </header>
 
       <section className="grid gap-3">
-        <h2 className="text-lg font-medium">Configurazione</h2>
+        <div className="grid gap-1">
+          <h2 className="text-lg font-medium">Cosa può fare</h2>
+          <p className="text-muted-foreground text-sm">
+            Ogni capacità si abilita per conto suo. Quelle non ancora costruite sono
+            elencate in fondo alla sezione: sono dichiarazioni di intenzione, non
+            funzioni nascoste.
+          </p>
+        </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            {/*
-             * Un elenco di definizioni, non righe con `justify-between`.
-             *
-             * Affiancare etichetta e valore funziona finché il valore è corto:
-             * «quello dichiarato dalla skill» su schermo stretto veniva
-             * schiacciato contro il bordo. Impilati sotto i 640 pixel e
-             * affiancati sopra, entrambi restano leggibili — e un `dl` dice a
-             * un lettore di schermo che sono coppie, cosa che due `span`
-             * affiancati non dicono.
-             */}
-            <dl className="grid gap-3 text-sm">
-              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
-                <dt className="text-muted-foreground">Skill abilitate</dt>
-                <dd className="sm:text-right">
-                  {agent.enabledSkillKeys.length === 0
-                    ? "nessuna"
-                    : agent.enabledSkillKeys.join(", ")}
-                </dd>
-              </div>
-
-              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
-                <dt className="text-muted-foreground">Esecuzioni al giorno</dt>
-                <dd className="tabular-nums sm:text-right">
-                  {formatNumber(agent.policy.maxRunsPerDay)}
-                </dd>
-              </div>
-
-              <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
-                <dt className="text-muted-foreground">Budget di token</dt>
-                <dd className="tabular-nums sm:text-right">
-                  {agent.policy.maxTokensPerRun === null
-                    ? "quello dichiarato dalla skill"
-                    : formatNumber(agent.policy.maxTokensPerRun)}
-                </dd>
-              </div>
-
-              {context ? (
-                <div className="grid gap-0.5 sm:grid-cols-[1fr_auto] sm:gap-4">
-                  <dt className="text-muted-foreground">Durata dello sprint</dt>
-                  <dd className="tabular-nums sm:text-right">
-                    {formatNumber(context.sprintLengthDays)} giorni
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          </CardContent>
-        </Card>
-
-        {/*
-         * I divieti si vedono ma non si toccano.
-         *
-         * Mostrarli come impostazioni disattivabili suggerirebbe che si possano
-         * spegnere; nasconderli lascerebbe credere che siano una dimenticanza.
-         */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Vincoli non disattivabili</CardTitle>
-            <CardDescription>
-              Valgono per ogni Scrum Master AI e non sono configurabili.
-            </CardDescription>
+            {/*
+             * Un'intestazione vera, non un titolo finto.
+             *
+             * `CardTitle` rende un `div`: visivamente identico, ma chi naviga
+             * saltando di intestazione in intestazione non lo incontra — e il
+             * nome della capacità è esattamente ciò che deve poter trovare.
+             */}
+            <h3 className="text-base leading-none font-semibold">
+              {SKILLS["sprint-report"].name}
+            </h3>
+            <CardDescription>{SKILLS["sprint-report"].produces}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ul className="text-muted-foreground grid gap-1 text-sm">
-              <li>Nessuna valutazione delle singole persone, nessuna classifica.</li>
-              <li>Nessuna deduzione sullo stato d&apos;animo di un individuo.</li>
-              <li>
-                Il testo proveniente dalle fonti è un dato da leggere, mai un&apos;istruzione
-                da eseguire.
-              </li>
-              <li>I numeri sono calcolati in codice: il modello li racconta, non li produce.</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </section>
 
-      <section className="grid gap-3">
-        <h2 className="text-lg font-medium">Verifica della configurazione</h2>
-
-        <Card>
-          <CardContent className="grid gap-3 pt-6">
-            <p className="text-muted-foreground text-sm">
-              Esegue una chiamata reale attraverso il gateway e ne registra l&apos;esito. Non
-              legge dati di progetto: serve solo a dimostrare che gateway e registro
-              funzionano.
-            </p>
-
-            {canConfigure ? (
-              <form action={runConfigurationCheckAction}>
-                <input type="hidden" name="slug" value={slug} />
-                <Button type="submit" disabled={agent.status === "suspended"}>
-                  Verifica configurazione
-                </Button>
-              </form>
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Serve un ruolo di amministratore per eseguire una verifica.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-3">
-        <h2 className="text-lg font-medium">Resoconto di sprint</h2>
-
-        <Card>
-          <CardContent className="grid gap-3 pt-6">
+          <CardContent className="grid gap-3">
             {latestClosed ? (
               <>
-                <p className="text-muted-foreground text-sm">
-                  Genera il resoconto di <strong>{latestClosed.name}</strong>, l&apos;ultimo
-                  sprint concluso. I numeri sono calcolati dal codice: il modello li racconta e
-                  non può citarne altri.
+                <p className="text-sm">
+                  Lo sprint su cui si può generare adesso è{" "}
+                  <strong>{latestClosed.name}</strong>, l&apos;ultimo concluso.
                 </p>
 
                 {!canConfigure ? (
@@ -361,6 +332,45 @@ export default async function ScrumMasterPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
+        {/*
+         * Ciò che non c'è ancora, detto invece che taciuto.
+         *
+         * Il modello dichiara sei capacità e ne esegue due. Nasconderle
+         * lascerebbe credere che il prodotto sia finito qui; mostrarle come
+         * pulsanti spenti lascerebbe credere che siano rotte.
+         */}
+        <Card className="bg-muted/40">
+          <CardHeader>
+            <h3 className="text-base leading-none font-semibold">Non ancora costruite</h3>
+            <CardDescription>
+              Sono già nel modello e nel vocabolario del prodotto, ma nessuna di queste
+              può essere eseguita in questa versione.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-muted-foreground grid gap-2 text-sm">
+              {Object.entries(SKILLS)
+                .filter(([, skill]) => !skill.available)
+                .map(([key, skill]) => (
+                  <li key={key}>
+                    <span className="text-foreground font-medium">{skill.name}</span> —{" "}
+                    {skill.produces}
+                  </li>
+                ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="grid gap-1">
+          <h2 className="text-lg font-medium">Cosa ha prodotto</h2>
+          <p className="text-muted-foreground text-sm">
+            Ogni resoconto è conservato insieme ai numeri su cui si fonda, quindi riletto
+            fra mesi dirà ancora le stesse cifre.
+          </p>
+        </div>
+
         {latestPerSprint.length === 0 ? (
           <Card>
             <CardContent className="text-muted-foreground pt-6 text-sm">
@@ -371,9 +381,9 @@ export default async function ScrumMasterPage({ params }: PageProps) {
           latestPerSprint.map(({ report, earlier }) => (
             <Card key={report.id} data-report>
               <CardHeader>
-                <CardTitle className="text-base" data-report-sprint>
+                <h3 className="text-base leading-none font-semibold" data-report-sprint>
                   {report.snapshot.sprintName}
-                </CardTitle>
+                </h3>
                 <CardDescription>
                   {formatShortDateTime(report.generatedAt)} ·{" "}
                   {report.origin === "model"
@@ -412,7 +422,7 @@ export default async function ScrumMasterPage({ params }: PageProps) {
                  * credere.
                  */}
                 <div className="grid gap-2 border-t pt-4">
-                  <h3 className="text-sm font-medium">I numeri su cui si fonda</h3>
+                  <h4 className="text-sm font-medium">I numeri su cui si fonda</h4>
 
                   <dl className="grid gap-1 text-sm sm:grid-cols-2">
                     {report.snapshot.values.map((value) => (
@@ -429,7 +439,7 @@ export default async function ScrumMasterPage({ params }: PageProps) {
 
                   {report.snapshot.gaps.length > 0 ? (
                     <div className="grid gap-1 pt-2">
-                      <h3 className="text-sm font-medium">Non calcolabili per questo sprint</h3>
+                      <h4 className="text-sm font-medium">Non calcolabili per questo sprint</h4>
                       <ul className="text-muted-foreground grid list-disc gap-1 pl-5 text-sm">
                         {report.snapshot.gaps.map((gap) => (
                           <li key={`${gap.metricId}-${gap.label}`}>
@@ -447,54 +457,207 @@ export default async function ScrumMasterPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-3">
-        <h2 className="text-lg font-medium">Registro delle esecuzioni</h2>
+        <div className="grid gap-1">
+          <h2 className="text-lg font-medium">Com&apos;è configurato</h2>
+          <p className="text-muted-foreground text-sm">
+            I limiti entro cui lavora. Servono a impedire che una capacità costi più di
+            quanto valga, e si vedono qui perché nulla di ciò che spende debba restare
+            invisibile.
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            {/*
+             * Ogni voce con la sua spiegazione, non solo con il suo valore.
+             *
+             * «Budget di token: quello dichiarato dalla skill» era una risposta
+             * a una domanda che il lettore non poteva porsi: nulla nella pagina
+             * diceva cosa fosse un token, né perché ci fosse un budget.
+             */}
+            <dl className="grid gap-4 text-sm">
+              <div className="grid gap-0.5">
+                <dt className="font-medium">Capacità accese</dt>
+                <dd className="text-muted-foreground">
+                  {agent.enabledSkillKeys.length === 0
+                    ? "Nessuna: lo Scrum Master AI esiste ma non può fare nulla finché non se ne accende una."
+                    : agent.enabledSkillKeys
+                        .map((key) =>
+                          isKnownSkillKey(key)
+                            ? SKILLS[key].name
+                            : `${key} (non più disponibile in questa versione)`,
+                        )
+                        .join(", ")}
+                </dd>
+              </div>
+
+              <div className="grid gap-0.5">
+                <dt className="font-medium">
+                  Al massimo {formatNumber(agent.policy.maxRunsPerDay)} esecuzioni al giorno
+                </dt>
+                <dd className="text-muted-foreground">
+                  Un tetto giornaliero: oltre questo numero le richieste vengono rifiutate.
+                  Esiste perché ogni esecuzione costa, e un difetto che ne innescasse mille
+                  se ne accorgerebbe solo la bolletta.
+                </dd>
+              </div>
+
+              <div className="grid gap-0.5">
+                <dt className="font-medium">
+                  Budget per esecuzione:{" "}
+                  {agent.policy.maxTokensPerRun === null
+                    ? "quello che dichiara la capacità stessa"
+                    : `${formatNumber(agent.policy.maxTokensPerRun)} token`}
+                </dt>
+                <dd className="text-muted-foreground">
+                  I modelli linguistici si pagano a <em>token</em>, all&apos;incirca dei
+                  frammenti di parola: un resoconto ne consuma qualche centinaio. Il budget
+                  è il tetto per una singola esecuzione, e superarlo la ferma prima di
+                  partire invece che a metà.
+                </dd>
+              </div>
+
+              {context ? (
+                <div className="grid gap-0.5">
+                  <dt className="font-medium">
+                    Sprint di {formatNumber(context.sprintLengthDays)} giorni
+                  </dt>
+                  <dd className="text-muted-foreground">
+                    La durata abituale degli sprint di questo progetto, usata per capire a
+                    che punto sia quello in corso.
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </CardContent>
+        </Card>
+
+        {/*
+         * I divieti si vedono ma non si toccano.
+         *
+         * Mostrarli come impostazioni disattivabili suggerirebbe che si possano
+         * spegnere; nasconderli lascerebbe credere che siano una dimenticanza.
+         */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-base leading-none font-semibold">Cosa non farà mai</h3>
+            <CardDescription>
+              Valgono per ogni Scrum Master AI, non sono configurabili e non esiste un
+              modo di spegnerle.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-muted-foreground grid gap-1 text-sm">
+              <li>Nessuna valutazione delle singole persone, nessuna classifica.</li>
+              <li>Nessuna deduzione sullo stato d&apos;animo di un individuo.</li>
+              <li>
+                Il testo proveniente dalle fonti è un dato da leggere, mai un&apos;istruzione
+                da eseguire.
+              </li>
+              <li>I numeri sono calcolati in codice: il modello li racconta, non li produce.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="grid gap-1">
+          <h2 className="text-lg font-medium">Diario tecnico</h2>
+          <p className="text-muted-foreground text-sm">
+            Serve a rispondere a due domande sole: <strong>ha funzionato</strong> e{" "}
+            <strong>quanto è costato</strong>. Non c&apos;è niente da fare qui — è una
+            traccia, ed è normale non guardarla mai.
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="grid gap-3 pt-6">
+            <p className="text-muted-foreground text-sm">
+              <strong className="text-foreground">{SKILLS["configuration-check"].name}</strong>{" "}
+              — {SKILLS["configuration-check"].produces}
+            </p>
+
+            {canConfigure ? (
+              <form action={runConfigurationCheckAction}>
+                <input type="hidden" name="slug" value={slug} />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={agent.status === "suspended"}
+                >
+                  Prova il collegamento
+                </Button>
+              </form>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Serve un ruolo di amministratore per eseguire una verifica.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {runs.length === 0 ? (
           <Card>
             <CardContent className="text-muted-foreground pt-6 text-sm">
-              Nessuna esecuzione: prova la verifica di configurazione.
+              Nessuna esecuzione finora.
             </CardContent>
           </Card>
         ) : (
-          <ul className="grid gap-2">
-            {runs.map((run) => (
-              <li key={run.id} className="rounded-lg border p-3">
-                {/*
-                 * L'esito va a capo, la durata resta leggibile: una causa di
-                 * fallimento lunga («Il fornitore ha applicato un limite di
-                 * frequenza») su schermo stretto spingeva la durata contro il
-                 * bordo.
-                 */}
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <span className="text-sm font-medium">
-                    {run.status === "succeeded" ? "Riuscita" : "Fallita"}
-                    {run.failureCause ? ` — ${FAILURE_LABELS[run.failureCause]}` : ""}
-                  </span>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                    {formatDuration(run.durationMs)}
-                  </span>
-                </div>
-
-                <p className="text-muted-foreground mt-1 text-xs">
+          <>
+            <ul className="grid gap-2">
+              {runs.slice(0, RUNS_SHOWN).map((run) => (
+                <li key={run.id} className="rounded-lg border p-3">
                   {/*
-                   * L'ora, non solo la data.
-                   *
-                   * Otto verifiche di configurazione dello stesso giorno, con lo
-                   * stesso fornitore e lo stesso numero di token, rendevano otto
-                   * righe identiche: il registro sembrava mostrare lo stesso
-                   * dato ripetuto invece di otto esecuzioni distinte. Le righe
-                   * erano diverse; era la data da sola a buttare via ciò che le
-                   * distingueva.
+                   * L'esito va a capo, la durata resta leggibile: una causa di
+                   * fallimento lunga («Il fornitore ha applicato un limite di
+                   * frequenza») su schermo stretto spingeva la durata contro il
+                   * bordo.
                    */}
-                  {run.skillKey} · {formatShortDateTime(run.startedAt)} ·{" "}
-                  {run.provider ?? "nessun fornitore"}
-                  {run.model ? ` (${run.model})` : ""} ·{" "}
-                  {formatNumber(run.inputTokens + run.outputTokens)} token ·{" "}
-                  {formatCostUsd(run.estimatedCostUsd)}
-                </p>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                    <span className="text-sm font-medium">
+                      {isKnownSkillKey(run.skillKey)
+                        ? SKILLS[run.skillKey].name
+                        : run.skillKey}
+                      {" · "}
+                      {run.status === "succeeded" ? "riuscita" : "fallita"}
+                      {run.failureCause ? ` — ${FAILURE_LABELS[run.failureCause]}` : ""}
+                    </span>
+                    <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                      {formatDuration(run.durationMs)}
+                    </span>
+                  </div>
+
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {/*
+                     * L'ora, non solo la data.
+                     *
+                     * Otto verifiche di configurazione dello stesso giorno, con lo
+                     * stesso fornitore e lo stesso numero di token, rendevano otto
+                     * righe identiche: il registro sembrava mostrare lo stesso
+                     * dato ripetuto invece di otto esecuzioni distinte. Le righe
+                     * erano diverse; era la data da sola a buttare via ciò che le
+                     * distingueva.
+                     */}
+                    {run.skillKey} · {formatShortDateTime(run.startedAt)} ·{" "}
+                    {run.provider === "fake"
+                      ? "fornitore fittizio, nessuna chiamata reale"
+                      : (run.provider ?? "nessun fornitore")}
+                    {run.model && run.provider !== "fake" ? ` (${run.model})` : ""} ·{" "}
+                    {formatNumber(run.inputTokens + run.outputTokens)} token ·{" "}
+                    {formatCostUsd(run.estimatedCostUsd)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {runs.length > RUNS_SHOWN ? (
+              // Ciò che non si vede va detto, non fatto sparire.
+              <p className="text-muted-foreground text-xs">
+                Vengono mostrate le {formatNumber(RUNS_SHOWN)} esecuzioni più recenti su{" "}
+                {formatNumber(runs.length)} conservate.
+              </p>
+            ) : null}
+          </>
         )}
       </section>
 

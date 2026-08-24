@@ -183,7 +183,8 @@ Tutti versionati, quindi disponibili su qualunque macchina.
 |---|---|
 | `npm run verify` | typecheck + lint + test + confini. **Un lavoro è finito solo se passa** |
 | `npm run dev` | applicazione in locale, porta 3000 |
-| `npm run seed` | ricarica i dati sintetici (cancella e riscrive solo i propri) |
+| `npm run seed` | **prova a vuoto**: dice cosa farebbe e su quale database |
+| `npm run seed -- --conferma` | ricarica i dati sintetici (cancella e riscrive solo i propri) |
 | `npm run db:inspect` | cosa c'è davvero nel database — `tables`, `tenants`, `sprints` |
 | `npm run dev:user -- add admin` | account temporaneo per ispezionare pagine protette |
 | `npm run dev:user -- remove` | **lo rimuove: non dimenticarlo** |

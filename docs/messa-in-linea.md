@@ -184,6 +184,10 @@ saltasse il controllo industrializzerebbe l'errore invece di toglierlo.
 
 ### Trovare l'indirizzo pubblicato, e verificarlo
 
+L'indirizzo stabile del progetto è **<https://scrum-master-ai-swart.vercel.app>**.
+Ogni deploy ne produce anche uno proprio, utile per guardare una versione
+precisa:
+
 ```powershell
 npm run gh -- deployments dibari62 scrum-master-ai
 npm run gh -- ping https://<indirizzo>/
@@ -260,6 +264,57 @@ ogni invocazione aprirebbe una connessione propria fino a esaurire il limite.
 
 Infine: **Vercel Hobby vieta l'uso commerciale**. Legittimo per un proof-of-concept
 (ADR-0001). Se il progetto cambiasse natura, cambia anche il piano necessario.
+
+---
+
+## 4. Separare sviluppo da produzione
+
+> **Da fare, e serve la console Neon.** È l'unico passo di questo documento che
+> un agente non può eseguire da solo: richiede di creare un branch nel progetto
+> Neon.
+
+Oggi sviluppo e produzione **usano lo stesso database**. È una semplificazione
+consapevole — comoda per una dimostrazione, perché ciò che si vede online è
+esattamente ciò che vede chi sviluppa — ed è registrata nel debito.
+
+Ha però smesso di essere teorica. Il 24/08 un `npm run seed` di routine ha
+riscritto i dati del sito pubblico. Non si è perso nulla, perché erano sintetici
+e l'intenzione era proprio rigenerarli, ma lo stesso comando durante una
+dimostrazione avrebbe svuotato lo schermo che qualcuno stava guardando.
+
+Nel frattempo `npm run seed` è diventato una **prova a vuoto**: stampa l'host e
+le righe che toccherebbe, e scrive solo con `--conferma`. Riduce il rischio, non
+lo toglie.
+
+### Come si separa
+
+Neon offre il *branching* anche nel piano gratuito. Un branch è una copia del
+database che parte dai dati di quello principale e poi vive per conto proprio:
+è il modo previsto per avere un ambiente di sviluppo senza pagarne un secondo.
+
+1. Console Neon → progetto → **Branches** → **New branch**, a partire da `main`.
+   Chiamalo `development`.
+2. Copia la sua stringa di connessione **pooled** (host con `-pooler`).
+3. Sostituiscila in `.env.local`, sia in `DATABASE_URL` sia — nella variante non
+   pooled — in `DATABASE_URL_UNPOOLED`.
+4. **Non toccare le variabili su Vercel**: la produzione resta su `main`.
+5. Verifica di aver davvero cambiato ambiente:
+
+   ```powershell
+   $env:NODE_OPTIONS = "--use-system-ca"
+   npm run seed          # deve stampare l'host del branch, non quello di produzione
+   ```
+
+Da quel momento `docs/guardare-i-dati.md` va corretto: smette di essere vero che
+il sito e il computer di sviluppo mostrano gli stessi dati.
+
+### Cosa si sblocca
+
+I **test end-to-end in CI**, che oggi sono il debito più costoso: settantacinque
+test che girano solo quando qualcuno si ricorda di lanciarli. Non possono entrare
+in CI finché l'unico database disponibile è quello che serve il sito pubblico —
+alcuni registrano aziende, e una suite che crea e cancella dati non può puntare
+alla produzione.
 
 ---
 

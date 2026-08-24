@@ -207,7 +207,8 @@ npm run eval          # eval degli output LLM (richiede API key)
 npm run db:generate   # genera migrazione Drizzle dallo schema
 npm run db:migrate    # applica migrazioni
 npm run db:inspect    # ispezione in sola lettura del database
-npm run seed          # popola il DB con lo scenario sintetico
+npm run seed          # prova a vuoto: mostra cosa farebbe
+npm run seed -- --conferma   # scrive davvero
 ```
 
 **Ambiente ostile.** Questa macchina è dietro un proxy che ispeziona il traffico
