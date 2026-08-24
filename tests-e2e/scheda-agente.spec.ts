@@ -146,4 +146,53 @@ test.describe("scheda dello Scrum Master AI: si capisce", () => {
 
     expect(body).toMatch(/frammenti di parola/);
   });
+
+  test("si può generare il resoconto di uno sprint che non sia l'ultimo", async ({
+    page,
+  }) => {
+    /*
+     * Il difetto che ha fatto nascere questo test.
+     *
+     * Il comando era legato all'ultimo sprint concluso e basta. Con tre sprint
+     * chiusi, due non avevano un resoconto e non c'era **alcun modo** di
+     * produrlo: la sezione «Cosa ha prodotto» mostrava una scheda sola e
+     * sembrava un difetto dei dati, mentre era un limite dell'interfaccia.
+     *
+     * Il server rifiuta comunque uno sprint di un altro progetto o ancora
+     * aperto, quindi poter scegliere non allarga ciò che è permesso: rende
+     * raggiungibile ciò che già lo era.
+     */
+    const scelta = page.getByLabel("Sprint concluso");
+    await expect(scelta).toBeVisible();
+
+    const opzioni = await scelta.locator("option").allInnerTexts();
+    if (opzioni.length < 2) test.skip();
+
+    // Il più vecchio: quello che prima era irraggiungibile.
+    const piuVecchio = opzioni[opzioni.length - 1] as string;
+
+    await scelta.selectOption({ label: piuVecchio });
+    await page.getByRole("button", { name: "Genera il resoconto" }).click();
+    await page.waitForLoadState("networkidle");
+
+    await expect(
+      page.getByRole("heading", { name: piuVecchio, level: 3 }),
+    ).toBeVisible();
+  });
+
+  test("dice quali sprint conclusi non hanno ancora un resoconto", async ({ page }) => {
+    // Un elenco che tace le proprie assenze costringe chi legge a chiedersi se
+    // il difetto sia nei dati o nella pagina.
+    const scelta = page.getByLabel("Sprint concluso");
+    const chiusi = await scelta.locator("option").count();
+
+    const prodotti = page.locator("[data-report]");
+    const conResoconto = await prodotti.count();
+
+    const body = await page.locator("main").innerText();
+
+    if (conResoconto < chiusi) {
+      expect(body).toMatch(/non (ha|hanno) ancora un resoconto/);
+    }
+  });
 });

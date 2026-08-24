@@ -151,6 +151,18 @@ export default async function ScrumMasterPage({ params }: PageProps) {
 
   const latestClosed = closedSprints[0];
 
+  /**
+   * Closed sprints that nobody has generated a report for.
+   *
+   * Named rather than derived inline because the page has to *say* it: with
+   * three closed sprints and one report, the section listing what the agent
+   * produced showed a single card and read as a fault. It was not one — the
+   * other two had simply never been asked for, and until now could not be.
+   */
+  const sprintsWithoutReport = closedSprints.filter(
+    (sprint) => !bySprint.has(sprint.id),
+  );
+
   const canConfigure = mayConfigureAgent(session.role);
   const reportSkillEnabled = agent.enabledSkillKeys.includes("sprint-report");
 
@@ -267,8 +279,8 @@ export default async function ScrumMasterPage({ params }: PageProps) {
             {latestClosed ? (
               <>
                 <p className="text-sm">
-                  Lo sprint su cui si può generare adesso è{" "}
-                  <strong>{latestClosed.name}</strong>, l&apos;ultimo concluso.
+                  Si genera su uno sprint <strong>concluso</strong>: su uno ancora aperto
+                  direbbe al passato numeri destinati a cambiare.
                 </p>
 
                 {!canConfigure ? (
@@ -276,10 +288,47 @@ export default async function ScrumMasterPage({ params }: PageProps) {
                     Serve un ruolo di amministratore per generare un resoconto.
                   </p>
                 ) : reportSkillEnabled ? (
-                  <div className="flex flex-wrap gap-2">
-                    <form action={runSprintReportAction}>
+                  <div className="grid gap-3">
+                    {/*
+                     * Si sceglie lo sprint, non lo si subisce.
+                     *
+                     * Prima il comando era legato all'ultimo sprint concluso e
+                     * basta: gli altri due chiusi non avevano un resoconto e
+                     * non c'era modo di produrlo. La sezione «Cosa ha prodotto»
+                     * mostrava così una sola scheda, e sembrava un difetto
+                     * invece di un limite dell'interfaccia.
+                     *
+                     * Il server verifica comunque che lo sprint appartenga al
+                     * progetto e sia chiuso, quindi la scelta qui non allarga
+                     * ciò che è permesso: rende raggiungibile ciò che già lo era.
+                     */}
+                    <form
+                      action={runSprintReportAction}
+                      className="flex flex-wrap items-end gap-2"
+                    >
                       <input type="hidden" name="slug" value={slug} />
-                      <input type="hidden" name="sprintId" value={latestClosed.id} />
+
+                      <div className="grid gap-1">
+                        <label
+                          htmlFor="sprintId"
+                          className="text-muted-foreground text-xs"
+                        >
+                          Sprint concluso
+                        </label>
+                        <select
+                          id="sprintId"
+                          name="sprintId"
+                          defaultValue={latestClosed.id}
+                          className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                        >
+                          {closedSprints.map((sprint) => (
+                            <option key={sprint.id} value={sprint.id}>
+                              {sprint.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       <Button type="submit" disabled={agent.status === "suspended"}>
                         Genera il resoconto
                       </Button>
@@ -369,6 +418,25 @@ export default async function ScrumMasterPage({ params }: PageProps) {
             Ogni resoconto è conservato insieme ai numeri su cui si fonda, quindi riletto
             fra mesi dirà ancora le stesse cifre.
           </p>
+
+          {/*
+           * Ciò che manca va detto, non lasciato dedurre.
+           *
+           * Con tre sprint conclusi e un solo resoconto, questa sezione
+           * mostrava una scheda sola e sembrava rotta. Non lo era: gli altri
+           * due semplicemente non erano mai stati generati. Un elenco che tace
+           * le proprie assenze costringe chi legge a chiedersi se il difetto
+           * sia nei dati o nella pagina.
+           */}
+          {sprintsWithoutReport.length > 0 ? (
+            <p className="text-muted-foreground text-sm">
+              {sprintsWithoutReport.length === 1
+                ? `${sprintsWithoutReport[0]?.name} è concluso e non ha ancora un resoconto: si genera qui sopra.`
+                : `${formatNumber(sprintsWithoutReport.length)} sprint conclusi non hanno ancora un resoconto (${sprintsWithoutReport
+                    .map((sprint) => sprint.name)
+                    .join(", ")}): si generano qui sopra, uno alla volta.`}
+            </p>
+          ) : null}
         </div>
 
         {latestPerSprint.length === 0 ? (
