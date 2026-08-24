@@ -41,11 +41,22 @@ function historiesByItem(
 }
 
 export function runConnectorConformance(options: ConformanceOptions): void {
+  /**
+   * The instant every fetch in this suite happens at.
+   *
+   * Fixed rather than `new Date()`: a conformance suite that moves with the
+   * clock passes or fails depending on the day it runs, which is the opposite
+   * of what it is for. A Wednesday, so the Monday alignment of a generated
+   * scenario has something to move.
+   */
+  const ASOF = new Date("2026-08-19T10:00:00.000Z");
+
   const fetchBatch = (since?: Date): Promise<CanonicalBatch> =>
     options.connector.fetch({
       organizationId: options.organizationId as never,
       projectId: options.projectId as never,
       since,
+      asOf: ASOF,
     });
 
   it("dichiara il proprio sistema di origine su ogni record", async () => {

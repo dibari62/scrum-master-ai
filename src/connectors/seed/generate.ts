@@ -33,7 +33,7 @@ import { addDays, addWorkingHours, atHour, nextWorkingDay } from "./calendar";
 import { createRandom, type Random } from "./random";
 import {
   BOARD_COLUMNS,
-  FIRST_SPRINT_START,
+  firstSprintStart,
   ITEM_TITLES,
   SPRINT_LENGTH_DAYS,
   SPRINT_PLANS,
@@ -58,7 +58,20 @@ import {
 export type GenerateOptions = {
   readonly organizationId: OrganizationId;
   readonly projectId: ProjectId;
-  /** Same seed, same data set, on any machine. */
+  /**
+   * The instant the data set is read at.
+   *
+   * Required, and never defaulted to `new Date()`. A generator that consults
+   * the clock produces a different data set on every run, which is untestable;
+   * receiving the instant is the same discipline the metrics engine follows
+   * (ADR-0002), applied to the thing that writes the data instead of the thing
+   * that reads it.
+   *
+   * Everything is placed backwards from here, so the last sprint is always in
+   * flight — and nothing is dated after it.
+   */
+  readonly asOf: Date;
+  /** Same seed and same instant, same data set, on any machine. */
   readonly seed?: number;
 };
 
@@ -106,6 +119,8 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
     projectId: options.projectId,
   };
 
+  const firstStart = firstSprintStart(options.asOf);
+
   const stamps = (at: Date): Timestamps => ({ createdAt: at, updatedAt: at });
 
   const people = TEAM.map((member, index) =>
@@ -116,7 +131,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       sourceId: `person-${index + 1}`,
       displayName: member.name,
       email: `${member.mailbox}@example.invalid`,
-      ...stamps(FIRST_SPRINT_START),
+      ...stamps(firstStart),
     }),
   ) satisfies Person[];
 
@@ -126,7 +141,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
     ...SOURCE,
     sourceId: "board-1",
     name: "Checkout",
-    ...stamps(FIRST_SPRINT_START),
+    ...stamps(firstStart),
   });
 
   const boardColumns = BOARD_COLUMNS.map((column, index) =>
@@ -140,7 +155,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       state: column.state,
       position: index,
       wipLimit: column.wipLimit,
-      ...stamps(FIRST_SPRINT_START),
+      ...stamps(firstStart),
     }),
   ) satisfies BoardColumn[];
 
@@ -160,7 +175,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
   let titleCursor = 0;
 
   for (const [index, plan] of SPRINT_PLANS.entries()) {
-    const startsAt = addDays(FIRST_SPRINT_START, index * SPRINT_LENGTH_DAYS);
+    const startsAt = addDays(firstStart, index * SPRINT_LENGTH_DAYS);
     const endsAt = addDays(startsAt, SPRINT_LENGTH_DAYS - 1);
 
     const sprint = sprintSchema.parse({
@@ -198,21 +213,144 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
 
   const generated = [...itemsById.values()];
 
+  return truncateAt(
+    {
+      people,
+      boards: [board],
+      boardColumns,
+      sprints,
+      workItems: generated.map((entry) => entry.item),
+      transitions: generated.flatMap((entry) => entry.transitions),
+      scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
+      comments: generated.flatMap((entry) => entry.comments),
+      impediments: generated
+        .map((entry) => entry.impediment)
+        .filter((value): value is Impediment => value !== null),
+      pullRequests: generated
+        .map((entry) => entry.pullRequest)
+        .filter((value): value is PullRequest => value !== null),
+    },
+    options.asOf,
+  );
+}
+
+/**
+ * Removes everything that has not happened yet.
+ *
+ * **Why this exists at all.** The scenario is written as four whole sprints, but
+ * the last one is deliberately still running, so its story runs past the instant
+ * the data is read at. Left alone, the data set would contain transitions dated
+ * *tomorrow*: items already finished in a future that has not occurred.
+ *
+ * That would be a worse defect than the one it replaced, precisely because it is
+ * invisible. Every individual figure would stay plausible — a velocity, a cycle
+ * time, a burndown — and only someone who thought to compare a timestamp against
+ * today's date would notice the data set was describing things that had not
+ * happened.
+ *
+ * So the cut is a declared final pass rather than a condition threaded through
+ * the generator. Threading it would mean getting it right in a dozen places and
+ * remembering it in the thirteenth; here it is one function with one rule, and
+ * `seed.test.ts` walks every record and every date field to prove the rule holds
+ * — a check that keeps working when a field is added, which is when this kind of
+ * rule actually breaks.
+ *
+ * A work item's `state` is recomputed rather than kept: `state` is a summary of
+ * the history, and truncating the history without it would leave an item marked
+ * "concluso" whose completion has been removed.
+ */
+function truncateAt(batch: CanonicalBatch, asOf: Date): CanonicalBatch {
+  const cutoff = asOf.getTime();
+  const notAfter = (instant: Date): boolean => instant.getTime() <= cutoff;
+
+  /*
+   * Un elemento creato dopo l'istante non esiste ancora.
+   *
+   * Riguarda il lavoro aggiunto a metà dell'ultimo sprint, che nel racconto
+   * entra in un giorno che potrebbe non essere ancora arrivato. Sparisce con
+   * tutto ciò che lo riguarda: tenerne le transizioni lascerebbe una storia
+   * che parla di un elemento inesistente.
+   */
+  const workItems = batch.workItems.filter((item) => notAfter(item.sourceCreatedAt));
+  const live = new Set(workItems.map((item) => item.id));
+
+  const transitions = batch.transitions.filter(
+    (transition) => live.has(transition.workItemId) && notAfter(transition.occurredAt),
+  );
+
+  /** The last state each surviving item reached, by the time of the cut. */
+  const stateAtCutoff = new Map<string, { state: WorkItemState; at: Date }>();
+  for (const transition of transitions) {
+    const previous = stateAtCutoff.get(transition.workItemId);
+    if (!previous || transition.occurredAt.getTime() >= previous.at.getTime()) {
+      stateAtCutoff.set(transition.workItemId, {
+        state: transition.toState,
+        at: transition.occurredAt,
+      });
+    }
+  }
+
   return {
-    people,
-    boards: [board],
-    boardColumns,
-    sprints,
-    workItems: generated.map((entry) => entry.item),
-    transitions: generated.flatMap((entry) => entry.transitions),
-    scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
-    comments: generated.flatMap((entry) => entry.comments),
-    impediments: generated
-      .map((entry) => entry.impediment)
-      .filter((value): value is Impediment => value !== null),
-    pullRequests: generated
-      .map((entry) => entry.pullRequest)
-      .filter((value): value is PullRequest => value !== null),
+    people: batch.people,
+    boards: batch.boards,
+    boardColumns: batch.boardColumns,
+    sprints: batch.sprints,
+
+    workItems: workItems.map((item) => {
+      const reached = stateAtCutoff.get(item.id);
+
+      return workItemSchema.parse({
+        ...item,
+        state: reached?.state ?? "todo",
+        updatedAt: reached?.at ?? item.sourceCreatedAt,
+      });
+    }),
+
+    transitions,
+
+    scopeEvents: batch.scopeEvents.filter(
+      (event) => live.has(event.workItemId) && notAfter(event.occurredAt),
+    ),
+
+    comments: batch.comments.filter(
+      (comment) => live.has(comment.workItemId) && notAfter(comment.postedAt),
+    ),
+
+    impediments: batch.impediments
+      .filter(
+        (impediment) =>
+          notAfter(impediment.raisedAt) &&
+          (impediment.workItemId === null || live.has(impediment.workItemId)),
+      )
+      .map((impediment) =>
+        // Sollevato prima, risolto dopo: al momento del taglio è ancora aperto,
+        // ed è la sola lettura onesta di quel record.
+        impediment.resolvedAt !== null && !notAfter(impediment.resolvedAt)
+          ? impedimentSchema.parse({ ...impediment, resolvedAt: null })
+          : impediment,
+      ),
+
+    pullRequests: batch.pullRequests
+      .filter(
+        (request) =>
+          notAfter(request.openedAt) &&
+          // Una pull request può non citare alcun elemento: in quel caso non
+          // c'è nulla di cui essere orfana, e sopravvive al taglio.
+          (request.workItemId === null || live.has(request.workItemId)),
+      )
+      .map((request) =>
+        pullRequestSchema.parse({
+          ...request,
+          firstReviewAt:
+            request.firstReviewAt !== null && !notAfter(request.firstReviewAt)
+              ? null
+              : request.firstReviewAt,
+          mergedAt:
+            request.mergedAt !== null && !notAfter(request.mergedAt)
+              ? null
+              : request.mergedAt,
+        }),
+      ),
   };
 }
 

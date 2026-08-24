@@ -227,7 +227,7 @@ Numerati e verificabili da una macchina.
 | Limite giornaliero di esecuzioni raggiunto | Rifiuto prima della chiamata, causa `quota_exceeded` |
 | Lo Scrum Master AI è sospeso | Rifiuto prima della chiamata, causa `agent_suspended` |
 | Un titolo contiene istruzioni per il modello | Trattato come dato; il report non cambia (criterio 11) |
-| Report richiesto due volte sullo stesso sprint | Si genera un nuovo report; il precedente resta nel registro. Vedi §11 Q3 |
+| Report richiesto due volte sullo stesso sprint | Si genera un nuovo report e il precedente resta salvato; la scheda mostra solo il più recente per sprint e dichiara quante versioni precedenti esistono. Vedi §11 Q3 |
 
 ## 8. Vincoli
 
@@ -300,10 +300,12 @@ si può disfare.
       cambio di autonomia, e deve essere una scelta esplicita — non un effetto
       collaterale di un prompt scritto con entusiasmo.
 
-- [ ] **Q3 — Rigenerare un report sostituisce il precedente?**
-      *Proposta provvisoria: no, se ne aggiunge uno nuovo.* Cancellare è
-      irreversibile, accumulare no. Se poi si rivelerà rumoroso, si potrà
-      mostrare solo l'ultimo tenendo la storia.
+- [x] **Q3 — Rigenerare un report sostituisce il precedente?**
+      *Deciso: no, se ne aggiunge uno nuovo, ma la scheda mostra solo l'ultimo per
+      sprint.* Cancellare è irreversibile, accumulare no — però elencarli tutti
+      riempiva la pagina di schede che raccontano lo stesso sprint con gli stessi
+      numeri, e chi legge vede dati duplicati invece di una storia. Le versioni
+      precedenti restano salvate e la scheda dichiara quante sono.
 
 - [ ] **Q4 — Il report deve citare il numero di osservazioni?**
       *Proposta provvisoria: sì, quando il campione è sotto cinque.* Un cycle

@@ -103,13 +103,22 @@ export default async function OrganizationPage() {
          * It is the page every session lands on, so anything reachable has to
          * be reachable from here.
          */}
-        <Button asChild>
-          <Link href="/progetti">Vai ai progetti</Link>
-        </Button>
+        <div className="grid gap-2">
+          <Button asChild>
+            <Link href="/progetti">Vai ai progetti</Link>
+          </Button>
 
-        <p className="text-muted-foreground text-sm">
-          Lo Scrum Master AI arriva con i prossimi traguardi.
-        </p>
+          {/*
+           * The same mistake was sitting three lines below the warning against
+           * it: «Lo Scrum Master AI arriva con i prossimi traguardi» stayed here
+           * for three milestones after it had arrived, and after it had started
+           * writing sprint reports. A promise is a claim with an expiry date and
+           * nobody to enforce it; a link either works or is obviously broken.
+           */}
+          <Button asChild variant="outline">
+            <Link href="/metriche">Come si calcolano le metriche</Link>
+          </Button>
+        </div>
 
         <form action={signOutAction}>
           <Button type="submit" variant="outline">

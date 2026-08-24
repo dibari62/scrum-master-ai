@@ -25,6 +25,9 @@ import {
 const ORGANIZATION_ID = organizationIdSchema.parse("3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21");
 const PROJECT_ID = projectIdSchema.parse("9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905");
 
+/** Fixed: the generated data set must not change with the day the tests run. */
+const ASOF = new Date("2026-08-19T10:00:00.000Z");
+
 function anItem(estimate: { value: number; unit: "points" | "hours" } | null) {
   return workItemSchema.parse({
     id: "7c2f1a44-9e33-4d21-8b0a-2f6c5d9e1a70",
@@ -92,7 +95,8 @@ describe("conversione fra modello canonico e righe", () => {
       organizationId: ORGANIZATION_ID,
       projectId: PROJECT_ID,
       seed: 42,
-    });
+      asOf: ASOF,
+      });
 
     // Non un campione: l'errore riguardava tutte e 51 le righe.
     for (const item of batch.workItems) {

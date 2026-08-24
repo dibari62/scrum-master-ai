@@ -12,6 +12,8 @@
  * metric, otherwise a single lucky calculation would appear to find them all.
  */
 
+import { addDays, mondayOnOrBefore } from "./calendar";
+
 export type SprintPlan = {
   readonly name: string;
   readonly goal: string;
@@ -55,13 +57,43 @@ export type SprintPlan = {
 /**
  * Two-week sprints, starting on a Monday.
  *
- * The dates are in the past relative to any plausible demo, so the data set
- * never contains a sprint that has not happened yet — which would make
- * burndown and velocity meaningless.
+ * **The dates are not fixed, and that is a decision.** They used to be: the
+ * first sprint began on 6 April 2026 and the last ended on 31 May. Read in
+ * August, that data set had no sprint in progress — so a judgement about the
+ * *current* sprint could only ever report "there isn't one". Correct, and
+ * useless for seeing whether the feature works.
+ *
+ * The sprints are now placed backwards from a reference instant the caller
+ * supplies, so the last one is always in flight. The instant is passed in and
+ * never read from the clock, for the same reason the metrics engine does not
+ * read it: a generator that consults `Date.now()` produces a different data set
+ * on every run and cannot be tested (ADR-0002).
  */
 export const SPRINT_LENGTH_DAYS = 14;
 
-export const FIRST_SPRINT_START = new Date("2026-04-06T08:00:00.000Z");
+/**
+ * How far back the last sprint starts from the reference instant, before the
+ * Monday alignment is applied.
+ *
+ * Six days rather than seven so the alignment can only ever move the start
+ * *earlier*, never past the instant itself. With this value the reference
+ * instant lands between roughly 45% and 97% of the way through the last sprint:
+ * always started, never finished, and always far enough in for progress against
+ * elapsed time to mean something.
+ */
+const LAST_SPRINT_MINIMUM_ELAPSED_DAYS = 6;
+
+/**
+ * Where the story begins, given the instant it is read at.
+ *
+ * Deterministic: the same instant always yields the same dates, which is what
+ * lets the integration tests assert on a generated data set at all.
+ */
+export function firstSprintStart(asOf: Date): Date {
+  const lastStart = mondayOnOrBefore(addDays(asOf, -LAST_SPRINT_MINIMUM_ELAPSED_DAYS));
+
+  return addDays(lastStart, -(SPRINT_PLANS.length - 1) * SPRINT_LENGTH_DAYS);
+}
 
 export const SPRINT_PLANS: readonly SprintPlan[] = [
   {
@@ -142,6 +174,14 @@ export const BOARD_COLUMNS = [
  *
  * Chosen to read like a real backlog: a mix of features, defects and chores,
  * concrete enough that a report quoting one of them sounds plausible.
+ *
+ * **There have to be more of these than a project has items.** The generator
+ * walks the list and wraps around, so a short list makes the same title appear
+ * three times in one backlog — and a reader looking at the items page sees what
+ * looks like duplicated data. The rows were always distinct, with different
+ * sprints and different histories, but demonstration data that *looks* broken
+ * costs the same as data that is broken. `seed.test.ts` fails if the list stops
+ * covering the largest scenario.
  */
 export const ITEM_TITLES: readonly string[] = [
   "Salvataggio del carrello fra sessioni",
@@ -162,4 +202,47 @@ export const ITEM_TITLES: readonly string[] = [
   "Arrotondamento degli importi in valuta",
   "Rimozione articolo esaurito dal carrello",
   "Indicatore di avanzamento del checkout",
+  "Pagamento con portafoglio digitale",
+  "Salvataggio dei metodi di pagamento ricorrenti",
+  "Verifica dell'indirizzo tramite servizio postale",
+  "Ritiro in negozio come alternativa alla spedizione",
+  "Calcolo delle spese di spedizione per peso",
+  "Soglia di spedizione gratuita",
+  "Gestione dei codici sconto scaduti",
+  "Limite di quantità per singolo articolo",
+  "Avviso di disponibilità in esaurimento",
+  "Ordinamento degli articoli nel riepilogo",
+  "Modifica della quantità dal riepilogo",
+  "Rimozione di un articolo dal riepilogo",
+  "Conferma di abbandono del carrello",
+  "Ripresa di un ordine interrotto",
+  "Fattura in formato PDF allegata alla conferma",
+  "Richiesta di fattura con partita IVA",
+  "Selezione della valuta di pagamento",
+  "Conversione valuta al tasso del giorno",
+  "Blocco degli ordini verso paesi non serviti",
+  "Consenso al trattamento dei dati al checkout",
+  "Informativa sui cookie nel processo di acquisto",
+  "Registrazione facoltativa dopo l'acquisto",
+  "Acquisto come ospite senza account",
+  "Recupero del carrello via email",
+  "Notifica di spedizione avvenuta",
+  "Tracciamento della spedizione nel dettaglio ordine",
+  "Gestione della consegna fallita",
+  "Avvio di una richiesta di reso",
+  "Rimborso parziale di un ordine",
+  "Storno di un pagamento autorizzato",
+  "Doppio addebito segnalato dal fornitore",
+  "Riconciliazione fra ordine e incasso",
+  "Esportazione degli ordini per la contabilità",
+  "Prova di carico sul modulo di pagamento",
+  "Riduzione dei tempi di risposta del riepilogo",
+  "Registro degli accessi al pannello ordini",
+  "Ruoli e permessi sul pannello ordini",
+  "Ricerca di un ordine per numero",
+  "Filtro degli ordini per stato",
+  "Annullamento di un ordine non ancora spedito",
+  "Modifica dell'indirizzo dopo la conferma",
+  "Segnalazione di indirizzo incompleto",
 ];
+

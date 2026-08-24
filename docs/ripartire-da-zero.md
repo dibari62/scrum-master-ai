@@ -185,11 +185,22 @@ Tutti versionati, quindi disponibili su qualunque macchina.
 | `npm run dev` | applicazione in locale, porta 3000 |
 | `npm run seed` | ricarica i dati sintetici (cancella e riscrive solo i propri) |
 | `npm run db:inspect` | cosa c'è davvero nel database — `tables`, `tenants`, `sprints` |
-| `npm run dev:user -- add` | account temporaneo per ispezionare pagine protette |
+| `npm run dev:user -- add admin` | account temporaneo per ispezionare pagine protette |
 | `npm run dev:user -- remove` | **lo rimuove: non dimenticarlo** |
 | `npm run diagnose:tls -- <host>` | perché una connessione TLS fallisce |
 | `npm run gh -- <comando>` | pull request dalla riga di comando |
+| `npm run db:duplicates` | cerca dati duplicati e incoerenti, in sola lettura |
 | `npm run test:e2e` | Playwright su Chrome (richiede `RUN_E2E=1`) |
+
+**Il ruolo dell'account temporaneo non è un dettaglio.** Senza argomento,
+`dev:user -- add` crea un `member`, ed è la scelta giusta come impostazione
+predefinita: la maggior parte delle schermate va provata con i permessi più
+scarsi. Ma generare un resoconto o eseguire una verifica richiede
+`owner`/`admin`, quindi la suite end-to-end fallisce due test con un account
+`member` — e fallisce dicendo «elemento non visibile», che sembra un difetto
+dell'interfaccia e non un problema di permessi.
+
+Per far girare tutta la suite serve `npm run dev:user -- add admin`.
 
 `db:inspect` è **in sola lettura per costruzione**: non contiene `insert`,
 `update` né `delete`. Scrivere su un database condiviso da uno script di comodo è

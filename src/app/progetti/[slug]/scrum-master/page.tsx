@@ -25,7 +25,12 @@ import {
 import { forOrganization, getDatabase } from "@/db";
 import { auth } from "@/lib/auth";
 import { loadAgent, mayConfigureAgent } from "@/lib/agents/scrum-agent";
-import { formatCostUsd, formatDate, formatDuration, formatNumber } from "@/lib/format";
+import {
+  formatCostUsd,
+  formatDuration,
+  formatNumber,
+  formatShortDateTime,
+} from "@/lib/format";
 
 import {
   runConfigurationCheckAction,
@@ -105,11 +110,40 @@ export default async function ScrumMasterPage({ params }: PageProps) {
 
   const reports = reportRows.map((row) => ({
     id: row.id,
+    sprintId: row.sprintId,
     origin: reportOriginSchema.parse(row.origin),
     content: reportContentSchema.parse(row.content),
     snapshot: metricSnapshotSchema.parse(row.snapshot),
     generatedAt: row.generatedAt,
   }));
+
+  /*
+   * Uno sprint, una scheda: la versione più recente.
+   *
+   * Rigenerare un resoconto ne aggiunge uno nuovo invece di sostituire il
+   * precedente (spec §11 Q3), perché cancellare è irreversibile e accumulare
+   * no. Mostrarli però tutti riempiva la pagina di schede che raccontano lo
+   * stesso sprint con gli stessi numeri: chi legge vede dati duplicati, non una
+   * storia. Qui resta l'ultima per sprint e ciascuna dichiara quante versioni
+   * precedenti restano conservate, così ciò che non si vede viene comunque
+   * detto invece di sparire in silenzio.
+   */
+  const latestPerSprint: { report: (typeof reports)[number]; earlier: number }[] = [];
+  const bySprint = new Map<string, { report: (typeof reports)[number]; earlier: number }>();
+
+  for (const report of reports) {
+    // `reports` arriva già dal più recente al più vecchio.
+    const seen = bySprint.get(report.sprintId);
+
+    if (seen) {
+      seen.earlier += 1;
+      continue;
+    }
+
+    const entry = { report, earlier: 0 };
+    bySprint.set(report.sprintId, entry);
+    latestPerSprint.push(entry);
+  }
 
   /*
    * Only closed sprints can be reported on.
@@ -327,24 +361,29 @@ export default async function ScrumMasterPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {reports.length === 0 ? (
+        {latestPerSprint.length === 0 ? (
           <Card>
             <CardContent className="text-muted-foreground pt-6 text-sm">
               Nessun resoconto generato.
             </CardContent>
           </Card>
         ) : (
-          reports.map((report) => (
+          latestPerSprint.map(({ report, earlier }) => (
             <Card key={report.id} data-report>
               <CardHeader>
                 <CardTitle className="text-base" data-report-sprint>
                   {report.snapshot.sprintName}
                 </CardTitle>
                 <CardDescription>
-                  {formatDate(report.generatedAt)} ·{" "}
+                  {formatShortDateTime(report.generatedAt)} ·{" "}
                   {report.origin === "model"
                     ? "narrato da un modello"
                     : "composto dal codice: non c'era nulla da narrare"}
+                  {earlier === 0
+                    ? ""
+                    : earlier === 1
+                      ? " · una versione precedente resta nel registro"
+                      : ` · ${formatNumber(earlier)} versioni precedenti restano nel registro`}
                 </CardDescription>
               </CardHeader>
 
@@ -437,7 +476,17 @@ export default async function ScrumMasterPage({ params }: PageProps) {
                 </div>
 
                 <p className="text-muted-foreground mt-1 text-xs">
-                  {run.skillKey} · {formatDate(run.startedAt)} ·{" "}
+                  {/*
+                   * L'ora, non solo la data.
+                   *
+                   * Otto verifiche di configurazione dello stesso giorno, con lo
+                   * stesso fornitore e lo stesso numero di token, rendevano otto
+                   * righe identiche: il registro sembrava mostrare lo stesso
+                   * dato ripetuto invece di otto esecuzioni distinte. Le righe
+                   * erano diverse; era la data da sola a buttare via ciò che le
+                   * distingueva.
+                   */}
+                  {run.skillKey} · {formatShortDateTime(run.startedAt)} ·{" "}
                   {run.provider ?? "nessun fornitore"}
                   {run.model ? ` (${run.model})` : ""} ·{" "}
                   {formatNumber(run.inputTokens + run.outputTokens)} token ·{" "}

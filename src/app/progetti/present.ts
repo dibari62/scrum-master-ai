@@ -1,5 +1,5 @@
 import { formatDuration, formatNumber, formatPercent } from "@/lib/format";
-import type { MetricResult } from "@/metrics";
+import type { HealthSignal, MetricResult } from "@/metrics";
 
 /**
  * Turning metric results into the strings a component can display.
@@ -57,6 +57,19 @@ export function presentPercent(
 }
 
 /**
+ * Why a metric has no value, in words. `null` when it has one.
+ *
+ * For the views where the wording of `present` does not fit. A count of items
+ * in a sprint rests on movements of the sprint's composition, not on items, so
+ * "su 24 elementi" printed beside "12 elementi" would read as a contradiction
+ * rather than as a sample size. The absent case is identical everywhere, and it
+ * is the case that must never silently become a zero.
+ */
+export function unavailableReason(result: MetricResult<unknown>): string | null {
+  return result.available ? null : REASONS[result.reason];
+}
+
+/**
  * Estimate totals as text, never collapsing two units into one number.
  *
  * "13 punti + 4 ore" is longer than "17" and is the only honest rendering: the
@@ -78,3 +91,121 @@ export function presentEstimates(totals: {
     ? `${base} · ${formatNumber(totals.unestimatedCount)} senza stima`
     : base;
 }
+
+/**
+ * The sprint-health signals, in words a reader can act on.
+ *
+ * **The colour is never the message.** A signal that only shows as red tells
+ * somebody who cannot distinguish red from green — or who is listening to the
+ * page rather than looking at it — precisely nothing. So every outcome carries
+ * a sentence, and the sentence is what the tests check.
+ *
+ * The wording is deliberately specific about *how far past* the threshold the
+ * measurement is. "Oltre il limite" invites a shrug; "il doppio del limite che
+ * il team si è dato" does not.
+ */
+export type PresentedSignal = {
+  readonly title: string;
+  /** Why it reads this way, in one sentence. */
+  readonly explanation: string;
+  /** The measurement and the threshold, side by side. `null` when unknown. */
+  readonly figures: string | null;
+};
+
+const SIGNAL_TITLES = {
+  progress: "Avanzamento",
+  "scope-added": "Lavoro aggiunto dopo l'inizio",
+  "review-wait": "Attesa in revisione",
+  "wip-limit": "Limite di lavoro in corso",
+  aging: "Elementi fermi",
+} as const;
+
+export function presentSignal(signal: HealthSignal): PresentedSignal {
+  const title = SIGNAL_TITLES[signal.id];
+
+  if (signal.status === "not-evaluable") {
+    return {
+      title,
+      // Ciò che manca si dice, non si lascia indovinare (R6): «non valutabile»
+      // da solo sposta sul lettore il compito di capire perché.
+      explanation: `Non valutabile: ${signal.missing ?? "manca il dato necessario"}.`,
+      figures: null,
+    };
+  }
+
+  const measured = signal.measured ?? 0;
+  const threshold = signal.threshold ?? 0;
+
+  switch (signal.id) {
+    case "progress":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "Il lavoro concluso tiene il passo del tempo trascorso."
+            : `Il lavoro concluso è al ${formatPercent(measured)} di dove il calendario lo vorrebbe.`,
+        figures: `${formatPercent(measured)} del passo atteso · soglia ${formatPercent(threshold)}`,
+      };
+
+    case "scope-added":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "Poco lavoro è entrato dopo che lo sprint era cominciato."
+            : `Dopo l'inizio è entrato lavoro pari al ${formatPercent(measured)} dell'impegno iniziale.`,
+        figures: `${formatPercent(measured)} dell'impegno · soglia ${formatPercent(threshold)}`,
+      };
+
+    case "review-wait":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "La revisione scorre come negli sprint conclusi."
+            : `La revisione sta impiegando ${formatNumber(measured, 1)} volte il tempo abituale di questa squadra.`,
+        figures: `${formatNumber(measured, 1)}× l'abitudine · soglia ${formatNumber(threshold, 1)}×`,
+      };
+
+    case "wip-limit":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "Nessuna colonna supera il limite che il team si è dato."
+            : `Una colonna contiene ${formatNumber(measured, 1)} volte il limite che il team si è dato.`,
+        figures: `${formatNumber(measured, 1)}× il limite dichiarato`,
+      };
+
+    case "aging":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "Gli elementi aperti sono fermi da un tempo normale per questo progetto."
+            : `Il ${formatPercent(measured)} degli elementi aperti è fermo da più di quanto questo progetto impieghi di solito.`,
+        figures: `${formatPercent(measured)} degli elementi aperti · soglia ${formatPercent(threshold)}`,
+      };
+  }
+}
+
+/** The verdict itself, said in words rather than carried by a colour. */
+export const VERDICT_WORDS = {
+  respected: {
+    label: "Sereno",
+    summary: "Nessuno dei segnali osservati supera la propria soglia.",
+  },
+  watch: {
+    label: "Da tenere d'occhio",
+    summary: "Qualcosa si sta muovendo nella direzione sbagliata, ma c'è tempo per intervenire.",
+  },
+  critical: {
+    label: "Critico",
+    summary: "Almeno un segnale è ben oltre la soglia: vale la pena parlarne oggi.",
+  },
+  "not-evaluable": {
+    label: "Non valutabile",
+    summary:
+      "Non ci sono abbastanza dati per dire come sta andando. Non è un giudizio positivo: è l'assenza di un giudizio.",
+  },
+} as const;

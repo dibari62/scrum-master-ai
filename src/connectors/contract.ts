@@ -73,6 +73,24 @@ export type FetchOptions = {
    * `(organizationId, sourceSystem, sourceId)` and repeats harmlessly.
    */
   readonly since?: Date | undefined;
+
+  /**
+   * The instant the synchronisation is considered to happen.
+   *
+   * **Why the window has two ends.** With only `since`, the window is open on
+   * the right: a record created while the fetch is running may or may not be
+   * included, so two runs over the same cursor can disagree and the next
+   * cursor has no defensible value. Closing it makes an ingestion a statement
+   * about a stated interval, which is the only form that can be repeated or
+   * checked.
+   *
+   * It is also what keeps the synthetic connector honest. It generates a story
+   * rather than reading one, and without an upper bound it would happily emit
+   * events dated tomorrow.
+   *
+   * Passed in, never read from the clock, for the reason ADR-0002 gives.
+   */
+  readonly asOf: Date;
 };
 
 export type Connector = {

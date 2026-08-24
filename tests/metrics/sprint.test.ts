@@ -6,10 +6,12 @@ import {
   carryOver,
   membershipAt,
   scopeChange,
+  sprintItemCount,
   throughput,
   totalEstimates,
   velocity,
   workInProgress,
+  workItemsByState,
 } from "@/metrics";
 
 import { DAY, item, move, resetIds } from "./builders";
@@ -17,6 +19,8 @@ import { DAY, item, move, resetIds } from "./builders";
 const ORGANIZATION_ID = "3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21";
 const PROJECT_ID = "9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905";
 const SPRINT_ID = "2c7f4a18-3e5b-4d69-9a02-8f6b1c4d7e35";
+/** A second sprint, to check that one sprint's events never count for another. */
+const OTHER_SPRINT_ID = "6b1f9d02-4a83-4e57-b16c-9f2d7e40a8c1";
 
 const ITEM_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const ITEM_B = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -295,9 +299,18 @@ describe("carryOver", () => {
 });
 
 describe("burndown", () => {
+  /**
+   * An instant past the end of the sprint.
+   *
+   * Most of these tests describe a finished sprint, so the line covers its
+   * whole span. The one that does not is the last: a running sprint stops the
+   * line at today rather than drawing days that have not happened.
+   */
+  const AFTER_SPRINT = new Date("2026-05-01T00:00:00.000Z");
+
   it("produce un punto per ogni giorno dello sprint", () => {
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
-    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events);
+    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
 
     if (!result.available) throw new Error("attesa disponibile");
     expect(result.value).toHaveLength(12);
@@ -315,7 +328,7 @@ describe("burndown", () => {
       item({ id: ITEM_B, estimate: { value: 8, unit: "points" } }),
     ];
 
-    const result = burndown(sprint(), items, [], events);
+    const result = burndown(sprint(), items, [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
 
     const first = result.value[0];
@@ -329,9 +342,36 @@ describe("burndown", () => {
     const oneDay = sprint({ startsAt: "2026-04-06T08:00:00.000Z", endsAt: "2026-04-06T18:00:00.000Z" });
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
 
-    const result = burndown(oneDay, [item({ id: ITEM_A })], [], events);
+    const result = burndown(oneDay, [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
     expect(result.value).toHaveLength(1);
+  });
+
+  it("si ferma a oggi invece di disegnare i giorni non ancora avvenuti", () => {
+    /*
+     * Uno sprint in corso ha giorni che non sono accaduti, e campionarli
+     * produce punti identici all'ultimo reale: una coda piatta che si legge
+     * come una settimana di lavoro fermo.
+     *
+     * Il grafico affermerebbe qualcosa sul futuro — falso, e per giunta poco
+     * lusinghiero. Fermare la linea dove finiscono i dati dice solo ciò che si
+     * sa. È il difetto che è comparso il giorno in cui lo scenario ha smesso
+     * di essere tutto nel passato.
+     */
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
+    const midSprint = new Date("2026-04-09T12:00:00.000Z");
+
+    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, midSprint);
+    if (!result.available) throw new Error("attesa disponibile");
+
+    const last = result.value[result.value.length - 1];
+    expect(last?.at.getTime()).toBeLessThanOrEqual(midSprint.getTime());
+
+    // E resta più corta della linea dello stesso sprint guardato a cose fatte.
+    const whole = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
+    if (!whole.available) throw new Error("attesa disponibile");
+
+    expect(result.value.length).toBeLessThan(whole.value.length);
   });
 });
 
@@ -421,6 +461,169 @@ describe("workInProgress", () => {
   });
 });
 
+describe("workItemsByState", () => {
+  const INSTANT = new Date("2026-04-09T00:00:00.000Z");
+
+  it("conta gli elementi stato per stato", () => {
+    const transitions = [
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_review", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+      move(null, "in_review", "2026-04-08T10:00:00.000Z", { workItemId: ITEM_C }),
+    ];
+
+    const result = workItemsByState(transitions, INSTANT);
+    if (!result.available) throw new Error("attesa disponibile");
+
+    expect(result.value.get("in_progress")).toBe(1);
+    expect(result.value.get("in_review")).toBe(2);
+  });
+
+  it("dichiara zero per gli stati vuoti, invece di ometterli", () => {
+    /*
+     * Uno stato assente dalla mappa si legge come «non lo so» a chi la
+     * riceve, mentre qui si sa: è zero. Lasciare che il chiamante distingua
+     * i due casi è il modo in cui una bacheca finisce per mostrare una
+     * casella vuota dove dovrebbe esserci uno zero.
+     */
+    const transitions = [
+      move(null, "todo", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+    ];
+
+    const result = workItemsByState(transitions, INSTANT);
+    if (!result.available) throw new Error("attesa disponibile");
+
+    expect(result.value.get("done")).toBe(0);
+    expect(result.value.get("blocked")).toBe(0);
+    expect(result.value.has("cancelled")).toBe(true);
+  });
+
+  it("guarda l'istante richiesto, non l'ultimo stato conosciuto", () => {
+    const transitions = [
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+      move("in_progress", "done", "2026-04-12T09:00:00.000Z", { workItemId: ITEM_A }),
+    ];
+
+    const during = workItemsByState(transitions, new Date("2026-04-10T00:00:00.000Z"));
+    const after = workItemsByState(transitions, new Date("2026-04-14T00:00:00.000Z"));
+
+    if (!during.available || !after.available) throw new Error("attese disponibili");
+    expect(during.value.get("in_progress")).toBe(1);
+    expect(during.value.get("done")).toBe(0);
+    expect(after.value.get("in_progress")).toBe(0);
+    expect(after.value.get("done")).toBe(1);
+  });
+
+  it("non è disponibile senza storia degli stati", () => {
+    // Una bacheca tutta a zero afferma che le colonne sono vuote. Qui non si
+    // sa nemmeno se esistano elementi: sono due cose diverse.
+    expect(workItemsByState([], INSTANT).available).toBe(false);
+  });
+
+  it("dichiara su quanti elementi ha guardato", () => {
+    const transitions = [
+      move(null, "todo", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "todo", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = workItemsByState(transitions, INSTANT);
+    expect(result.sampleSize).toBe(2);
+  });
+});
+
+describe("sprintItemCount", () => {
+  const AFTER = new Date("2026-05-01T00:00:00.000Z");
+
+  it("conta gli elementi presenti alla chiusura", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-08T09:00:00.000Z"),
+    ];
+
+    const result = sprintItemCount(sprint(), events, AFTER);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(2);
+  });
+
+  it("non conta gli elementi usciti prima della chiusura", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-08T09:00:00.000Z"),
+      scopeEvent(ITEM_B, "removed", "2026-04-10T09:00:00.000Z"),
+    ];
+
+    const result = sprintItemCount(sprint(), events, AFTER);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(1);
+  });
+
+  it("ignora le variazioni di un altro sprint", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-07T08:00:00.000Z", OTHER_SPRINT_ID),
+    ];
+
+    const result = sprintItemCount(sprint(), events, AFTER);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(1);
+  });
+
+  it("uno sprint ancora in corso si ferma a adesso, non alla data di fine", () => {
+    // Contare fino alla fine pianificata significherebbe includere ingressi
+    // che non sono ancora avvenuti: una composizione futura spacciata per
+    // misura.
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-15T09:00:00.000Z"),
+    ];
+
+    const result = sprintItemCount(sprint(), events, new Date("2026-04-10T00:00:00.000Z"));
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(1);
+  });
+
+  it("uno sprint chiuso in anticipo si conta alla chiusura reale", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-16T09:00:00.000Z"),
+    ];
+
+    const closed = sprint({ completedAt: "2026-04-15T18:00:00.000Z" });
+    const result = sprintItemCount(closed, events, AFTER);
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(1);
+  });
+
+  it("dichiara quante variazioni ha letto", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_B, "added", "2026-04-08T09:00:00.000Z"),
+      scopeEvent(ITEM_B, "removed", "2026-04-10T09:00:00.000Z"),
+    ];
+
+    expect(sprintItemCount(sprint(), events, AFTER).sampleSize).toBe(3);
+  });
+
+  it("senza variazioni di perimetro non risponde zero, dice che non lo sa", () => {
+    const result = sprintItemCount(sprint(), [], AFTER);
+
+    expect(result.available).toBe(false);
+    if (result.available) throw new Error("attesa indisponibile");
+    expect(result.reason).toBe("no-data");
+  });
+
+  it("uno sprint svuotato è uno zero misurato, non una lacuna", () => {
+    const events = [
+      scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+      scopeEvent(ITEM_A, "removed", "2026-04-07T08:00:00.000Z"),
+    ];
+
+    const result = sprintItemCount(sprint(), events, AFTER);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value).toBe(0);
+  });
+});
+
 describe("insieme vuoto", () => {
   it("nessuna metrica di sprint restituisce zero muto", () => {
     const empty = sprint();
@@ -429,13 +632,20 @@ describe("insieme vuoto", () => {
     expect(scopeChange(empty, [], []).available).toBe(false);
     expect(carryOver(empty, [], [], []).available).toBe(false);
     expect(workInProgress([], empty.startsAt).available).toBe(false);
+    expect(sprintItemCount(empty, [], empty.endsAt).available).toBe(false);
   });
 });
 
 describe("durata di riferimento", () => {
   it("il burndown copre l'intero arco dello sprint", () => {
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
-    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events);
+    const result = burndown(
+      sprint(),
+      [item({ id: ITEM_A })],
+      [],
+      events,
+      new Date("2026-05-01T00:00:00.000Z"),
+    );
 
     if (!result.available) throw new Error("attesa disponibile");
     const first = result.value[0];
