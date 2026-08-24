@@ -33,6 +33,15 @@ export const metricUnitSchema = z.enum([
   "ratio",
   "points",
   "items-per-sprint",
+  /**
+   * Not a quantity at all, but a graded judgement: serene, watch, critical.
+   *
+   * Added rather than forced into `ratio` because the difference is the whole
+   * point. A ratio can be averaged, compared and plotted over time; a verdict
+   * cannot, and the moment one is treated as the other somebody computes the
+   * "average health" of four sprints and reports a number that means nothing.
+   */
+  "verdict",
 ]);
 
 export type MetricUnit = z.infer<typeof metricUnitSchema>;
@@ -86,6 +95,15 @@ export const metricOperationSchema = z.enum([
   "median",
   /** A value sampled repeatedly over time. */
   "series",
+  /**
+   * The worst of several findings, deliberately not their average.
+   *
+   * Named as an operation of its own because "worst" is a decision with
+   * consequences, not an implementation detail: an average lets three calm
+   * signals bury one serious one, which is how an indicator becomes
+   * decoration. Anything declaring this operation is promising not to do that.
+   */
+  "worst",
 ]);
 
 export type MetricOperation = z.infer<typeof metricOperationSchema>;

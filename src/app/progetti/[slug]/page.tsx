@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { BarChart, type Bar } from "@/components/charts/bar-chart";
 import { BurndownChart } from "@/components/charts/burndown-chart";
+import { HealthBanner } from "@/components/charts/health-banner";
 import { MetricCard } from "@/components/charts/metric-card";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
-import { formatDate, formatDuration, formatNumber } from "@/lib/format";
+import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
@@ -25,6 +26,8 @@ import {
   presentDuration,
   presentEstimates,
   presentPercent,
+  presentSignal,
+  VERDICT_WORDS,
 } from "../present";
 
 export const dynamic = "force-dynamic";
@@ -165,6 +168,58 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           </Button>
         </div>
       </header>
+
+      {/*
+       * Il semaforo sta in cima, e non è una preferenza di impaginazione.
+       *
+       * È l'unica cosa in questa pagina che riguarda ciò su cui si può ancora
+       * intervenire: tutto il resto descrive com'è andata. Metterlo in fondo lo
+       * trasformerebbe in una nota a piè di pagina di se stesso.
+       */}
+      {dashboard.health === null ? (
+        /*
+         * Nessuno sprint aperto: si dice, e si dice perché.
+         *
+         * Un semaforo verde su un progetto fermo è la peggiore delle risposte
+         * — afferma che va tutto bene proprio dove non sta succedendo nulla.
+         */
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Nessuno sprint in corso</CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground text-sm">
+            <p>
+              La salute dello sprint giudica ciò che è ancora aperto, quindi qui non
+              compare alcun indicatore. Non significa che il progetto stia bene o male:
+              significa che in questo momento non c&apos;è uno sprint su cui intervenire.
+            </p>
+          </CardContent>
+        </Card>
+      ) : !dashboard.health.available ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Salute dello sprint non calcolabile</CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground text-sm">
+            <p>
+              Uno sprint risulta aperto, ma le sue date non permettono di dire quanto ne
+              sia trascorso. Finché il dato non è coerente non viene proposto un giudizio:
+              inventarne uno sarebbe peggio che non averlo.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <HealthBanner
+          verdict={dashboard.health.value.verdict}
+          label={VERDICT_WORDS[dashboard.health.value.verdict].label}
+          summary={VERDICT_WORDS[dashboard.health.value.verdict].summary}
+          elapsed={`${formatPercent(dashboard.health.value.elapsedFraction)} dello sprint trascorso`}
+          signals={dashboard.health.value.signals.map((signal) => ({
+            ...presentSignal(signal),
+            tone: signal.status,
+          }))}
+        />
+      )}
 
       <section className="grid gap-3">
         <h2 className="text-lg font-medium">Il flusso, nel complesso</h2>

@@ -299,9 +299,18 @@ describe("carryOver", () => {
 });
 
 describe("burndown", () => {
+  /**
+   * An instant past the end of the sprint.
+   *
+   * Most of these tests describe a finished sprint, so the line covers its
+   * whole span. The one that does not is the last: a running sprint stops the
+   * line at today rather than drawing days that have not happened.
+   */
+  const AFTER_SPRINT = new Date("2026-05-01T00:00:00.000Z");
+
   it("produce un punto per ogni giorno dello sprint", () => {
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
-    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events);
+    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
 
     if (!result.available) throw new Error("attesa disponibile");
     expect(result.value).toHaveLength(12);
@@ -319,7 +328,7 @@ describe("burndown", () => {
       item({ id: ITEM_B, estimate: { value: 8, unit: "points" } }),
     ];
 
-    const result = burndown(sprint(), items, [], events);
+    const result = burndown(sprint(), items, [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
 
     const first = result.value[0];
@@ -333,9 +342,36 @@ describe("burndown", () => {
     const oneDay = sprint({ startsAt: "2026-04-06T08:00:00.000Z", endsAt: "2026-04-06T18:00:00.000Z" });
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
 
-    const result = burndown(oneDay, [item({ id: ITEM_A })], [], events);
+    const result = burndown(oneDay, [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
     expect(result.value).toHaveLength(1);
+  });
+
+  it("si ferma a oggi invece di disegnare i giorni non ancora avvenuti", () => {
+    /*
+     * Uno sprint in corso ha giorni che non sono accaduti, e campionarli
+     * produce punti identici all'ultimo reale: una coda piatta che si legge
+     * come una settimana di lavoro fermo.
+     *
+     * Il grafico affermerebbe qualcosa sul futuro — falso, e per giunta poco
+     * lusinghiero. Fermare la linea dove finiscono i dati dice solo ciò che si
+     * sa. È il difetto che è comparso il giorno in cui lo scenario ha smesso
+     * di essere tutto nel passato.
+     */
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
+    const midSprint = new Date("2026-04-09T12:00:00.000Z");
+
+    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, midSprint);
+    if (!result.available) throw new Error("attesa disponibile");
+
+    const last = result.value[result.value.length - 1];
+    expect(last?.at.getTime()).toBeLessThanOrEqual(midSprint.getTime());
+
+    // E resta più corta della linea dello stesso sprint guardato a cose fatte.
+    const whole = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
+    if (!whole.available) throw new Error("attesa disponibile");
+
+    expect(result.value.length).toBeLessThan(whole.value.length);
   });
 });
 
@@ -603,7 +639,13 @@ describe("insieme vuoto", () => {
 describe("durata di riferimento", () => {
   it("il burndown copre l'intero arco dello sprint", () => {
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
-    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events);
+    const result = burndown(
+      sprint(),
+      [item({ id: ITEM_A })],
+      [],
+      events,
+      new Date("2026-05-01T00:00:00.000Z"),
+    );
 
     if (!result.available) throw new Error("attesa disponibile");
     const first = result.value[0];

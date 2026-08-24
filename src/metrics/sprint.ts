@@ -239,12 +239,20 @@ export type BurndownPoint = {
  * Membership is recomputed at every point rather than fixed at the start. That
  * is what makes mid-sprint additions visible as a line that goes *up*, which is
  * the entire diagnostic value of the chart.
+ *
+ * **The line stops at `asOf`, and that is not a detail.** A running sprint has
+ * days that have not happened yet, and sampling them produces points identical
+ * to the last real one — a flat tail that a reader interprets as a week of work
+ * going nowhere. The chart would be asserting something about the future, which
+ * is both false and unflattering. Ending the line where the data ends says only
+ * what is known.
  */
 export function burndown(
   sprint: Sprint,
   items: readonly WorkItem[],
   transitions: readonly StateTransition[],
   scopeEvents: readonly SprintScopeEvent[],
+  asOf: Date,
 ): MetricResult<readonly BurndownPoint[]> {
   const byItem = groupByWorkItem(transitions);
   const byId = new Map(items.map((item) => [item.id, item]));
@@ -252,7 +260,9 @@ export function burndown(
   const points: BurndownPoint[] = [];
   const dayMs = 24 * 60 * 60 * 1000;
 
-  for (let at = sprint.startsAt.getTime(); at <= sprint.endsAt.getTime(); at += dayMs) {
+  const last = Math.min(sprint.endsAt.getTime(), asOf.getTime());
+
+  for (let at = sprint.startsAt.getTime(); at <= last; at += dayMs) {
     const instant = new Date(at);
     const members = membershipAt(scopeEvents, sprint, instant);
 

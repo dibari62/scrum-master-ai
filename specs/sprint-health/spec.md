@@ -1,6 +1,6 @@
 # Spec — Salute dello sprint (`sprint-health`)
 
-- **Stato:** bozza
+- **Stato:** implementata
 - **Autore:** sviluppo
 - **Data:** 2026-08-24
 - **Traguardo di roadmap:** T5 — Salute dello sprint e colli di bottiglia
@@ -35,6 +35,9 @@ Un semaforo senza motivo è un colore. Ciò che lo rende utile è la seconda rig
 non la prima.
 
 ## 3. Perimetro
+
+**Stato: implementato.** Il motore è in `src/metrics/health.ts`, il semaforo in
+cima alla dashboard del progetto. Le questioni aperte sono decise in §11.
 
 **Incluso**
 
@@ -174,37 +177,75 @@ rosso dal verde deve poter leggere la stessa cosa dal testo.
 
 ## 11. Questioni aperte
 
-- [ ] **Q1 — Quante fasce: due o tre?**
-      *Proposta provvisoria: tre* (sereno, da tenere d'occhio, critico). Due
-      costringono a chiamare «critico» ciò che merita solo attenzione, e un
-      allarme che si accende spesso viene ignorato.
+- [x] **Q1 — Quante fasce: due o tre?** — **decisa: tre** (sereno, da tenere
+      d'occhio, critico), più «non valutabile» che non è una fascia ma l'assenza
+      di giudizio. Due costringerebbero a chiamare «critico» ciò che merita solo
+      attenzione, e un allarme che si accende spesso viene ignorato.
 
-- [ ] **Q2 — Quale scarto sull'avanzamento fa scattare l'attenzione?**
-      *Proposta provvisoria: attenzione sotto il 70% dell'avanzamento atteso,
-      critico sotto il 40%.* Sono numeri da tarare su dati veri, ed è il motivo
+- [x] **Q2 — Quale scarto sull'avanzamento fa scattare l'attenzione?** —
+      **decisa provvisoriamente: attenzione sotto il 70% del passo atteso,
+      critico sotto il 40%.** Sono numeri da tarare su dati veri, ed è il motivo
       per cui non sono configurabili adesso: una soglia che si può cambiare senza
-      doverla argomentare smette di essere una decisione.
+      doverla argomentare smette di essere una decisione. Vivono in
+      `HEALTH_THRESHOLDS` e un test le cita una per una.
 
-- [ ] **Q3 — Il semaforo va mostrato anche a chi non è amministratore?**
-      *Proposta provvisoria: sì.* È un'informazione sul processo, non
-      un'operazione: nasconderla non protegge nulla e renderebbe la dashboard
-      diversa a seconda di chi guarda, che è il modo più rapido per far perdere
-      fiducia in un numero.
+- [x] **Q3 — Il semaforo va mostrato anche a chi non è amministratore?** —
+      **decisa: sì.** È un'informazione sul processo, non un'operazione:
+      nasconderla non protegge nulla e renderebbe la dashboard diversa a seconda
+      di chi guarda, che è il modo più rapido per far perdere fiducia in un
+      numero.
 
-- [ ] **Q4 — Un giudizio critico va conservato quando lo sprint si chiude?**
-      *Proposta provvisoria: no, non in questo incremento.* Sarebbe la prima
-      versione di `Insight`, e conservare qualcosa prima di sapere a cosa serve
-      significa progettare una tabella per una domanda non ancora posta.
+- [x] **Q4 — Un giudizio critico va conservato quando lo sprint si chiude?** —
+      **decisa: no, non in questo incremento.** Sarebbe la prima versione di
+      `Insight`, e conservare qualcosa prima di sapere a cosa serve significa
+      progettare una tabella per una domanda non ancora posta.
 
-- [ ] **Q5 — Come si dimostra, se nello scenario sintetico non c'è uno sprint in
-      corso?**
-      Non è una questione di stile: è un prerequisito. Lo scenario genera quattro
-      sprint che finiscono a maggio 2026, e i dati si guardano oggi. Il semaforo
-      giudica lo **sprint aperto**, quindi allo stato attuale mostrerebbe sempre e
-      solo lo stato vuoto «nessuno sprint in corso» — corretto, e inutile per
-      capire se la funzione serve.
+- [ ] **Q6 — Il confronto sull'attesa in revisione è leggermente sbilanciato, e
+      va detto.**
 
-      *Proposta provvisoria: ancorare lo scenario all'istante in cui viene
-      generato*, così l'ultimo sprint è sempre a metà strada. Ha un costo da
-      dichiarare — i test di integrazione che oggi citano date fisse andrebbero
-      ripensati — e va deciso **prima** di scrivere il motore, non dopo.
+      Il segnale divide l'attesa mediana in revisione dello sprint in corso per
+      quella degli sprint conclusi. I due numeri però non sono misurati nello
+      stesso modo: negli sprint chiusi quasi tutte le attese sono **finite** —
+      l'elemento è uscito dalla revisione — mentre in quello in corso molte sono
+      **ancora aperte** e si misurano fino a adesso. Un'attesa in corso cresce
+      di ora in ora; una conclusa no.
+
+      L'effetto spinge il rapporto verso l'alto anche a parità di
+      comportamento. Sui dati sintetici il segnale riporta 13,6×, che coincide
+      quasi esattamente con il peggioramento che il generatore inserisce di
+      proposito (da 2-8 ore a 48-120), quindi oggi il numero **non è un
+      artefatto** — ma parte di quel margine lo è, e su dati reali meno estremi
+      la distorsione peserebbe di più.
+
+      *Proposta provvisoria: lasciarlo così e dichiararlo.* Correggerlo significa
+      scegliere fra due definizioni diverse — confrontare solo attese concluse,
+      perdendo proprio gli elementi fermi che interessano, oppure troncare anche
+      lo storico a una finestra equivalente — ed è una decisione da prendere
+      guardando dati veri, non inventando la risposta adesso.
+
+- [x] **Q5 — Come si dimostra, se nello scenario sintetico non c'è uno sprint in
+      corso?** — **decisa: lo scenario si ancora all'istante di riferimento.**
+
+      Non era una questione di stile: era un prerequisito. Lo scenario generava
+      quattro sprint che finivano a maggio 2026, e i dati si guardano oggi. Il
+      semaforo giudica lo **sprint aperto**, quindi allo stato precedente avrebbe
+      mostrato sempre e solo lo stato vuoto «nessuno sprint in corso» — corretto,
+      e inutile per capire se la funzione serve.
+
+      Il generatore ora **riceve** l'istante di riferimento — non lo legge
+      dall'orologio, come ogni altra cosa in questo progetto — e colloca gli
+      sprint all'indietro a partire da lì, così l'ultimo è sempre a metà strada.
+
+      **La parte non ovvia, ed è la ragione per cui la decisione non era gratis.**
+      Uno sprint a metà non ha una storia intera: se il generatore scrivesse
+      comunque tutte le transizioni dei quattordici giorni, il database
+      conterrebbe eventi **datati domani** — elementi già conclusi in un futuro
+      che non è avvenuto. Sarebbe un difetto peggiore di quello che si voleva
+      risolvere, perché invisibile: ogni numero resterebbe plausibile.
+
+      Quindi la generazione termina con un taglio dichiarato: **nulla nel lotto
+      può portare una data successiva all'istante di riferimento**, e lo stato
+      corrente di ogni elemento viene ricalcolato da ciò che resta. Un test
+      cammina su ogni record e su ogni campo di data per verificarlo, perché una
+      regola di questa forma si rompe aggiungendo un campo, non toccando quelli
+      che c'erano.

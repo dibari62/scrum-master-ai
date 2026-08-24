@@ -184,6 +184,12 @@ describe("catalogo delle metriche", () => {
      * guarda i tipi nella firma, non l'uso — perché un controllo grezzo che
      * fallisce quando la firma cambia vale più di un'analisi raffinata che
      * nessuno mantiene.
+     *
+     * **Segue un livello di indirezione, e deve.** Una metrica con quattro
+     * ingressi non li elenca come quattro parametri: prende un oggetto, e le
+     * entità stanno nella dichiarazione di quel tipo. Fermarsi alla firma
+     * avrebbe lasciato passare quelle metriche senza controllo — il caso
+     * peggiore, perché sono le più complesse.
      */
     const wrong: string[] = [];
 
@@ -192,8 +198,19 @@ describe("catalogo delle metriche", () => {
       const start = source.indexOf(`export function ${entry.sourceSymbol}(`);
       const signature = source.slice(start, source.indexOf("{", start));
 
+      /** The signature, plus the declaration of any named type it receives. */
+      let declared = signature;
+
+      for (const [, typeName] of signature.matchAll(/:\s*([A-Z]\w+)/g)) {
+        const declaration = source.indexOf(`export type ${typeName} = {`);
+        if (declaration < 0) continue;
+
+        const end = source.indexOf("\n};", declaration);
+        declared += source.slice(declaration, end < 0 ? undefined : end);
+      }
+
       for (const input of entry.inputs) {
-        if (!signature.includes(input.entity)) {
+        if (!declared.includes(input.entity)) {
           wrong.push(
             `${entry.id} dichiara di leggere ${input.entity}, ma ${entry.sourceSymbol} non lo riceve`,
           );
@@ -202,7 +219,7 @@ describe("catalogo delle metriche", () => {
 
       // `asOf`, `instant`, `from`/`to`: se la firma prende un istante, il
       // catalogo deve dire da dove arriva. Mai dall'orologio (ADR-0002).
-      const takesInstant = /:\s*Date/.test(signature);
+      const takesInstant = /:\s*Date/.test(declared);
       if (takesInstant && entry.referenceInstant === null) {
         wrong.push(
           `${entry.id}: ${entry.sourceSymbol} riceve un istante, ma il catalogo dichiara di non averne bisogno`,

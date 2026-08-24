@@ -19,6 +19,7 @@ import {
   burndown,
   carryOver,
   scopeChange,
+  sprintHealth,
   summariseFlow,
   velocity,
   workInProgress,
@@ -28,6 +29,7 @@ import {
   type FlowSummary,
   type MetricResult,
   type ScopeChange,
+  type SprintHealth,
 } from "@/metrics";
 
 /**
@@ -66,6 +68,14 @@ export type ProjectDashboard = {
   readonly current: SprintMetrics | null;
   readonly flow: FlowSummary;
   readonly wip: MetricResult<number>;
+  /**
+   * How the sprint that is still running is going.
+   *
+   * `null` when no sprint is open — deliberately distinct from an unavailable
+   * result, because "there is no sprint to judge" and "there is one and I
+   * cannot judge it" ask the page for two different screens.
+   */
+  readonly health: MetricResult<SprintHealth> | null;
   readonly peopleCount: number;
   readonly asOf: Date;
 };
@@ -122,11 +132,28 @@ export async function loadProjectDashboard(
       velocity: velocity(sprint, items, transitions, scopeEvents),
       scopeChange: scopeChange(sprint, items, scopeEvents),
       carryOver: carryOver(sprint, items, transitions, scopeEvents),
-      burndown: burndown(sprint, items, transitions, scopeEvents),
+      burndown: burndown(sprint, items, transitions, scopeEvents, asOf),
       flow: summariseFlow(sprintItems, sprintTransitions, asOf),
       itemCount: sprintItems.length,
     };
   });
+
+  /*
+   * Lo sprint in corso, se ce n'è uno.
+   *
+   * «In corso» vuol dire non chiuso e con l'istante dentro le sue date, non
+   * «l'ultimo dell'elenco»: l'ultimo sprint di un progetto fermo da mesi è
+   * finito, e giudicarne la salute significherebbe rispondere a una domanda
+   * che nessuno ha posto.
+   */
+  const running = sprints.find(
+    (sprint) =>
+      sprint.completedAt === null &&
+      sprint.startsAt.getTime() <= asOf.getTime() &&
+      sprint.endsAt.getTime() >= asOf.getTime(),
+  );
+
+  const columnRows = running ? await scope.reads.boardColumnsByProject(project.id) : [];
 
   return {
     project,
@@ -134,6 +161,17 @@ export async function loadProjectDashboard(
     current: perSprint[perSprint.length - 1] ?? null,
     flow: summariseFlow(items, transitions, asOf),
     wip: workInProgress(transitions, asOf),
+    health: running
+      ? sprintHealth({
+          sprint: running,
+          items,
+          transitions,
+          scopeEvents,
+          closedSprints: sprints.filter((sprint) => sprint.completedAt !== null),
+          columns: columnRows.map((row) => boardColumnSchema.parse(row)),
+          asOf,
+        })
+      : null,
     peopleCount: peopleRows.length,
     asOf,
   };

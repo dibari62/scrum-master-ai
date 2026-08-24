@@ -21,6 +21,7 @@ export const seedConnector: Connector = {
     const batch = generateSeedBatch({
       organizationId: options.organizationId,
       projectId: options.projectId,
+      asOf: options.asOf,
     });
 
     // `since` is honoured rather than ignored: a connector that quietly returns

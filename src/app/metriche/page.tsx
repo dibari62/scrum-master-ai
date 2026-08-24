@@ -31,6 +31,7 @@ const UNIT_LABELS: Readonly<Record<MetricUnit, string>> = {
   ratio: "percentuale",
   points: "unità di stima",
   "items-per-sprint": "elementi",
+  verdict: "giudizio",
 };
 
 function MetricEntry({ metric }: { readonly metric: MetricDefinition }) {

@@ -7,6 +7,7 @@ import {
   flowEfficiency,
   reviewWaitTime,
   scopeChange,
+  sprintHealth,
   summariseFlow,
   velocity,
   type MetricResult,
@@ -31,17 +32,29 @@ import {
 const ORGANIZATION_ID = organizationIdSchema.parse("3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21");
 const PROJECT_ID = projectIdSchema.parse("9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905");
 
+/**
+ * The instant the data set is generated at, and the instant it is measured at.
+ *
+ * **They have to be the same one.** The scenario places its sprints backwards
+ * from this instant so the last one is still running, and it emits nothing
+ * dated after it. Measuring at any later moment would ask the engine about a
+ * stretch of time the generator deliberately left empty, and every figure would
+ * quietly describe a project that had stopped.
+ *
+ * Fixed rather than `new Date()`, or these assertions would be made against a
+ * different data set every day.
+ */
+const ASOF = new Date("2026-08-19T10:00:00.000Z");
+
 const batch = generateSeedBatch({
   organizationId: ORGANIZATION_ID,
   projectId: PROJECT_ID,
+  asOf: ASOF,
 });
 
 const sprints = [...batch.sprints].sort(
   (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
 );
-
-/** The instant everything is measured at: just after the last sprint ends. */
-const ASOF = new Date(sprints[sprints.length - 1]!.endsAt.getTime() + 24 * 60 * 60 * 1000);
 
 function itemsOf(sprintIndex: number) {
   const sprint = sprints[sprintIndex]!;
@@ -243,6 +256,140 @@ describe("coerenza fra metriche indipendenti", () => {
 
     if (median.available && p85.available) {
       expect(p85.value).toBeGreaterThanOrEqual(median.value);
+    }
+  });
+});
+
+/**
+ * Il giudizio sullo sprint in corso, sui dati sintetici.
+ *
+ * **È il test che dimostra che la funzione serve a qualcosa.** I test unitari
+ * di `health.test.ts` provano che l'aritmetica è giusta su casi costruiti a
+ * tavolino, ma un motore può essere perfettamente corretto e non accendersi mai
+ * su dati veri — e sarebbe indistinguibile, dall'esterno, da una squadra che va
+ * bene.
+ *
+ * Lo scenario peggiora di proposito sprint dopo sprint: la revisione si
+ * ingolfa, il perimetro cresce, il trascinato aumenta. Se il semaforo restasse
+ * sereno su questi dati, sarebbe decorazione.
+ */
+describe("la salute dello sprint legge i dati sintetici", () => {
+  const current = sprints.at(-1);
+  const closed = sprints.filter((sprint) => sprint.completedAt !== null);
+
+  const columns = batch.boardColumns;
+
+  it("lo scenario offre davvero uno sprint in corso da giudicare", () => {
+    // Il prerequisito della questione Q5. Se cade questo, tutto il resto di
+    // questo blocco sta misurando il vuoto.
+    if (!current) throw new Error("atteso almeno uno sprint");
+
+    expect(current.completedAt).toBeNull();
+    expect(current.startsAt.getTime()).toBeLessThanOrEqual(ASOF.getTime());
+    expect(current.endsAt.getTime()).toBeGreaterThanOrEqual(ASOF.getTime());
+  });
+
+  it("produce un giudizio, invece di dichiararsi incapace", () => {
+    if (!current) throw new Error("atteso almeno uno sprint");
+
+    const result = sprintHealth({
+      sprint: current,
+      items: batch.workItems,
+      transitions: batch.transitions,
+      scopeEvents: batch.scopeEvents,
+      closedSprints: closed,
+      columns,
+      asOf: ASOF,
+    });
+
+    const health = valueOf(result, "sprintHealth");
+    expect(health.verdict).not.toBe("not-evaluable");
+  });
+
+  it("si accorge che qualcosa non va: il verdetto non è sereno", () => {
+    /*
+     * Il cuore del test.
+     *
+     * Questi dati raccontano una squadra in difficoltà crescente. Un semaforo
+     * verde qui significherebbe che le soglie sono tarate per non accendersi
+     * mai, che è il modo più comune in cui un indicatore smette di servire.
+     */
+    if (!current) throw new Error("atteso almeno uno sprint");
+
+    const health = valueOf(
+      sprintHealth({
+        sprint: current,
+        items: batch.workItems,
+        transitions: batch.transitions,
+        scopeEvents: batch.scopeEvents,
+        closedSprints: closed,
+        columns,
+        asOf: ASOF,
+      }),
+      "sprintHealth",
+    );
+
+    expect(health.verdict, "il semaforo resta sereno su dati che peggiorano").not.toBe(
+      "respected",
+    );
+  });
+
+  it("il collo di bottiglia in revisione arriva fino al semaforo", () => {
+    // La catena completa: il generatore lo inserisce, `reviewWaitTime` lo
+    // misura, e il segnale lo trasforma in qualcosa che si vede senza cercarlo.
+    if (!current) throw new Error("atteso almeno uno sprint");
+
+    const health = valueOf(
+      sprintHealth({
+        sprint: current,
+        items: batch.workItems,
+        transitions: batch.transitions,
+        scopeEvents: batch.scopeEvents,
+        closedSprints: closed,
+        columns,
+        asOf: ASOF,
+      }),
+      "sprintHealth",
+    );
+
+    const reviewWait = health.signals.find((signal) => signal.id === "review-wait");
+    expect(reviewWait?.status).not.toBe("respected");
+  });
+
+  it("ogni rilievo dichiara metrica, valore, soglia e scarto", () => {
+    // Criterio 3 della specifica, verificato sui dati veri e non solo sui casi
+    // costruiti: un rilievo senza scarto è un'affermazione che non si può
+    // discutere.
+    if (!current) throw new Error("atteso almeno uno sprint");
+
+    const health = valueOf(
+      sprintHealth({
+        sprint: current,
+        items: batch.workItems,
+        transitions: batch.transitions,
+        scopeEvents: batch.scopeEvents,
+        closedSprints: closed,
+        columns,
+        asOf: ASOF,
+      }),
+      "sprintHealth",
+    );
+
+    for (const signal of health.signals) {
+      expect(signal.metricId.length, `${signal.id} senza metrica`).toBeGreaterThan(0);
+
+      if (signal.status === "not-evaluable") {
+        // Ciò che manca va detto, non lasciato indovinare.
+        expect(signal.missing, `${signal.id} non dice cosa manca`).toBeTruthy();
+        continue;
+      }
+
+      expect(signal.measured, `${signal.id} senza valore misurato`).not.toBeNull();
+      expect(signal.threshold, `${signal.id} senza soglia`).not.toBeNull();
+
+      if (signal.status !== "respected") {
+        expect(signal.distance, `${signal.id} senza scarto dalla soglia`).not.toBeNull();
+      }
     }
   });
 });

@@ -53,6 +53,24 @@ export function atHour(instant: Date, hour: number, minute = 0): Date {
   return moved;
 }
 
+/**
+ * The Monday of the week an instant falls in, at the start of the working day.
+ *
+ * Used to anchor the synthetic sprints to a reference instant while keeping the
+ * story the scenario tells — two-week sprints that begin on a Monday. Without
+ * the alignment the sprints would start on whatever weekday the data happened
+ * to be generated, and a burndown that begins mid-week reads as a mistake to
+ * anyone who has run one.
+ *
+ * Sunday is UTC day 0, so it belongs to the week that has already begun: it maps
+ * back six days, not forward one.
+ */
+export function mondayOnOrBefore(instant: Date, hour = 8): Date {
+  const day = instant.getUTCDay();
+  const back = day === 0 ? 6 : day - 1;
+  return atHour(addDays(instant, -back), hour);
+}
+
 /** Whole days between two instants, rounded down. */
 export function daysBetween(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / MS_PER_DAY);

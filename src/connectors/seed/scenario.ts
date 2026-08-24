@@ -12,6 +12,8 @@
  * metric, otherwise a single lucky calculation would appear to find them all.
  */
 
+import { addDays, mondayOnOrBefore } from "./calendar";
+
 export type SprintPlan = {
   readonly name: string;
   readonly goal: string;
@@ -55,13 +57,43 @@ export type SprintPlan = {
 /**
  * Two-week sprints, starting on a Monday.
  *
- * The dates are in the past relative to any plausible demo, so the data set
- * never contains a sprint that has not happened yet — which would make
- * burndown and velocity meaningless.
+ * **The dates are not fixed, and that is a decision.** They used to be: the
+ * first sprint began on 6 April 2026 and the last ended on 31 May. Read in
+ * August, that data set had no sprint in progress — so a judgement about the
+ * *current* sprint could only ever report "there isn't one". Correct, and
+ * useless for seeing whether the feature works.
+ *
+ * The sprints are now placed backwards from a reference instant the caller
+ * supplies, so the last one is always in flight. The instant is passed in and
+ * never read from the clock, for the same reason the metrics engine does not
+ * read it: a generator that consults `Date.now()` produces a different data set
+ * on every run and cannot be tested (ADR-0002).
  */
 export const SPRINT_LENGTH_DAYS = 14;
 
-export const FIRST_SPRINT_START = new Date("2026-04-06T08:00:00.000Z");
+/**
+ * How far back the last sprint starts from the reference instant, before the
+ * Monday alignment is applied.
+ *
+ * Six days rather than seven so the alignment can only ever move the start
+ * *earlier*, never past the instant itself. With this value the reference
+ * instant lands between roughly 45% and 97% of the way through the last sprint:
+ * always started, never finished, and always far enough in for progress against
+ * elapsed time to mean something.
+ */
+const LAST_SPRINT_MINIMUM_ELAPSED_DAYS = 6;
+
+/**
+ * Where the story begins, given the instant it is read at.
+ *
+ * Deterministic: the same instant always yields the same dates, which is what
+ * lets the integration tests assert on a generated data set at all.
+ */
+export function firstSprintStart(asOf: Date): Date {
+  const lastStart = mondayOnOrBefore(addDays(asOf, -LAST_SPRINT_MINIMUM_ELAPSED_DAYS));
+
+  return addDays(lastStart, -(SPRINT_PLANS.length - 1) * SPRINT_LENGTH_DAYS);
+}
 
 export const SPRINT_PLANS: readonly SprintPlan[] = [
   {

@@ -648,12 +648,12 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     observation: {
       kind: "history",
       over:
-        "dall'inizio alla fine pianificata dello sprint, un campione ogni ventiquattro ore a partire dall'ora di inizio",
+        "dall'inizio dello sprint fino alla sua fine pianificata o all'istante di riferimento, quello che viene prima, un campione ogni ventiquattro ore a partire dall'ora di inizio",
     },
     operation: "series",
     summarisedBy: [],
     sampleSizeMeaning: "quanti campioni compongono la linea, cioè quanti giorni copre",
-    referenceInstant: null,
+    referenceInstant: "parametro asOf",
     edgeCases: [
       {
         situation: "Del lavoro entra nello sprint dopo l'inizio.",
@@ -666,9 +666,10 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
         verifiedBy: "gestisce uno sprint di un solo giorno",
       },
       {
-        situation: "Lo sprint dura più giorni.",
-        outcome: "Un punto per ogni giorno, dall'inizio fino alla fine compresa.",
-        verifiedBy: "produce un punto per ogni giorno dello sprint",
+        situation: "Lo sprint è ancora in corso.",
+        outcome:
+          "La linea si ferma a oggi invece di proseguire piatta fino alla data di fine, che sembrerebbe lavoro fermo.",
+        verifiedBy: "si ferma a oggi invece di disegnare i giorni non ancora avvenuti",
       },
     ],
     decision:
@@ -821,6 +822,90 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     sourceFile: "src/metrics/sprint.ts",
     sourceSymbol: "workItemsByState",
     testFile: "tests/metrics/sprint.test.ts",
+  },
+  {
+    id: "sprint-health",
+    name: "Salute dello sprint",
+    question: "Lo sprint aperto sta andando come dovrebbe, o c'è qualcosa da guardare adesso?",
+    formula:
+      "Si valutano cinque segnali — avanzamento contro tempo trascorso, lavoro aggiunto dopo l'inizio, attesa in revisione rispetto agli sprint conclusi, occupazione delle colonne rispetto al limite dichiarato, quota di elementi fermi oltre l'abitudine del progetto — ciascuno contro due soglie scritte. Il giudizio complessivo è il peggiore dei cinque.",
+    unit: "verdict",
+    excludes: [
+      "Qualsiasi valutazione delle persone: i segnali riguardano code, attese e perimetro, che sono fatti del processo.",
+      "Gli sprint chiusi: la domanda è cosa si può ancora cambiare, e su uno sprint concluso quella domanda non esiste più. Per quelli c'è il resoconto.",
+      "La media dei segnali, che nasconderebbe un problema grave sotto tre indicatori sereni.",
+      "Le soglie configurabili dall'interfaccia: finché non sono tarate su dati veri, poterle cambiare senza argomentarle le trasformerebbe in preferenze.",
+    ],
+    unavailableWhen:
+      "Lo sprint non è ancora cominciato, è già finito, oppure ha date incoerenti. Un giudizio su uno sprint che non è in corso non è prudente, è sbagliato.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "l'istante di inizio e la data di fine, da cui la frazione di tempo trascorso",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "l'impegno iniziale e ciò che è entrato dopo l'inizio",
+      },
+      {
+        entity: "StateTransition",
+        reads:
+          "la storia degli stati, da cui avanzamento, attesa in revisione, occupazione delle colonne ed elementi fermi",
+      },
+      {
+        entity: "WorkItem",
+        reads: "le stime, quando ci sono: senza, l'avanzamento si misura sui conteggi",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di riferimento, che deve cadere dentro lo sprint",
+    },
+    operation: "worst",
+    summarisedBy: [],
+    sampleSizeMeaning:
+      "quanti dei cinque segnali è stato possibile valutare: un giudizio che poggia su un solo segnale merita molta meno fiducia di uno che ne ha cinque",
+    referenceInstant: "parametro asOf",
+    edgeCases: [
+      {
+        situation: "Nessuno dei cinque segnali è valutabile.",
+        outcome:
+          "Il giudizio è «non valutabile», mai «sereno»: un verde che significa «non ho potuto guardare» viene creduto.",
+        verifiedBy: "senza alcun segnale valutabile dice «non valutabile», mai «sereno»",
+      },
+      {
+        situation: "Un segnale è critico e gli altri quattro sono sereni.",
+        outcome: "Il giudizio è critico: è il peggiore, non la media.",
+        verifiedBy: "un solo segnale critico rende critico il giudizio",
+      },
+      {
+        situation: "Lo sprint è cominciato da poche ore.",
+        outcome:
+          "L'avanzamento non è valutabile: essere all'8% il primo giorno non significa nulla.",
+        verifiedBy: "non si pronuncia su uno sprint appena cominciato",
+      },
+      {
+        situation: "Gli elementi sono stimati in unità diverse.",
+        outcome: "L'avanzamento non è valutabile: punti e ore non si sommano.",
+        verifiedBy: "non è valutabile se le stime sono in unità diverse",
+      },
+      {
+        situation: "Nessuna colonna dichiara un limite di lavoro in corso.",
+        outcome:
+          "Il segnale è non valutabile, non «rispettato»: non si sostituisce con una soglia inventata.",
+        verifiedBy: "non è valutabile quando nessuna colonna dichiara un limite",
+      },
+      {
+        situation: "Lo sprint finisce oggi.",
+        outcome: "Valutabile: la frazione trascorsa è il 100%, mai oltre.",
+        verifiedBy: "si ferma al 100% il giorno in cui lo sprint finisce, non oltre",
+      },
+    ],
+    decision:
+      "Il giudizio è calcolato in codice e nessun modello linguistico lo tocca (R1). Un colore prodotto da un modello sarebbe irripetibile, non discutibile e impossibile da confrontare con i numeri che ha accanto; il modello può raccontarlo, non deciderlo.",
+    sourceFile: "src/metrics/health.ts",
+    sourceSymbol: "sprintHealth",
+    testFile: "tests/metrics/health.test.ts",
   },
   {
     id: "sprint-length",

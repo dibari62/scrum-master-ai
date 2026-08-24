@@ -104,6 +104,17 @@ async function main(): Promise<void> {
     // checks that what came back is a UUID.
     organizationId: organizationIdSchema.parse(organization.id),
     projectId: projectIdSchema.parse(project.id),
+
+    /*
+     * L'unico punto di tutta la catena che guarda l'orologio, ed è quello
+     * giusto.
+     *
+     * Il generatore colloca gli sprint all'indietro a partire da qui, così
+     * l'ultimo è sempre in corso e la salute dello sprint ha qualcosa da
+     * giudicare. Ogni altro livello riceve l'istante invece di leggerlo: è la
+     * ragione per cui la stessa storia si può rigenerare identica in un test.
+     */
+    asOf: new Date(),
   });
 
   /**
