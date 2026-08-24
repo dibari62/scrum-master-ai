@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { isSkillAvailable, skillKeySchema } from "@/domain";
 
 import { runSprintReportAction, setSkillEnabledAction } from "../actions";
 import { SKILLS } from "../labels";
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CapacitaPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const { agent, canConfigure, reportSkillEnabled } = await loadScheda(slug);
+  const { agent, canConfigure, reportSkillEnabled, healthSkillEnabled } = await loadScheda(slug);
   const { closed, latestClosed } = await loadSprints(slug);
 
   return (
@@ -109,8 +111,16 @@ export default async function CapacitaPage({ params }: PageProps) {
                     <input type="hidden" name="slug" value={slug} />
                     <input type="hidden" name="skillKey" value="sprint-report" />
                     <input type="hidden" name="enable" value="0" />
+                    {/*
+                     * L'etichetta nomina la capacità, non «la skill».
+                     *
+                     * Con più capacità sulla stessa schermata, due pulsanti
+                     * identici costringono a dedurre dalla posizione a quale
+                     * si riferiscano — e chi ascolta la pagina la posizione non
+                     * ce l'ha.
+                     */}
                     <Button type="submit" variant="outline">
-                      Disabilita la skill
+                      Disabilita il resoconto di sprint
                     </Button>
                   </form>
                 </div>
@@ -153,9 +163,67 @@ export default async function CapacitaPage({ params }: PageProps) {
       </Card>
 
       {/*
+       * La seconda capacità, e il motivo per cui il comando non è qui.
+       *
+       * La spiegazione si chiede dov'è il giudizio che spiega: portarla su
+       * questa schermata significherebbe leggere un testo che commenta un
+       * semaforo non visibile. Qui resta ciò che qui si decide — se la capacità
+       * è accesa — e la strada per arrivarci.
+       */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-base leading-none font-semibold">
+            {SKILLS["sprint-health"].name}
+          </h2>
+          <CardDescription>{SKILLS["sprint-health"].produces}</CardDescription>
+        </CardHeader>
+
+        <CardContent className="grid gap-3">
+          {!canConfigure ? (
+            <p className="text-muted-foreground text-sm">
+              Serve un ruolo di amministratore per accendere o spegnere una capacità.
+            </p>
+          ) : healthSkillEnabled ? (
+            <div className="grid gap-3">
+              <p className="text-sm">
+                È accesa. Il pulsante per chiederla si trova sulla{" "}
+                <Link href={`/progetti/${slug}`} className="underline underline-offset-4">
+                  dashboard del progetto
+                </Link>
+                , sotto il giudizio che spiega.
+              </p>
+
+              <form action={setSkillEnabledAction}>
+                <input type="hidden" name="slug" value={slug} />
+                <input type="hidden" name="skillKey" value="sprint-health" />
+                <input type="hidden" name="enable" value="0" />
+                <Button type="submit" variant="outline">
+                  Disabilita la salute dello sprint
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm">
+                Il giudizio sullo sprint viene calcolato comunque, anche a capacità spenta:
+                quello che si accende qui è soltanto la sua <strong>lettura</strong>.
+              </p>
+
+              <form action={setSkillEnabledAction}>
+                <input type="hidden" name="slug" value={slug} />
+                <input type="hidden" name="skillKey" value="sprint-health" />
+                <input type="hidden" name="enable" value="1" />
+                <Button type="submit">Abilita la salute dello sprint</Button>
+              </form>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/*
        * Ciò che non c'è ancora, detto invece che taciuto.
        *
-       * Il modello dichiara sei capacità e ne esegue due. Nasconderle
+       * Il modello dichiara sei capacità e ne esegue tre. Nasconderle
        * lascerebbe credere che il prodotto finisca qui; mostrarle come pulsanti
        * spenti lascerebbe credere che siano rotte.
        */}
@@ -170,7 +238,7 @@ export default async function CapacitaPage({ params }: PageProps) {
         <CardContent>
           <ul className="text-muted-foreground grid gap-2 text-sm">
             {Object.entries(SKILLS)
-              .filter(([, skill]) => !skill.available)
+              .filter(([key]) => !isSkillAvailable(skillKeySchema.parse(key)))
               .map(([key, skill]) => (
                 <li key={key}>
                   <span className="text-foreground font-medium">{skill.name}</span> —{" "}

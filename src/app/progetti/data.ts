@@ -87,6 +87,14 @@ export type ProjectDashboard = {
    * never computed at all.
    */
   readonly healthHistory: readonly HealthCheckPoint[];
+  /**
+   * Whether the agent can be asked to explain the verdict.
+   *
+   * Read here rather than in the page so the button is offered only when
+   * pressing it would work. A control that always refuses teaches a reader to
+   * ignore controls.
+   */
+  readonly healthNarrationEnabled: boolean;
   readonly peopleCount: number;
   readonly asOf: Date;
 };
@@ -118,13 +126,15 @@ export async function loadProjectDashboard(
 
   // Parsed rather than cast: the database returns rows, and trusting their
   // shape would defeat the point of having schemas (R4).
-  const [sprintRows, itemRows, transitionRows, scopeRows, peopleRows] = await Promise.all([
-    scope.reads.sprintsByProject(project.id),
-    scope.reads.workItemsByProject(project.id),
-    scope.reads.transitionsByProject(project.id),
-    scope.reads.scopeEventsByProject(project.id),
-    scope.reads.peopleByProject(project.id),
-  ]);
+  const [sprintRows, itemRows, transitionRows, scopeRows, peopleRows, agentRows] =
+    await Promise.all([
+      scope.reads.sprintsByProject(project.id),
+      scope.reads.workItemsByProject(project.id),
+      scope.reads.transitionsByProject(project.id),
+      scope.reads.scopeEventsByProject(project.id),
+      scope.reads.peopleByProject(project.id),
+      scope.reads.scrumAgentByProject(project.id),
+    ]);
 
   const sprints: Sprint[] = sprintRows.map((row) => sprintSchema.parse(row));
   const items: WorkItem[] = itemRows.map((row) =>
@@ -201,6 +211,7 @@ export async function loadProjectDashboard(
       takenAt: row.takenAt,
       verdict: healthVerdictSchema.parse(row.verdict),
     })),
+    healthNarrationEnabled: agentRows[0]?.enabledSkillKeys.includes("sprint-health") ?? false,
     peopleCount: peopleRows.length,
     asOf,
   };

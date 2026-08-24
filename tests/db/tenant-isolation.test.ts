@@ -83,8 +83,8 @@ const WRITES: Record<TenantWriteName, (scope: TenantScope) => Query> = {
   addMembership: (scope) =>
     scope.writes.addMembership({ userId: USER_ID, role: "member" }).toSQL(),
   removeMembership: (scope) => scope.writes.removeMembership(USER_ID).toSQL(),
-  setEnabledSkills: (scope) =>
-    scope.writes.setEnabledSkills(PROJECT_ID, ["sprint-report"]).toSQL(),
+  setSkillEnabled: (scope) =>
+    scope.writes.setSkillEnabled(PROJECT_ID, "sprint-health", true).toSQL(),
   recordHealthCheck: (scope) =>
     scope.writes
       .recordHealthCheck({

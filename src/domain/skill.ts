@@ -37,12 +37,19 @@ export type SkillKey = z.infer<typeof skillKeySchema>;
 /**
  * Skills this release can actually execute.
  *
- * `sprint-report` joined `configuration-check` in T4. Everything else is refused
- * **before** the gateway, so a declaration of intent never consumes a token.
+ * `sprint-report` joined `configuration-check` in T4, and `sprint-health` joined
+ * them with the narration increment. Everything else is refused **before** the
+ * gateway, so a declaration of intent never consumes a token.
+ *
+ * This set is the only declaration of what runs. The card used to carry its own
+ * `available` flag beside each description, which is how «Salute dello sprint»
+ * came to be described as switched on in one file while the action that switches
+ * it on silently refused it in another.
  */
 const AVAILABLE_SKILL_KEYS: ReadonlySet<SkillKey> = new Set([
   "configuration-check",
   "sprint-report",
+  "sprint-health",
 ]);
 
 export function isSkillAvailable(key: SkillKey): boolean {

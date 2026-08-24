@@ -86,42 +86,44 @@ export type SkillDescription = {
   readonly name: string;
   /** What the reader gets out of it. */
   readonly produces: string;
-  /** Whether this release can actually run it. */
-  readonly available: boolean;
 };
 
+/**
+ * Whether this release can run a skill is **not** declared here.
+ *
+ * It is `isSkillAvailable` in `src/domain`, and it is the same answer the server
+ * action consults before switching anything on. This file used to carry its own
+ * `available` flag beside each description: the two drifted, and the visible
+ * symptom was a capability the card described as ready while pressing its button
+ * did nothing at all — the action was refusing a key the domain did not list.
+ */
 export const SKILLS: Readonly<Record<SkillKey, SkillDescription>> = {
   "configuration-check": {
     name: "Prova del collegamento",
     produces:
       "controlla che il collegamento al modello linguistico funzioni. Non legge i dati del progetto e non produce nulla da leggere: serve a chi installa.",
-    available: true,
   },
   "sprint-report": {
     name: "Resoconto di sprint",
     produces:
       "racconta com'è andato uno sprint concluso, citando soltanto i numeri calcolati dal codice.",
-    available: true,
   },
   "daily-digest": {
     name: "Digest giornaliero",
     produces: "cosa è cambiato ieri, cosa non si è mosso e cosa è fermo.",
-    available: false,
   },
   "sprint-health": {
     name: "Salute dello sprint",
     produces:
-      "un giudizio sullo sprint aperto, con il motivo. Il giudizio è già sulla dashboard: qui mancherebbe solo la sua narrazione.",
-    available: false,
+      "spiega il giudizio sullo sprint in corso: mette in relazione i cinque segnali fra loro e dice come il verdetto si è mosso nei giorni scorsi. Il giudizio resta calcolato dal codice — questa è la sua lettura, e si chiede dalla dashboard del progetto.",
   },
   "bottleneck-detection": {
     name: "Collo di bottiglia",
-    produces: "quale fase del flusso sta rallentando il lavoro, e da quando.",
-    available: false,
+    produces:
+      "quale fase del flusso trattiene più a lungo il lavoro. È già calcolato e visibile nella pagina «Flusso di lavoro»: come capacità dell'agente mancherebbe solo la narrazione.",
   },
   "project-qa": {
     name: "Domande sul progetto",
     produces: "risposte a domande libere, con la citazione delle fonti usate.",
-    available: false,
   },
 };

@@ -49,13 +49,15 @@ describe("catalogo delle skill", () => {
   it("dichiara le skill future senza renderle eseguibili", () => {
     /*
      * Dichiarare una skill serve al catalogo; renderla eseguibile è un'altra
-     * decisione. `sprint-report` è passata da dichiarata a eseguibile in T4,
-     * quando è stata costruita: le altre restano intenzioni.
+     * decisione. `sprint-report` è passata da dichiarata a eseguibile in T4 e
+     * `sprint-health` con l'incremento della narrazione, quando sono state
+     * costruite: le altre restano intenzioni.
      */
     expect(isSkillAvailable("configuration-check")).toBe(true);
     expect(isSkillAvailable("sprint-report")).toBe(true);
+    expect(isSkillAvailable("sprint-health")).toBe(true);
 
-    for (const key of ["daily-digest", "project-qa", "sprint-health"] as const) {
+    for (const key of ["daily-digest", "project-qa", "bottleneck-detection"] as const) {
       expect(isSkillAvailable(key), `${key} non è ancora costruita`).toBe(false);
     }
   });
@@ -65,7 +67,7 @@ describe("catalogo delle skill", () => {
     // che sa fare sparirebbe, ed è esattamente la distinzione che serve.
     const eseguibili = skillKeySchema.options.filter(isSkillAvailable);
 
-    expect(eseguibili).toEqual(["configuration-check", "sprint-report"]);
+    expect(eseguibili).toEqual(["configuration-check", "sprint-report", "sprint-health"]);
     expect(eseguibili.length).toBeLessThan(skillKeySchema.options.length);
   });
 

@@ -21,6 +21,7 @@ import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/f
 import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
+import { HealthNarration } from "./health-narration";
 import {
   presentCount,
   presentDuration,
@@ -233,6 +234,17 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           }))}
         />
       )}
+
+      {/*
+       * La spiegazione sta sotto il giudizio che spiega.
+       *
+       * Non si genera all'apertura: la maggior parte delle visite a una
+       * dashboard è un'occhiata al colore, e pagare un modello a ogni occhiata
+       * sarebbe spendere per non essere letti.
+       */}
+      {dashboard.health?.available ? (
+        <HealthNarration slug={slug} enabled={dashboard.healthNarrationEnabled} />
+      ) : null}
 
       {/*
        * Da quanto dura, e non solo com'è adesso.

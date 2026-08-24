@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { enableSkill } from "./fixtures";
+
 /**
  * The sprint report, from an agent that cannot run it to a report on screen.
  *
@@ -38,7 +40,7 @@ test.describe("resoconto di sprint", () => {
     await page.goto(CARD);
 
     // Si parte da uno stato noto: disabilitata.
-    const disable = page.getByRole("button", { name: "Disabilita la skill" });
+    const disable = page.getByRole("button", { name: "Disabilita il resoconto di sprint" });
     if (await disable.isVisible()) {
       await disable.click();
       await page.waitForLoadState("networkidle");
@@ -54,13 +56,7 @@ test.describe("resoconto di sprint", () => {
   });
 
   test("il resoconto cita solo i numeri che mostra accanto a sé", async ({ page }) => {
-    await page.goto(CARD);
-
-    const enable = page.getByRole("button", { name: "Abilita il resoconto di sprint" });
-    if (await enable.isVisible()) {
-      await enable.click();
-      await page.waitForLoadState("networkidle");
-    }
+    await enableSkill(page, PROJECT, "Abilita il resoconto di sprint");
 
     await page.getByRole("button", { name: "Genera il resoconto" }).click();
 
