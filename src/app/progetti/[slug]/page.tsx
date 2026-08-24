@@ -136,13 +136,29 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
         </p>
 
         {/*
-         * Le due destinazioni come pulsanti, non come collegamenti in mezzo a
+         * Le destinazioni come pulsanti, non come collegamenti in mezzo a
          * una frase: erano annegate nella riga dei conteggi, dove nessuno le
          * cercava, e su telefono finivano a capo staccate dal loro contesto.
+         *
+         * Sprint e persone stanno qui e non solo nell'indirizzo: una pagina
+         * raggiungibile solo scrivendo l'URL a mano è un vicolo cieco, ed è un
+         * difetto che questo progetto ha già consegnato una volta.
          */}
         <div className="mt-2 flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href={elementi}>Vedi gli elementi</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/progetti/${project.slug}/sprint`}>Vedi gli sprint</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/progetti/${project.slug}/persone`}>Vedi le persone</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/progetti/${project.slug}/flusso`}>Flusso di lavoro</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/progetti/${project.slug}/impedimenti`}>Impedimenti</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link href={`/progetti/${project.slug}/scrum-master`}>Scrum Master AI</Link>

@@ -134,8 +134,21 @@ export function buildSnapshot(input: SnapshotInput): MetricSnapshot {
 
   velocityValues(input.velocity, target);
 
-  push(target, "throughput", "Elementi conclusi", input.throughput, (n) =>
-    `${formatNumber(n)} elementi`,
+  /*
+   * Due conteggi diversi, e le etichette devono dirlo.
+   *
+   * La velocity conta gli elementi *dello sprint* che risultavano conclusi al
+   * suo istante di chiusura; il throughput conta quelli di *tutto il progetto*
+   * arrivati a «concluso» dentro l'intervallo. Chiamati entrambi «Elementi
+   * conclusi» sembravano lo stesso dato scritto due volte — e quando i due
+   * numeri differivano sembrava un errore invece di due domande diverse.
+   */
+  push(
+    target,
+    "throughput",
+    "Elementi conclusi nel progetto durante lo sprint",
+    input.throughput,
+    (n) => `${formatNumber(n)} elementi`,
   );
 
   push(target, "cycle-time", "Cycle time mediano", input.flow.cycleTime.median, formatDuration);

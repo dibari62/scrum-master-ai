@@ -57,6 +57,19 @@ export function presentPercent(
 }
 
 /**
+ * Why a metric has no value, in words. `null` when it has one.
+ *
+ * For the views where the wording of `present` does not fit. A count of items
+ * in a sprint rests on movements of the sprint's composition, not on items, so
+ * "su 24 elementi" printed beside "12 elementi" would read as a contradiction
+ * rather than as a sample size. The absent case is identical everywhere, and it
+ * is the case that must never silently become a zero.
+ */
+export function unavailableReason(result: MetricResult<unknown>): string | null {
+  return result.available ? null : REASONS[result.reason];
+}
+
+/**
  * Estimate totals as text, never collapsing two units into one number.
  *
  * "13 punti + 4 ore" is longer than "17" and is the only honest rendering: the

@@ -144,4 +144,72 @@ describe("catalogo delle metriche", () => {
         toBeGreaterThan(0);
     }
   });
+
+  it("lega ogni caso limite dichiarato a un test che esiste davvero", () => {
+    /*
+     * È il controllo che tiene in piedi tutti gli altri.
+     *
+     * `edgeCases` promette un comportamento in una situazione scomoda — «senza
+     * variazioni di perimetro non risponde zero» — e una promessa sul
+     * comportamento è esattamente ciò che va alla deriva per primo: il codice
+     * cambia, la frase resta, e il lettore riceve una certezza sbagliata invece
+     * di un dubbio onesto.
+     *
+     * Qui ogni promessa deve indicare il titolo di un test presente nel file
+     * che la voce dichiara come proprio. Se qualcuno rinomina o cancella quel
+     * test, la promessa resta senza prova e questa verifica cade.
+     */
+    const orphans: string[] = [];
+
+    for (const entry of METRIC_CATALOG) {
+      const testSource = readFileSync(join(process.cwd(), entry.testFile), "utf8");
+
+      for (const edgeCase of entry.edgeCases) {
+        if (!testSource.includes(edgeCase.verifiedBy)) {
+          orphans.push(`${entry.id} → «${edgeCase.verifiedBy}» non è in ${entry.testFile}`);
+        }
+      }
+    }
+
+    expect(orphans, orphans.join("; ")).toEqual([]);
+  });
+
+  it("dichiara, per ogni metrica, entità lette e istante di riferimento", () => {
+    /*
+     * Il legame fra ciò che il catalogo dichiara di leggere e ciò che la
+     * funzione riceve davvero.
+     *
+     * Una voce che dichiara di leggere `Sprint` mentre la funzione non prende
+     * uno sprint descrive un'altra metrica. Il controllo è volutamente grezzo —
+     * guarda i tipi nella firma, non l'uso — perché un controllo grezzo che
+     * fallisce quando la firma cambia vale più di un'analisi raffinata che
+     * nessuno mantiene.
+     */
+    const wrong: string[] = [];
+
+    for (const entry of METRIC_CATALOG) {
+      const source = readFileSync(join(process.cwd(), entry.sourceFile), "utf8");
+      const start = source.indexOf(`export function ${entry.sourceSymbol}(`);
+      const signature = source.slice(start, source.indexOf("{", start));
+
+      for (const input of entry.inputs) {
+        if (!signature.includes(input.entity)) {
+          wrong.push(
+            `${entry.id} dichiara di leggere ${input.entity}, ma ${entry.sourceSymbol} non lo riceve`,
+          );
+        }
+      }
+
+      // `asOf`, `instant`, `from`/`to`: se la firma prende un istante, il
+      // catalogo deve dire da dove arriva. Mai dall'orologio (ADR-0002).
+      const takesInstant = /:\s*Date/.test(signature);
+      if (takesInstant && entry.referenceInstant === null) {
+        wrong.push(
+          `${entry.id}: ${entry.sourceSymbol} riceve un istante, ma il catalogo dichiara di non averne bisogno`,
+        );
+      }
+    }
+
+    expect(wrong, wrong.join("; ")).toEqual([]);
+  });
 });

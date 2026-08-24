@@ -142,6 +142,14 @@ export const BOARD_COLUMNS = [
  *
  * Chosen to read like a real backlog: a mix of features, defects and chores,
  * concrete enough that a report quoting one of them sounds plausible.
+ *
+ * **There have to be more of these than a project has items.** The generator
+ * walks the list and wraps around, so a short list makes the same title appear
+ * three times in one backlog — and a reader looking at the items page sees what
+ * looks like duplicated data. The rows were always distinct, with different
+ * sprints and different histories, but demonstration data that *looks* broken
+ * costs the same as data that is broken. `seed.test.ts` fails if the list stops
+ * covering the largest scenario.
  */
 export const ITEM_TITLES: readonly string[] = [
   "Salvataggio del carrello fra sessioni",
@@ -162,4 +170,47 @@ export const ITEM_TITLES: readonly string[] = [
   "Arrotondamento degli importi in valuta",
   "Rimozione articolo esaurito dal carrello",
   "Indicatore di avanzamento del checkout",
+  "Pagamento con portafoglio digitale",
+  "Salvataggio dei metodi di pagamento ricorrenti",
+  "Verifica dell'indirizzo tramite servizio postale",
+  "Ritiro in negozio come alternativa alla spedizione",
+  "Calcolo delle spese di spedizione per peso",
+  "Soglia di spedizione gratuita",
+  "Gestione dei codici sconto scaduti",
+  "Limite di quantità per singolo articolo",
+  "Avviso di disponibilità in esaurimento",
+  "Ordinamento degli articoli nel riepilogo",
+  "Modifica della quantità dal riepilogo",
+  "Rimozione di un articolo dal riepilogo",
+  "Conferma di abbandono del carrello",
+  "Ripresa di un ordine interrotto",
+  "Fattura in formato PDF allegata alla conferma",
+  "Richiesta di fattura con partita IVA",
+  "Selezione della valuta di pagamento",
+  "Conversione valuta al tasso del giorno",
+  "Blocco degli ordini verso paesi non serviti",
+  "Consenso al trattamento dei dati al checkout",
+  "Informativa sui cookie nel processo di acquisto",
+  "Registrazione facoltativa dopo l'acquisto",
+  "Acquisto come ospite senza account",
+  "Recupero del carrello via email",
+  "Notifica di spedizione avvenuta",
+  "Tracciamento della spedizione nel dettaglio ordine",
+  "Gestione della consegna fallita",
+  "Avvio di una richiesta di reso",
+  "Rimborso parziale di un ordine",
+  "Storno di un pagamento autorizzato",
+  "Doppio addebito segnalato dal fornitore",
+  "Riconciliazione fra ordine e incasso",
+  "Esportazione degli ordini per la contabilità",
+  "Prova di carico sul modulo di pagamento",
+  "Riduzione dei tempi di risposta del riepilogo",
+  "Registro degli accessi al pannello ordini",
+  "Ruoli e permessi sul pannello ordini",
+  "Ricerca di un ordine per numero",
+  "Filtro degli ordini per stato",
+  "Annullamento di un ordine non ancora spedito",
+  "Modifica dell'indirizzo dopo la conferma",
+  "Segnalazione di indirizzo incompleto",
 ];
+

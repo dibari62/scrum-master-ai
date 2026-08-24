@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { seedConnector, generateSeedBatch } from "@/connectors/seed";
+import { ITEM_TITLES } from "@/connectors/seed/scenario";
 import { isMidSprintAddition, organizationIdSchema, projectIdSchema } from "@/domain";
 
 import { runConnectorConformance } from "./conformance";
@@ -136,5 +137,31 @@ describe("connettore seed — anomalie volute", () => {
     for (const person of batch.people) {
       expect(person.email).toMatch(/@example\.invalid$/);
     }
+  });
+
+  it("non dà lo stesso titolo a due elementi diversi", () => {
+    /*
+     * Il generatore percorre `ITEM_TITLES` e riparte da capo quando la
+     * esaurisce. Con diciotto titoli e cinquantun elementi ogni titolo
+     * ricompariva tre volte, e la pagina degli elementi mostrava la stessa
+     * riga più volte: dati distinti che *sembrano* duplicati.
+     *
+     * Le righe erano sempre state diverse — sprint diverso, storia diversa,
+     * identificativo diverso — ma dei dati di dimostrazione che sembrano rotti
+     * costano quanto dei dati rotti.
+     */
+    const titles = batch.workItems.map((item) => item.title);
+    const repeated = titles.filter((title, index) => titles.indexOf(title) !== index);
+
+    expect(
+      [...new Set(repeated)],
+      `titoli usati per più di un elemento: ${[...new Set(repeated)].join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("ha più titoli disponibili di quanti elementi generi", () => {
+    // La condizione che rende vero il test precedente. Detta a parte perché,
+    // quando fallirà, dirà *perché*: la lista è diventata troppo corta.
+    expect(ITEM_TITLES.length).toBeGreaterThanOrEqual(batch.workItems.length);
   });
 });

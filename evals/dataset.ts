@@ -179,7 +179,11 @@ export const GOLDEN_DATASET: readonly EvalCase[] = [
       takenAt: TAKEN_AT,
       values: [
         { metricId: "cycle-time", label: "Cycle time mediano", text: "3,3 giorni" },
-        { metricId: "throughput", label: "Elementi conclusi", text: "52 elementi" },
+        {
+          metricId: "throughput",
+          label: "Elementi conclusi nel progetto durante lo sprint",
+          text: "52 elementi",
+        },
       ],
       gaps: [],
       evidence: Array.from({ length: 40 }, (_, index) => ({

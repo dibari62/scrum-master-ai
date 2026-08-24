@@ -16,6 +16,7 @@
     "db:migrate": "node node_modules/drizzle-kit/bin.cjs migrate",
     "seed": "node node_modules/tsx/dist/cli.mjs scripts/seed.ts",
     "db:inspect": "node scripts/db-inspect.mjs",
+    "db:duplicates": "node scripts/check-duplicates.mjs",
     "dev:user": "node node_modules/tsx/dist/cli.mjs scripts/dev-user.ts",
     "gh": "node scripts/github.mjs",
     "diagnose:tls": "node scripts/diagnose-tls.mjs",

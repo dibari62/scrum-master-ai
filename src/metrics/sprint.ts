@@ -1,10 +1,12 @@
 import {
   isMidSprintAddition,
+  workItemStateSchema,
   type Sprint,
   type SprintScopeEvent,
   type StateTransition,
   type WorkItem,
   type WorkItemId,
+  type WorkItemState,
 } from "@/domain";
 
 import { EMPTY_TOTALS, totalEstimates, type EstimateTotals } from "./estimates";
@@ -183,6 +185,43 @@ export function carryOver(
   );
 }
 
+/**
+ * How many items the sprint held when it closed.
+ *
+ * Counted by replaying the composition events, never by reading
+ * `WorkItem.sprintId`. That field says where an item is *now*, so every
+ * leftover pulled forward into the next sprint would quietly shrink a sprint
+ * that closed weeks ago — the exact reason the glossary makes
+ * `SprintScopeEvent` a first-class entity.
+ *
+ * The counting instant is the sprint's closing moment, or `asOf` when the
+ * sprint has not reached it yet: counting a running sprint at its planned end
+ * would claim to know a composition that has not happened.
+ *
+ * Unavailable rather than zero when no composition event was recorded: "we
+ * never ingested this sprint's contents" and "the sprint was empty" are
+ * different statements, and printing `0` for both would merge them.
+ */
+export function sprintItemCount(
+  sprint: Sprint,
+  scopeEvents: readonly SprintScopeEvent[],
+  asOf: Date,
+): MetricResult<number> {
+  const forSprint = scopeEvents.filter((event) => event.sprintId === sprint.id);
+  if (forSprint.length === 0) return unavailable("no-data", 0);
+
+  const closingInstant = sprint.completedAt ?? sprint.endsAt;
+  const instant = asOf.getTime() < closingInstant.getTime() ? asOf : closingInstant;
+
+  const considered = forSprint.filter(
+    (event) => event.occurredAt.getTime() <= instant.getTime(),
+  );
+
+  // The sample is the number of movements read, not the number of items left:
+  // a reader checking the figure needs to know how much history it rests on.
+  return available(membershipAt(forSprint, sprint, instant).size, considered.length);
+}
+
 export type BurndownPoint = {
   readonly at: Date;
   /** Work still open at this instant, split by estimate unit. */
@@ -287,6 +326,44 @@ export function workInProgress(
   }
 
   return available(count, byItem.size);
+}
+
+/**
+ * How many items sit in each state at an instant.
+ *
+ * The figure a board needs: a column shows a state, and the question it answers
+ * is "how full is this one right now".
+ *
+ * **Counted per state, not per column, and that is not a shortcut.** A project
+ * may map several columns onto the same canonical state — "In review" and
+ * "Waiting for QA" are both `in_review` — and nothing in the history records
+ * which of the two an item was sitting in. A per-column count would therefore
+ * have to invent the split. The caller receives states and is left to say so
+ * where the mapping is ambiguous.
+ *
+ * Every state appears in the result, including the empty ones. A state missing
+ * from a map reads as "unknown" at the call site, and here it is known: it is
+ * zero. Making the caller distinguish the two is how a board ends up with a
+ * blank cell where it should show a nought.
+ */
+export function workItemsByState(
+  transitions: readonly StateTransition[],
+  instant: Date,
+): MetricResult<ReadonlyMap<WorkItemState, number>> {
+  const byItem = groupByWorkItem(transitions);
+  if (byItem.size === 0) return unavailable("no-data", 0);
+
+  const counts = new Map<WorkItemState, number>(
+    workItemStateSchema.options.map((state) => [state, 0]),
+  );
+
+  for (const history of byItem.values()) {
+    const state = stateAt(history, instant);
+    if (state === null) continue;
+    counts.set(state, (counts.get(state) ?? 0) + 1);
+  }
+
+  return available(counts, byItem.size);
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

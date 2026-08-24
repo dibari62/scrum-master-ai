@@ -58,6 +58,8 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   scopeEventsBySprint: (scope) => scope.reads.scopeEventsBySprint(SPRINT_ID).toSQL(),
   scopeEventsByProject: (scope) => scope.reads.scopeEventsByProject(PROJECT_ID).toSQL(),
   peopleByProject: (scope) => scope.reads.peopleByProject(PROJECT_ID).toSQL(),
+  boardsByProject: (scope) => scope.reads.boardsByProject(PROJECT_ID).toSQL(),
+  boardColumnsByProject: (scope) => scope.reads.boardColumnsByProject(PROJECT_ID).toSQL(),
   commentsByWorkItem: (scope) => scope.reads.commentsByWorkItem(WORK_ITEM_ID).toSQL(),
   impedimentsByProject: (scope) => scope.reads.impedimentsByProject(PROJECT_ID).toSQL(),
   pullRequestsByProject: (scope) => scope.reads.pullRequestsByProject(PROJECT_ID).toSQL(),
@@ -138,6 +140,42 @@ describe("registro delle esecuzioni", () => {
 
   it("non degenera in un limite privo di senso", () => {
     expect(scopeA.reads.skillRunsByProject(PROJECT_ID, 0).toSQL().params).toContain(1);
+  });
+});
+
+describe("elenco delle persone", () => {
+  /**
+   * L'ordine dell'anagrafica è alfabetico, e non è una scelta estetica.
+   *
+   * Senza `ORDER BY` le righe tornano nell'ordine in cui il database le trova,
+   * quindi la pagina si rimescolerebbe fra due ricariche; e qualunque ordine
+   * ricavato dai dati — chi è arrivato per ultimo, chi ha mosso più elementi —
+   * si leggerebbe come una classifica di persone, che §8.2 vieta.
+   */
+  it("ordina per nome, così l'ordine non dice nulla sulle persone", () => {
+    expect(scopeA.reads.peopleByProject(PROJECT_ID).toSQL().sql).toContain(
+      '"display_name"',
+    );
+  });
+
+  /*
+   * Le colonne della bacheca escono in ordine di posizione, non di nome.
+   *
+   * Quell'ordine *è* il flusso di lavoro: ordinarle alfabeticamente metterebbe
+   * «Concluso» prima di «In lavorazione» e mostrerebbe una sequenza che il
+   * team non segue. È l'unico caso in cui l'ordine porta informazione invece
+   * di limitarsi a renderla stabile.
+   */
+  it("ordina le colonne per posizione, perché quell'ordine è il flusso", () => {
+    expect(scopeA.reads.boardColumnsByProject(PROJECT_ID).toSQL().sql).toContain(
+      '"position"',
+    );
+  });
+
+  it("ordina gli impedimenti dal più recente, senza lasciarlo al caso", () => {
+    expect(scopeA.reads.impedimentsByProject(PROJECT_ID).toSQL().sql).toContain(
+      '"raised_at" desc',
+    );
   });
 });
 

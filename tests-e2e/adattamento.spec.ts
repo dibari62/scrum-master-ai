@@ -24,13 +24,15 @@ const ENABLED = process.env["RUN_E2E"] === "1";
 
 const PROJECT = "checkout";
 
-/** A phone, a small tablet, and a laptop. */
-const WIDTHS = [375, 640, 1280] as const;
+/** A phone, a small tablet, a tablet, and a laptop. */
+const WIDTHS = [375, 640, 768, 1280] as const;
 
 const PAGES = [
   "/progetti",
   `/progetti/${PROJECT}`,
   `/progetti/${PROJECT}/elementi`,
+  `/progetti/${PROJECT}/sprint`,
+  `/progetti/${PROJECT}/persone`,
   "/metriche",
 ] as const;
 
@@ -158,6 +160,8 @@ test.describe("adattamento agli schermi", () => {
   const CONTROL_PAGES = [
     `/progetti/${PROJECT}`,
     `/progetti/${PROJECT}/elementi`,
+    `/progetti/${PROJECT}/sprint`,
+    `/progetti/${PROJECT}/persone`,
     `/progetti/${PROJECT}/scrum-master`,
     "/metriche",
   ] as const;

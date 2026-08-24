@@ -13,6 +13,8 @@ import type {
 
 import type { Database } from "./client";
 import {
+  boardColumns,
+  boards,
   comments,
   impediments,
   memberships,
@@ -239,13 +241,58 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         )
         .orderBy(sprintScopeEvents.occurredAt),
 
+    /**
+     * The people a project's data mentions.
+     *
+     * Ordered alphabetically **in the database**, and the order is not
+     * cosmetic. Without an `ORDER BY` Postgres returns rows in whatever order
+     * it finds them, so the roster would reshuffle between two reloads of the
+     * same page; and any order derived from the data itself — most recent,
+     * most active — would read as a ranking of people, which §8.2 forbids this
+     * product to produce. Alphabetical is the one order that says nothing
+     * about anybody.
+     */
     peopleByProject: (projectId: ProjectId) =>
       db
         .select()
         .from(people)
         .where(
           and(eq(people.organizationId, organizationId), eq(people.projectId, projectId)),
-        ),
+        )
+        .orderBy(people.displayName),
+
+    /**
+     * The boards of a project, and their columns.
+     *
+     * Two reads rather than a join: a project usually has one board, and the
+     * columns are the interesting part. Joining would repeat the board on every
+     * column row and force the caller to undo the repetition.
+     *
+     * Columns come back in board order — `position`, left to right — because
+     * that order *is* the workflow. Sorting them by name, or leaving them
+     * unsorted, would show «Concluso» before «In lavorazione» and quietly
+     * misrepresent the sequence the team actually follows.
+     */
+    boardsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(boards)
+        .where(
+          and(eq(boards.organizationId, organizationId), eq(boards.projectId, projectId)),
+        )
+        .orderBy(boards.name),
+
+    boardColumnsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(boardColumns)
+        .where(
+          and(
+            eq(boardColumns.organizationId, organizationId),
+            eq(boardColumns.projectId, projectId),
+          ),
+        )
+        .orderBy(boardColumns.position),
 
     commentsByWorkItem: (workItemId: WorkItemId) =>
       db
@@ -268,7 +315,16 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
             eq(impediments.organizationId, organizationId),
             eq(impediments.projectId, projectId),
           ),
-        ),
+        )
+        /*
+         * Il più recente per primo, e l'ordine è stabilito qui.
+         *
+         * Senza un `ORDER BY` Postgres restituisce le righe nell'ordine in cui
+         * le trova, quindi due ricariche della stessa pagina mostrerebbero un
+         * elenco rimescolato — un difetto che non fa fallire nulla e che chi
+         * legge attribuisce a sé stesso.
+         */
+        .orderBy(desc(impediments.raisedAt)),
 
     pullRequestsByProject: (projectId: ProjectId) =>
       db

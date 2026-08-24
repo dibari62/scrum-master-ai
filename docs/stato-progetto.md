@@ -3,8 +3,9 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **22/08/2026** — T0, T1, T2 e T3 in `main` (PR #2 → #18),
-> applicazione online. Si crea uno Scrum Master AI in meno di dieci secondi.
+> Ultimo aggiornamento: **24/08/2026** — T0→T4 in `main`, applicazione online.
+> Ogni entità del modello canonico che contiene dati ha ora una schermata: le
+> ultime due erano la bacheca e il registro degli impedimenti.
 
 ---
 
@@ -15,7 +16,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 638 test<br/>Playwright · 42 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 663 test<br/>Playwright · 68 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -44,6 +45,9 @@ graph TB
         U7["Elementi e storia<br/>degli stati"]
         U6["Scrum Master AI<br/>creazione e registro"]
         U8["Catalogo metriche<br/>come si calcola ogni numero"]
+        U9["Persone · Sprint<br/>anagrafica e registro"]
+        U10["Flusso di lavoro<br/>colonne e limiti di WIP"]
+        U11["Impedimenti<br/>ostacoli e durata"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -54,15 +58,21 @@ graph TB
     class I1,I2,I3 fatto
     class I4 todo
     class D1,D2,D3,D4,D5,D6 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
 dai test. Ogni numero della dashboard è **apribile** fino alla storia degli stati da
 cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un registro
 delle esecuzioni. Le pagine sono verificate **a 375, 640, 768 e 1280 pixel**: nessun
-testo sotto i 10 pixel resi, nessuno sbordamento laterale. Restano da costruire le
-**skill** — le capacità che producono report e digest — che sono T4.
+testo sotto i 10 pixel resi, nessuno sbordamento laterale.
+
+**Non esistono più tabelle invisibili.** Fino al 24/08 cinque entità del modello
+canonico avevano righe nel database e nessuna schermata: persone, sprint, bacheca,
+colonne e impedimenti. Erano dati che il prodotto raccoglieva senza mostrarli, cioè
+lavoro fatto e non consegnato. Ora ognuna ha la sua pagina, e un test end-to-end
+verifica che i conteggi della bacheca **quadrino** con l'elenco degli elementi: due
+schermate che non tornano insegnano a non fidarsi di nessuna delle due.
 
 ---
 
@@ -106,7 +116,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 16 tabelle, migrazioni applicate, popolato con 51 elementi e 222 transizioni sintetiche |
+| **Neon (Postgres)** | ✅ attivo | 18 tabelle popolate, migrazioni applicate: 51 elementi, 222 transizioni, 5 colonne di bacheca e 6 impedimenti sintetici. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | protezione disattivata, verificato `200`; accesso e isolamento funzionanti sul dominio pubblico |
 | **Upstash QStash** | ⬜ non serve ancora | chiavi presenti, primo uso previsto a T5 |
@@ -148,6 +158,19 @@ che nessuna metrica ha prodotto. Il report è archiviato insieme alla sua
 istantanea, quindi riletto fra mesi dirà gli stessi numeri. Restano fuori dal
 perimetro dichiarato: gli altri due destinatari, `daily-digest`, il riscontro
 dell'utente e l'esecuzione schedulata.
+
+**T5 ha la specifica, non il codice.** `specs/sprint-health/spec.md` descrive il
+giudizio sullo sprint in corso — sereno, da tenere d'occhio, critico — calcolato in
+`src/metrics` con soglie dichiarate, mai da un modello. Quattro questioni restano
+aperte con una proposta motivata. Il pezzo che mancava per costruirlo è arrivato con
+la pagina del flusso: i **limiti di lavoro in corso** dichiarati dalle colonne, che
+sono l'unica soglia di questo prodotto scelta dalla squadra e non da noi.
+
+**Il catalogo delle metriche ora si può controllare, non solo leggere.** Ogni voce
+dichiara le entità che legge, i due istanti fra cui misura, l'aritmetica applicata e
+i casi limite; ogni caso limite cita il **titolo di un test che esiste**, e un test
+lo verifica. La stessa verifica ha già trovato una voce che indicava il file di test
+sbagliato — esattamente la deriva che il catalogo esiste per impedire.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
@@ -192,11 +215,14 @@ Cose note e volutamente rimandate, non sviste:
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |
 | L'agente `product-analyst` ha consegnato metà lavoro su T4 | — | ha scritto il vocabolario e non la specifica, lasciando un rimando a un file inesistente. Verificare sempre la consegna, non fidarsi del resoconto |
-| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 42 test Playwright su Chrome |
+| `npm run test:e2e` è un segnaposto | — | ~~quando le pagine si moltiplicano~~ **fatto**: 68 test Playwright su Chrome |
 | Registrazione dal browser non provata end-to-end | — | ~~serve Playwright~~ **fatto** |
 | Strumenti di lavoro fuori dal repository | — | ~~sparirebbero con la sessione~~ **fatto**: PR #14 |
 | `npm run eval` era un segnaposto | `AGENTS.md` §6 | ~~finché non c'era un output LLM da valutare~~ **fatto**: dataset dorato di cinque casi e runner. Il controllo di CI «Valutazione output LLM» ora esegue qualcosa |
 | Le pagine non erano mai state provate su uno schermo stretto | — | ~~mai misurato~~ **fatto**: le etichette dei grafici si rendevano a 3,9 pixel su telefono |
+| Cinque tabelle popolate e invisibili nell'interfaccia | — | ~~mai controllato~~ **fatto**: persone, sprint, bacheca, colonne e impedimenti hanno una pagina. Nessuno se n'era accorto perché nulla falliva: i dati c'erano, semplicemente non li vedeva nessuno |
+| I commenti e le pull request restano invisibili | — | 51 righe ciascuno, senza schermata. È una scelta, non una svista: appartengono al singolo elemento e vanno mostrati lì, quando `reviewWaitTime` leggerà la pull request invece dello stato (voce qui sopra) |
+| Lo scenario sintetico non ha uno sprint **in corso** | — | l'ultimo sprint finisce a maggio 2026 e i dati si guardano ad agosto: T5 giudica lo sprint aperto, e senza uno aperto la funzione non si può dimostrare a schermo. Da affrontare **prima** di implementare `sprint-health` |
 
 ---
 
