@@ -3,6 +3,8 @@ import { and, desc, eq } from "drizzle-orm";
 import type {
   CreateMembershipInput,
   CreateProjectInput,
+  HealthFinding,
+  HealthVerdict,
   OrganizationId,
   ProjectId,
   SprintId,
@@ -25,12 +27,31 @@ import {
   pullRequests,
   scrumAgents,
   skillRuns,
+  sprintHealthChecks,
   sprintReports,
   sprintScopeEvents,
   sprints,
   stateTransitions,
   workItems,
 } from "./schema";
+
+/**
+ * What the scheduled check writes.
+ *
+ * `organizationId` is deliberately absent: it comes from the scope, exactly as
+ * it does for every other write here (§8.4). A caller that could name an
+ * organization is the shape of bug the shared helper exists to prevent.
+ */
+export type RecordHealthCheckInput = {
+  readonly projectId: ProjectId;
+  readonly sprintId: SprintId;
+  readonly takenAt: Date;
+  /** The UTC day, as `AAAA-MM-GG`: the key that makes a run idempotent. */
+  readonly takenOn: string;
+  readonly verdict: HealthVerdict;
+  readonly elapsedFraction: number;
+  readonly findings: readonly HealthFinding[];
+};
 
 /**
  * The register never returns more than one page (criterio 29).
@@ -49,6 +70,13 @@ export const MAX_SKILL_RUN_PAGE_SIZE = 50;
  * driver on a free tier is a page that eventually stops loading.
  */
 export const MAX_SPRINT_REPORT_PAGE_SIZE = 10;
+
+/**
+ * A sprint lasts weeks, and the check runs daily: thirty rows covers any sprint
+ * with room to spare, and caps a read that would otherwise grow with the
+ * project's whole history.
+ */
+export const MAX_HEALTH_CHECK_PAGE_SIZE = 30;
 
 /**
  * Tenant-scoped access to the database.
@@ -417,6 +445,26 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         )
         .orderBy(desc(sprintReports.generatedAt))
         .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_SPRINT_REPORT_PAGE_SIZE)),
+
+    /**
+     * The kept judgements on a sprint, oldest first.
+     *
+     * Ascending, unlike every other register here, because this one is read as
+     * a line rather than as a list: the question is how the verdict moved, and
+     * a trend told backwards has to be reversed by whoever draws it.
+     */
+    healthChecksBySprint: (sprintId: SprintId, limit = MAX_HEALTH_CHECK_PAGE_SIZE) =>
+      db
+        .select()
+        .from(sprintHealthChecks)
+        .where(
+          and(
+            eq(sprintHealthChecks.organizationId, organizationId),
+            eq(sprintHealthChecks.sprintId, sprintId),
+          ),
+        )
+        .orderBy(sprintHealthChecks.takenAt)
+        .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_HEALTH_CHECK_PAGE_SIZE)),
   } as const;
 
   const writes = {
@@ -467,6 +515,32 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
             eq(scrumAgents.projectId, projectId),
           ),
         )
+        .returning(),
+
+    /**
+     * Records a judgement on a running sprint, one per sprint per day.
+     *
+     * An upsert rather than an insert, because criterio 6 asks for one row per
+     * day and two runs on the same date describe the same day. Drawing two
+     * points would suggest a change that never happened.
+     *
+     * The conflict target is the constraint the schema declares, so the rule is
+     * enforced by the database rather than by whoever remembers it.
+     */
+    recordHealthCheck: (input: RecordHealthCheckInput) =>
+      db
+        .insert(sprintHealthChecks)
+        .values({ ...input, organizationId })
+        .onConflictDoUpdate({
+          target: [sprintHealthChecks.sprintId, sprintHealthChecks.takenOn],
+          set: {
+            takenAt: input.takenAt,
+            verdict: input.verdict,
+            elapsedFraction: input.elapsedFraction,
+            findings: [...input.findings],
+            updatedAt: new Date(),
+          },
+        })
         .returning(),
   } as const;
 

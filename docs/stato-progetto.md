@@ -34,6 +34,7 @@ graph TB
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
         D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
         D6["Resoconti di sprint<br/>con la loro istantanea"]
+        D7["Salute dello sprint<br/>giudizi conservati nel tempo"]
     end
 
     subgraph UI["🖥️ Interfaccia"]
@@ -57,8 +58,8 @@ graph TB
 
     class S1,S2,S3,S4 fatto
     class I1,I2,I3 fatto
-    class I4 todo
-    class D1,D2,D3,D4,D5,D6 fatto
+    class I4 corso
+    class D1,D2,D3,D4,D5,D6,D7 fatto
     class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12 fatto
 ```
 
@@ -120,7 +121,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **Neon (Postgres)** | ✅ attivo | 18 tabelle popolate, migrazioni applicate: 51 elementi, 203 transizioni, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
-| **Upstash QStash** | ⬜ non serve ancora | chiavi presenti, primo uso previsto a T5 |
+| **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
 
 ### Come guardarci dentro
 
@@ -201,6 +202,22 @@ sintetici riporta che il **73%** del tempo fra presa in carico e chiusura se ne
 va in revisione, e che solo il **16%** è lavorazione vera — coerente con
 l'efficienza di flusso mediana del 23%, che è la stessa storia misurata per
 elemento invece che per fase.
+
+**Il controllo automatico è l'ultimo pezzo di T5, ed è quello che cambia la
+natura del prodotto.** Finora tutto veniva calcolato *quando qualcuno guardava*:
+ne seguiva che non esisteva una storia, perché il giudizio di ieri non era mai
+stato calcolato. Una rotta protetta, invocabile da uno schedulatore, ora
+conserva un giudizio al giorno per ogni sprint in corso, e la dashboard mostra
+come è cambiato.
+
+Il job **non chiama alcun modello e non spende nulla**: un modello che parte da
+solo, a costo, perché è scattato un timer è esattamente ciò che il budget
+dichiarato esiste per impedire.
+
+Restano **due passi che richiedono la console di Vercel** ed è per questo che la
+casella è gialla: aggiungere `JOB_SECRET` fra le variabili di produzione, poi
+registrare la schedulazione con `npm run qstash -- create`. Finché non sono
+fatti la rotta rifiuta ogni chiamata, che è il comportamento giusto.
 
 Due scelte dichiarate. Il collo di bottiglia si sceglie **solo fra le fasi di
 attesa**: chiamare così la lavorazione significherebbe dire a una squadra che

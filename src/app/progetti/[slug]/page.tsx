@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { organizationIdSchema } from "@/domain";
+import { organizationIdSchema, type HealthVerdict } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 import { available } from "@/metrics";
@@ -38,6 +38,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   return { title: `${slug} · Scrum Master AI` };
 }
+
+/**
+ * The dot beside a kept verdict.
+ *
+ * Decoration: the word is right next to it, and a screen reader that announced
+ * the colour as well would say the same thing twice.
+ */
+const VERDICT_DOT: Readonly<Record<HealthVerdict, string>> = {
+  respected: "bg-emerald-600",
+  watch: "bg-amber-500",
+  critical: "bg-destructive",
+  "not-evaluable": "bg-muted-foreground/40",
+};
 
 function sprintLabel(entry: SprintMetrics): string {
   return entry.sprint.name.replace(/^Sprint \d+ — /, "");
@@ -219,6 +232,73 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             tone: signal.status,
           }))}
         />
+      )}
+
+      {/*
+       * Da quanto dura, e non solo com'è adesso.
+       *
+       * È l'unica cosa in questa pagina che il calcolo su richiesta non può
+       * produrre: la salute si calcola quando qualcuno apre la pagina, quindi
+       * senza il controllo automatico il giudizio di ieri non è mai stato
+       * calcolato affatto.
+       */}
+      {dashboard.health === null ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Come è cambiato negli ultimi giorni</CardTitle>
+            <CardDescription>
+              Un controllo automatico al giorno conserva il giudizio, così si può vedere se
+              sta peggiorando invece di sapere solo com&apos;è adesso.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm">
+            {dashboard.healthHistory.length === 0 ? (
+              <p className="text-muted-foreground">
+                Nessun controllo automatico ancora eseguito su questo sprint. Finché non ne
+                esiste almeno uno non c&apos;è una storia da mostrare: il giudizio qui sopra
+                è stato calcolato adesso, aprendo la pagina.
+              </p>
+            ) : dashboard.healthHistory.length === 1 ? (
+              /*
+               * Criterio 10: con un punto solo non c'è un andamento, e
+               * disegnarlo suggerirebbe una stabilità che nessuno ha osservato.
+               */
+              <p className="text-muted-foreground">
+                Un solo controllo finora, del{" "}
+                {formatDate(dashboard.healthHistory[0]?.takenAt ?? dashboard.asOf)}: non
+                c&apos;è ancora un andamento da mostrare, servono almeno due giorni.
+              </p>
+            ) : (
+              <>
+                <ol className="grid gap-1">
+                  {dashboard.healthHistory.map((point) => (
+                    <li
+                      key={point.takenAt.toISOString()}
+                      className="flex flex-wrap items-baseline gap-x-3"
+                    >
+                      <span className="text-muted-foreground w-28 shrink-0 text-xs tabular-nums">
+                        {formatDate(point.takenAt)}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className={`size-2 rounded-full ${VERDICT_DOT[point.verdict]}`}
+                        />
+                        {/* Il giudizio è scritto, non affidato al colore. */}
+                        <span>{VERDICT_WORDS[point.verdict].label}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+
+                <p className="text-muted-foreground text-xs">
+                  Un controllo al giorno. Un giorno mancante significa che il controllo non
+                  è partito, non che non c&apos;era nulla da dire.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <section className="grid gap-3">

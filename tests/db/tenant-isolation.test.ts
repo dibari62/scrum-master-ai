@@ -68,6 +68,7 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   projectContextByProject: (scope) =>
     scope.reads.projectContextByProject(PROJECT_ID).toSQL(),
   skillRunsByProject: (scope) => scope.reads.skillRunsByProject(PROJECT_ID).toSQL(),
+  healthChecksBySprint: (scope) => scope.reads.healthChecksBySprint(SPRINT_ID).toSQL(),
   sprintReportsByProject: (scope) => scope.reads.sprintReportsByProject(PROJECT_ID).toSQL(),
 };
 
@@ -84,6 +85,18 @@ const WRITES: Record<TenantWriteName, (scope: TenantScope) => Query> = {
   removeMembership: (scope) => scope.writes.removeMembership(USER_ID).toSQL(),
   setEnabledSkills: (scope) =>
     scope.writes.setEnabledSkills(PROJECT_ID, ["sprint-report"]).toSQL(),
+  recordHealthCheck: (scope) =>
+    scope.writes
+      .recordHealthCheck({
+        projectId: PROJECT_ID,
+        sprintId: SPRINT_ID,
+        takenAt: new Date("2026-08-24T06:00:00.000Z"),
+        takenOn: "2026-08-24",
+        verdict: "critical",
+        elapsedFraction: 0.5,
+        findings: [],
+      })
+      .toSQL(),
 };
 
 const readNames = Object.keys(READS) as ReadonlyArray<TenantReadName>;
