@@ -16,7 +16,12 @@ import { expect, test } from "@playwright/test";
 const ENABLED = process.env["RUN_E2E"] === "1";
 
 const PROJECT = "checkout";
+
+/** Le capacità: dove si chiede qualcosa. */
 const CARD = "/progetti/checkout/scrum-master";
+
+/** Il diario tecnico: dove si vede costo ed esito di ogni esecuzione. */
+const LOG = "/progetti/checkout/scrum-master/diario";
 
 test.describe("resoconto di sprint", () => {
   test.skip(!ENABLED, "impostare RUN_E2E=1: questi test leggono un database reale");
@@ -58,7 +63,15 @@ test.describe("resoconto di sprint", () => {
     }
 
     await page.getByRole("button", { name: "Genera il resoconto" }).click();
-    await page.waitForLoadState("networkidle");
+
+    /*
+     * Si atterra dove il risultato si vede.
+     *
+     * Il comando sta fra le capacità e ciò che produce sta fra i resoconti:
+     * l'azione porta lì, perché restare su una pagina immutata lascerebbe chi
+     * ha premuto il pulsante a chiedersi se sia successo qualcosa.
+     */
+    await page.waitForURL("**/scrum-master/resoconti");
 
     const report = page.locator("[data-report]").first();
     await expect(report).toBeVisible();
@@ -84,10 +97,24 @@ test.describe("resoconto di sprint", () => {
   });
 
   test("il resoconto compare nel registro con il suo costo", async ({ page }) => {
+    await page.goto(LOG);
+
+    // Il diario è l'unico posto in cui il prezzo del prodotto si vede.
+    await expect(page.getByText("sprint-report", { exact: false }).first()).toBeVisible();
+  });
+
+  test("i resoconti hanno una schermata propria, raggiungibile dal menù", async ({
+    page,
+  }) => {
     await page.goto(CARD);
 
-    // Il registro è l'unico posto in cui il prezzo del prodotto si vede.
-    await expect(page.getByText("sprint-report", { exact: false }).first()).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Sezioni dello Scrum Master AI" })
+      .getByRole("link", { name: /Resoconti/ })
+      .click();
+
+    await page.waitForURL("**/scrum-master/resoconti");
+    await expect(page.locator("[data-report]").first()).toBeVisible();
   });
 
   test("dalla dashboard si arriva alla scheda dell'agente", async ({ page }) => {
