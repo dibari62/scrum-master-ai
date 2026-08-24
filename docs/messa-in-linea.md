@@ -318,6 +318,70 @@ alla produzione.
 
 ---
 
+## 5. Accendere il controllo automatico
+
+> **Due passi richiedono te**, perché toccano la console di Vercel. Finché non
+> sono fatti, la rotta esiste e rifiuta ogni chiamata: è il comportamento
+> giusto, non un guasto.
+
+Il controllo automatico è ciò che distingue una dashboard da un assistente. La
+salute dello sprint si calcola quando qualcuno apre la pagina, quindi senza
+un'esecuzione schedulata **il giudizio di ieri non è mai stato calcolato**: non
+esiste una storia, e non può esistere.
+
+### Passo 1 — le variabili su Vercel *(serve la console)*
+
+**Project Settings → Environment Variables**, ambiente *Production*:
+
+| Variabile | Valore |
+|---|---|
+| `JOB_SECRET` | lo stesso valore che hai in `.env.local` |
+
+Poi **rilancia il deploy**: le variabili si leggono all'avvio, non a caldo.
+
+Solo `JOB_SECRET`. Le chiavi `QSTASH_*` servono a *questa* macchina per
+registrare la schedulazione, non all'applicazione: il server verifica un segreto
+condiviso, non parla mai con Upstash.
+
+### Passo 2 — registrare la schedulazione
+
+```powershell
+$env:NODE_OPTIONS = "--use-system-ca"
+
+npm run qstash -- list
+npm run qstash -- create https://scrum-master-ai-swart.vercel.app/api/jobs/sprint-health "0 6 * * *"
+```
+
+Le 6:00 UTC sono una proposta, non una decisione presa: presto abbastanza da
+essere già calcolato quando qualcuno apre la dashboard la mattina, tardi
+abbastanza da includere il lavoro della sera prima. Si cambia rimuovendo e
+ricreando.
+
+Il segreto viaggia come **intestazione inoltrata**, mai nell'indirizzo: un
+indirizzo attraversa cronologia, log dei proxy e `referer`, e un segreto messo
+lì è un segreto già speso.
+
+Per fermarlo:
+
+```powershell
+npm run qstash -- delete <scheduleId>
+```
+
+### Verificare senza aspettare domani
+
+```powershell
+$env:NODE_OPTIONS = "--use-system-ca"
+node -e "process.loadEnvFile('.env.local'); fetch('https://scrum-master-ai-swart.vercel.app/api/jobs/sprint-health',{method:'POST',headers:{authorization:'Bearer '+process.env.JOB_SECRET}}).then(r=>r.json()).then(console.log)"
+```
+
+Risponde con quanti progetti ha esaminato e quanti giudizi ha scritto. Due
+esecuzioni nello stesso giorno lasciano **una** riga: un grafico con due punti
+sullo stesso giorno suggerirebbe una variazione che non c'è stata.
+
+Senza il segreto, o con quello sbagliato, risponde `401` e non scrive nulla.
+
+---
+
 ## Dopo la messa in linea
 
 Aggiorna [`docs/stato-progetto.md`](stato-progetto.md): la casella «Vercel · deploy»

@@ -1,11 +1,13 @@
 import {
   boardColumnSchema,
+  healthVerdictSchema,
   personSchema,
   projectSchema,
   sprintSchema,
   sprintScopeEventSchema,
   stateTransitionSchema,
   workItemSchema,
+  type HealthVerdict,
   type OrganizationId,
   type Project,
   type Sprint,
@@ -76,8 +78,23 @@ export type ProjectDashboard = {
    * cannot judge it" ask the page for two different screens.
    */
   readonly health: MetricResult<SprintHealth> | null;
+  /**
+   * The kept judgements on the running sprint, oldest first.
+   *
+   * Written by the scheduled check, never by this page. It is the only thing
+   * here that the on-demand calculation cannot produce: the health is worked
+   * out when somebody looks, so without these rows yesterday's verdict was
+   * never computed at all.
+   */
+  readonly healthHistory: readonly HealthCheckPoint[];
   readonly peopleCount: number;
   readonly asOf: Date;
+};
+
+/** One kept judgement, reduced to what a trend needs. */
+export type HealthCheckPoint = {
+  readonly takenAt: Date;
+  readonly verdict: HealthVerdict;
 };
 
 /**
@@ -155,6 +172,14 @@ export async function loadProjectDashboard(
 
   const columnRows = running ? await scope.reads.boardColumnsByProject(project.id) : [];
 
+  /*
+   * La storia dei giudizi, solo per lo sprint in corso.
+   *
+   * Chiederla anche quando nessuno sprint è aperto sarebbe un viaggio al
+   * database per una domanda che la pagina non porrà.
+   */
+  const historyRows = running ? await scope.reads.healthChecksBySprint(running.id) : [];
+
   return {
     project,
     sprints: perSprint,
@@ -172,6 +197,10 @@ export async function loadProjectDashboard(
           asOf,
         })
       : null,
+    healthHistory: historyRows.map((row) => ({
+      takenAt: row.takenAt,
+      verdict: healthVerdictSchema.parse(row.verdict),
+    })),
     peopleCount: peopleRows.length,
     asOf,
   };

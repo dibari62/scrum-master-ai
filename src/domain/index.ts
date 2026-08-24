@@ -26,5 +26,6 @@ export * from "./skill";
 export * from "./project-context";
 export * from "./scrum-agent";
 export * from "./sprint-report";
+export * from "./sprint-health";
 
 export * from "./metric-catalog";
