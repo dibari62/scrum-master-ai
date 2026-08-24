@@ -15,8 +15,14 @@ quello che vede chi sviluppa.
 
 ### Trovare l'indirizzo giusto
 
-L'indirizzo cambia a ogni pubblicazione. Per sapere qual è quello **attuale**,
-senza aprire Vercel:
+L'indirizzo stabile, che punta sempre all'ultima versione pubblicata, è:
+
+**<https://scrum-master-ai-swart.vercel.app>**
+
+Ogni pubblicazione ne crea anche uno usa-e-getta del tipo
+`scrum-master-<codice>-giuseppe-di-bari.vercel.app`, utile per guardare una
+versione precisa. Per sapere qual è quello dell'ultimo deploy, senza aprire
+Vercel:
 
 ```powershell
 $env:NODE_OPTIONS = "--use-system-ca"
@@ -33,9 +39,7 @@ npm run gh -- ping https://<indirizzo>/
 > **Non tirare a indovinare l'indirizzo.** `scrum-master.vercel.app` risponde
 > `200` e **non è questo progetto**: è un'applicazione di qualcun altro che si
 > chiama Kivora. È la trappola peggiore possibile, perché una verifica
-> superficiale conclude «è online» guardando il sito sbagliato. L'unico modo
-> affidabile è chiedere a Vercel quale indirizzo ha pubblicato, ed è ciò che fa
-> il comando qui sopra.
+> superficiale conclude «è online» guardando il sito sbagliato.
 
 ### Il giro da fare
 
@@ -54,7 +58,7 @@ Il recupero password non esiste ancora. Nel frattempo:
 
 ```powershell
 $env:NODE_OPTIONS = "--use-system-ca"
-npm run seed        # non tocca gli account, ricarica solo i dati sintetici
+npm run seed -- --conferma   # non tocca gli account, ricarica solo i dati sintetici
 ```
 
 e chiedi che ti venga reimpostata, oppure registra una seconda azienda da
@@ -80,11 +84,22 @@ Poi apri <http://localhost:3000>.
 Per rigenerare i dati sintetici da zero:
 
 ```powershell
-npm run seed
+npm run seed                 # prova a vuoto: dice cosa farebbe, e su quale database
+npm run seed -- --conferma   # scrive davvero
 ```
 
 Cancella e riscrive **solo** i dati con `source_system = 'seed'` del progetto
 Checkout. Gli account e le aziende non vengono toccati.
+
+> **Perché due comandi.** Sviluppo e produzione condividono lo stesso database
+> Neon, quindi questo comando riscrive anche ciò che si vede online. È già
+> successo: il 24/08 un `npm run seed` di routine ha rigenerato i dati del sito
+> pubblico. Non si è perso nulla — erano sintetici e l'intenzione era proprio
+> quella — ma lo stesso comando durante una dimostrazione avrebbe svuotato lo
+> schermo che qualcuno stava guardando.
+>
+> Finché i database sono due, la prova a vuoto è ciò che separa un'abitudine da
+> un incidente: mostra **l'host** e le righe che toccherebbe, e non scrive nulla.
 
 ---
 

@@ -111,7 +111,8 @@ npm run eval          # valutazione degli output LLM, richiede una chiave (T4)
 npm run db:generate   # genera una migrazione dallo schema
 npm run db:migrate    # applica le migrazioni
 npm run db:inspect    # cosa c'è davvero nel database — sola lettura
-npm run seed          # popola il database con lo scenario sintetico
+npm run seed          # prova a vuoto: mostra cosa farebbe
+npm run seed -- --conferma   # scrive davvero
 npm run boundaries    # verifica i confini architetturali
 ```
 

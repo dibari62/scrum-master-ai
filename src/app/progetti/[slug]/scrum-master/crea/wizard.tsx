@@ -16,6 +16,7 @@ import {
 } from "@/domain";
 
 import { createAgentAction, type WizardState } from "../actions";
+import { AUTONOMY, inline, PERSONA } from "../labels";
 
 /**
  * The creation form.
@@ -27,13 +28,18 @@ import { createAgentAction, type WizardState } from "../actions";
  * Scrum Master AI in two minutes; a form of empty required fields would turn
  * that into a typing exercise. The proposed values are read from the domain
  * schemas, so the form and the defaults cannot drift apart.
+ *
+ * **The wording comes from `../labels`, and that is a repair.** This form used
+ * to define its own explanations — «Osserva — raccoglie e mostra, non scrive
+ * nulla» — while the card the reader lives with afterwards showed the same
+ * value stripped bare. The explanation existed and was thrown away exactly
+ * where it was needed. Sharing the source makes that drift impossible rather
+ * than unlikely.
  */
 
-const PERSONA_LABELS: Readonly<Record<AgentPersona, string>> = {
-  facilitator: "Facilitatore — aiuta la squadra a rimuovere gli ostacoli",
-  flow_analyst: "Analista di flusso — guarda dove il lavoro si ferma",
-  stakeholder_communicator: "Comunicatore — racconta lo stato a chi sta fuori",
-};
+const PERSONA_LABELS: Readonly<Record<AgentPersona, string>> = Object.fromEntries(
+  agentPersonaSchema.options.map((persona) => [persona, inline(PERSONA[persona])]),
+) as Record<AgentPersona, string>;
 
 const TONE_LABELS: Readonly<Record<AgentTone, string>> = {
   neutral: "Neutro",
@@ -42,10 +48,10 @@ const TONE_LABELS: Readonly<Record<AgentTone, string>> = {
   formal: "Formale",
 };
 
-const AUTONOMY_LABELS: Readonly<Record<SelectableAutonomyLevel, string>> = {
-  observe: "Osserva — raccoglie e mostra, non scrive nulla",
-  report: "Riferisce — produce report dentro l'applicazione",
-};
+const AUTONOMY_LABELS: Readonly<Record<SelectableAutonomyLevel, string>> =
+  Object.fromEntries(
+    selectableAutonomyLevelSchema.options.map((level) => [level, inline(AUTONOMY[level])]),
+  ) as Record<SelectableAutonomyLevel, string>;
 
 const SELECT_CLASS = "border-input bg-background h-9 rounded-md border px-3 text-sm";
 
