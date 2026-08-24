@@ -208,6 +208,35 @@ Per far girare tutta la suite serve `npm run dev:user -- add admin`.
 `update` né `delete`. Scrivere su un database condiviso da uno script di comodo è
 il modo più rapido per distruggere i dati di una dimostrazione.
 
+### La trappola del server riusato
+
+Gli e2e non partono da `next dev`: costruiscono l'applicazione come in produzione
+(`npm run build && npm start`) sulla porta **3210**. Fuori dalla CI, però,
+`reuseExistingServer` è attivo: **se qualcosa è già in ascolto su quella porta,
+Playwright lo usa così com'è, senza ricostruire nulla.**
+
+È comodo — evita tre minuti di build a ogni esecuzione — ma ha un effetto
+velenoso: dopo aver modificato il codice, i test misurano ancora la build
+*precedente*. Il risultato non è un errore, è una **risposta sbagliata che sembra
+giusta**: la correzione appena scritta risulta non aver funzionato, e si finisce a
+cercare un secondo difetto che non esiste.
+
+Il sintomo che la smaschera è la cifra **identica**: se un test falliva «di 41px»
+e dopo la correzione fallisce ancora «di 41px», al pixel, non si sta misurando il
+codice nuovo. Una correzione sbagliata cambia il numero; una build vecchia lo
+lascia intatto.
+
+Come uscirne:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 3210 | Select-Object OwningProcess
+Stop-Process -Id <numero> -Force
+```
+
+Alla successiva esecuzione Playwright ricostruisce da capo. Vale la pena fermare
+quel server ogni volta che si modifica codice dell'interfaccia e si rieseguono
+gli e2e.
+
 ---
 
 ## 6. Il vincolo che vale più di tutti
