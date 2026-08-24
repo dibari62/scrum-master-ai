@@ -6,7 +6,7 @@ import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { organizationIdSchema, type WorkItemState } from "@/domain";
 import { auth } from "@/lib/auth";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 
 import { loadProjectFlow, type ColumnOccupancy } from "./data";
 
@@ -88,6 +88,8 @@ export default async function ProjectFlowPage({ params }: PageProps) {
 
   const withLimit = columns.filter((entry) => entry.column.wipLimit !== null);
   const over = columns.filter((entry) => entry.standing === "over");
+
+  const timeSpent = flow.bottleneck;
 
   return (
     <main className="mx-auto grid max-w-4xl gap-6 px-6 py-12">
@@ -226,6 +228,118 @@ export default async function ProjectFlowPage({ params }: PageProps) {
        * fra una soglia inventata da noi — che si può discutere — e un impegno
        * che il team ha preso con sé stesso, che è un segnale molto più forte.
        */}
+      {/*
+       * Dove si accumula il tempo: la lettura che spiega *perché* una colonna
+       * è piena, e quindi va dopo averla vista.
+       *
+       * Una colonna piena e una colonna lenta sono problemi diversi, e solo il
+       * secondo è un collo di bottiglia: gli elementi possono affollarsi in
+       * revisione perché ne sono arrivati molti insieme, oppure perché ciascuno
+       * ci resta giorni. Il conteggio qui sopra non distingue i due casi.
+       */}
+      {timeSpent.available && timeSpent.value.stages.length > 0 ? (
+        <section aria-labelledby="dove-si-accumula" className="grid gap-3">
+          <div className="grid gap-1">
+            <h2 id="dove-si-accumula" className="text-lg font-medium">
+              Dove si accumula il tempo
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Dalla presa in carico alla chiusura, su{" "}
+              {timeSpent.sampleSize === 1
+                ? "1 elemento"
+                : `${formatNumber(timeSpent.sampleSize)} elementi`}
+              . L&apos;attesa in backlog, prima che il lavoro venga preso in carico, resta
+              fuori: è una scelta di priorità, non un ingolfamento del flusso.
+            </p>
+          </div>
+
+          <Card>
+            <CardContent className="grid gap-4 pt-6">
+              <ul className="grid gap-3">
+                {timeSpent.value.stages.map((stage) => (
+                  <li key={stage.state} className="grid gap-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                      <span className="text-sm font-medium">
+                        {STATE_LABELS[stage.state]}
+                        {stage.valueAdding ? (
+                          <span className="text-muted-foreground font-normal">
+                            {" "}
+                            · si lavora
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground font-normal">
+                            {" "}
+                            · si aspetta
+                          </span>
+                        )}
+                      </span>
+
+                      {/*
+                       * La percentuale scritta, non solo la barra.
+                       *
+                       * La lunghezza di un rettangolo non è leggibile da chi
+                       * ascolta la pagina, ed è approssimativa per chiunque
+                       * altro. La barra aiuta il confronto a colpo d'occhio; il
+                       * numero è ciò che si può riportare in una riunione.
+                       */}
+                      <span className="text-muted-foreground text-sm tabular-nums">
+                        {formatPercent(stage.share)}
+                        {stage.medianMs.available
+                          ? ` · mediana ${formatDuration(stage.medianMs.value)}`
+                          : ""}
+                      </span>
+                    </div>
+
+                    <div
+                      aria-hidden="true"
+                      className="bg-muted h-2 w-full overflow-hidden rounded-full"
+                    >
+                      <div
+                        className={`h-full rounded-full ${
+                          stage.valueAdding ? "bg-emerald-600" : "bg-amber-500"
+                        }`}
+                        style={{ width: `${Math.max(1, stage.share * 100)}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="grid gap-2 border-t pt-4 text-sm">
+                {timeSpent.value.worstWait === null ? (
+                  // Nominare comunque una fase significherebbe eleggere il male
+                  // minore a problema.
+                  <p>
+                    Nessuna attesa registrata: tutto il tempo misurato è lavorazione. Non
+                    c&apos;è un collo di bottiglia da indicare.
+                  </p>
+                ) : (
+                  <p>
+                    Il tempo si accumula soprattutto nella fase{" "}
+                    <strong>«{STATE_LABELS[timeSpent.value.worstWait.state]}»</strong>, che
+                    assorbe il{" "}
+                    <strong>{formatPercent(timeSpent.value.worstWait.share)}</strong> del
+                    tempo fra presa in carico e chiusura.
+                  </p>
+                )}
+
+                <p className="text-muted-foreground">
+                  In tutto, il {formatPercent(timeSpent.value.valueAddingShare)} del tempo è
+                  lavorazione vera; il resto è attesa.
+                </p>
+
+                <p className="text-muted-foreground text-xs">
+                  Quale quota faccia di una fase un collo di bottiglia non è deciso da una
+                  soglia: la percentuale sta accanto al nome perché sia chi legge a
+                  giudicare. Una soglia si sceglierà quando ci saranno dati veri su cui
+                  tararla.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
+
       <aside aria-labelledby="che-cos-e-il-limite">
         <Card className="bg-muted/40">
           <CardHeader>

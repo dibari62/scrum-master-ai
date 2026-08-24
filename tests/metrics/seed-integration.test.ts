@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { generateSeedBatch } from "@/connectors/seed";
 import { organizationIdSchema, projectIdSchema } from "@/domain";
 import {
+  bottleneck,
   carryOver,
   flowEfficiency,
   reviewWaitTime,
@@ -389,6 +390,63 @@ describe("la salute dello sprint legge i dati sintetici", () => {
 
       if (signal.status !== "respected") {
         expect(signal.distance, `${signal.id} senza scarto dalla soglia`).not.toBeNull();
+      }
+    }
+  });
+});
+
+/**
+ * Il collo di bottiglia, sui dati sintetici.
+ *
+ * **È il test che dimostra che la metrica serve.** Lo scenario ingolfa la
+ * revisione di proposito, portando l'attesa da poche ore a giorni. Se la
+ * ripartizione del tempo non lo facesse emergere, la metrica sarebbe corretta e
+ * inutile — e dall'esterno le due cose si somigliano molto.
+ */
+describe("il collo di bottiglia legge i dati sintetici", () => {
+  const result = bottleneck(batch.transitions, ASOF);
+
+  it("individua la revisione come fase che assorbe più attesa", () => {
+    const found = valueOf(result, "bottleneck");
+
+    expect(found.worstWait?.state).toBe("in_review");
+    expect(found.worstWait?.valueAdding).toBe(false);
+  });
+
+  it("le quote sommano a uno anche su dati veri", () => {
+    // Su dati costruiti a mano è facile; qui passano centinaia di tratti, ed è
+    // dove un errore di somma comparirebbe.
+    const found = valueOf(result, "bottleneck");
+    const sum = found.stages.reduce((total, stage) => total + stage.share, 0);
+
+    expect(sum).toBeCloseTo(1, 10);
+  });
+
+  it("concorda con l'efficienza di flusso invece di contraddirla", () => {
+    /*
+     * Due strade indipendenti verso lo stesso fatto.
+     *
+     * L'efficienza di flusso misura per elemento e poi riassume; questa somma
+     * il tempo per fase su tutti gli elementi. Non devono dare lo stesso
+     * numero — sono aggregazioni diverse — ma devono raccontare la stessa
+     * storia: la maggior parte del tempo non è lavorazione.
+     */
+    const found = valueOf(result, "bottleneck");
+    const flow = summariseFlow(batch.workItems, batch.transitions, ASOF);
+
+    expect(found.valueAddingShare).toBeLessThan(0.5);
+
+    if (flow.flowEfficiency.median.available) {
+      expect(flow.flowEfficiency.median.value).toBeLessThan(0.5);
+    }
+  });
+
+  it("non chiama collo di bottiglia una fase in cui si lavora", () => {
+    const found = valueOf(result, "bottleneck");
+
+    for (const stage of found.stages) {
+      if (stage.state === found.worstWait?.state) {
+        expect(stage.valueAdding).toBe(false);
       }
     }
   });

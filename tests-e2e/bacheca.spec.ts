@@ -182,4 +182,54 @@ test.describe("flusso di lavoro e impedimenti", () => {
       await page.waitForURL(`**/progetti/${PROJECT}`);
     }
   });
+
+  test("dice dove si accumula il tempo, e non solo quanti elementi ci sono", async ({
+    page,
+  }) => {
+    /*
+     * Una colonna piena e una colonna lenta sono problemi diversi, e solo il
+     * secondo è un collo di bottiglia: gli elementi possono affollarsi in
+     * revisione perché ne sono arrivati molti insieme, oppure perché ciascuno
+     * ci resta giorni. Il conteggio delle colonne non distingue i due casi.
+     */
+    await page.goto(`/progetti/${PROJECT}/flusso`);
+    await expect(page.locator("main")).toHaveCount(1);
+
+    const sezione = page.getByRole("region", { name: "Dove si accumula il tempo" });
+    await expect(sezione).toBeVisible();
+
+    const testo = await sezione.innerText();
+
+    // Sui dati sintetici la revisione è ingolfata di proposito.
+    expect(testo).toMatch(/Il tempo si accumula soprattutto nella fase/);
+    expect(testo).toMatch(/lavorazione vera/);
+  });
+
+  test("le quote sono scritte, non affidate alla lunghezza di una barra", async ({
+    page,
+  }) => {
+    // La lunghezza di un rettangolo non è leggibile da chi ascolta la pagina,
+    // ed è approssimativa per chiunque altro.
+    await page.goto(`/progetti/${PROJECT}/flusso`);
+
+    const sezione = page.getByRole("region", { name: "Dove si accumula il tempo" });
+    const testo = await sezione.innerText();
+
+    expect(testo).toMatch(/\d+%/);
+    // Ogni fase dichiara se in essa si lavora o si aspetta.
+    expect(testo).toMatch(/si aspetta/);
+  });
+
+  test("dichiara che l'attesa in backlog resta fuori dalla misura", async ({ page }) => {
+    /*
+     * Questione Q1, decisa. Includere il tempo in backlog farebbe risultare
+     * «da fare» il collo di bottiglia di quasi ogni progetto — vero e inutile.
+     * Una scelta del genere va detta dove si legge il numero, altrimenti chi
+     * confronta con il lead time trova una differenza inspiegabile.
+     */
+    await page.goto(`/progetti/${PROJECT}/flusso`);
+
+    const sezione = page.getByRole("region", { name: "Dove si accumula il tempo" });
+    expect(await sezione.innerText()).toMatch(/attesa in backlog.*resta fuori/s);
+  });
 });

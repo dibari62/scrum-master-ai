@@ -10,7 +10,7 @@ import {
   type WorkItemState,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
-import { workItemsByState, type MetricResult } from "@/metrics";
+import { bottleneck, workItemsByState, type Bottleneck, type MetricResult } from "@/metrics";
 
 /**
  * The board of a project: its columns, in order, and how full each one is.
@@ -61,6 +61,14 @@ export type ProjectFlow = {
    * would otherwise see those items vanish from the board with no explanation.
    */
   readonly byState: MetricResult<ReadonlyMap<WorkItemState, number>>;
+  /**
+   * Where the time goes between taking work on and finishing it.
+   *
+   * The columns say how full each phase is *now*; this says how much time work
+   * spends in each. A full column and a slow one are different problems, and
+   * only the second is a bottleneck.
+   */
+  readonly bottleneck: MetricResult<Bottleneck>;
   readonly asOf: Date;
 };
 
@@ -133,6 +141,7 @@ export async function loadProjectFlow(
     board: boardRows[0] ? boardSchema.parse(boardRows[0]) : null,
     columns: occupancies,
     byState,
+    bottleneck: bottleneck(transitions, asOf),
     asOf,
   };
 }
