@@ -40,12 +40,20 @@ export function SchedaTabs({
   const current = useSelectedLayoutSegment();
 
   return (
-    <nav aria-label="Sezioni dello Scrum Master AI">
+    <nav aria-label="Sezioni dello Scrum Master AI" className="min-w-0">
       {/*
        * Scorre in orizzontale su telefono invece di andare a capo.
        *
        * Quattro voci mandate a capo formano due righe che si leggono come due
        * gruppi distinti; una fila che scorre resta una fila sola.
+       *
+       * `min-w-0` sul contenitore **non è decorativo e non è rimovibile**. Un
+       * elemento dentro una griglia parte con `min-width: auto`, che significa
+       * «non restringermi sotto il mio contenuto»: la fila di voci larga circa
+       * 490px allargava la colonna della griglia oltre lo schermo, e con essa
+       * titolo, breadcrumb e ogni paragrafo della scheda. Lo scorrimento qui
+       * sotto c'era già ma non poteva entrare in funzione, perché il
+       * contenitore si era allargato prima di doverlo usare.
        */}
       <ul className="flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => {

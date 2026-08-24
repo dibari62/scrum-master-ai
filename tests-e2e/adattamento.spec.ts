@@ -27,12 +27,30 @@ const PROJECT = "checkout";
 /** A phone, a small tablet, a tablet, and a laptop. */
 const WIDTHS = [375, 640, 768, 1280] as const;
 
+/**
+ * The pages measured.
+ *
+ * **Kept in step with what exists, and that is the point of this comment.** The
+ * Scrum Master AI card was reported as unusable on a phone while this suite was
+ * green — because the card was not in this list. A harness that measures the
+ * pages somebody remembered to add measures nothing about the ones they did
+ * not, and the gap is invisible: every test passes.
+ *
+ * Anything a reader can open belongs here, including screens reached only
+ * through a menu.
+ */
 const PAGES = [
   "/progetti",
   `/progetti/${PROJECT}`,
   `/progetti/${PROJECT}/elementi`,
   `/progetti/${PROJECT}/sprint`,
   `/progetti/${PROJECT}/persone`,
+  `/progetti/${PROJECT}/flusso`,
+  `/progetti/${PROJECT}/impedimenti`,
+  `/progetti/${PROJECT}/scrum-master`,
+  `/progetti/${PROJECT}/scrum-master/resoconti`,
+  `/progetti/${PROJECT}/scrum-master/configurazione`,
+  `/progetti/${PROJECT}/scrum-master/diario`,
   "/metriche",
 ] as const;
 
@@ -63,9 +81,36 @@ async function measure(page: Page) {
       if (rendered < floor) tiny.push(`${text.slice(0, 20)} @ ${rendered.toFixed(1)}px`);
     }
 
+    /*
+     * Chi sborda, non solo di quanto.
+     *
+     * `scrollWidth` del documento dice che qualcosa è troppo largo ma non che
+     * cosa: da solo obbliga a ripetere a mano la caccia all'elemento a ogni
+     * fallimento. Si cercano gli elementi il cui bordo destro supera quello
+     * della finestra, tenendo solo i più interni — un antenato sborda sempre
+     * quando sborda un figlio, e nominarlo indicherebbe la pagina intera.
+     */
+    const guilty: string[] = [];
+    const limit = doc.clientWidth;
+
+    for (const el of document.querySelectorAll("body *")) {
+      const right = el.getBoundingClientRect().right;
+      if (right <= limit + 1) continue;
+
+      const inner = Array.from(el.children).some(
+        (child) => child.getBoundingClientRect().right > limit + 1,
+      );
+      if (inner) continue;
+
+      const tag = el.tagName.toLowerCase();
+      const cls = el.className.toString().slice(0, 60);
+      guilty.push(`${tag}.${cls} fino a ${Math.round(right)}px`);
+    }
+
     return {
       overflows: doc.scrollWidth > doc.clientWidth,
       overflowBy: doc.scrollWidth - doc.clientWidth,
+      guilty,
       tiny,
     };
   }, MIN_READABLE_PX);
@@ -93,7 +138,7 @@ test.describe("adattamento agli schermi", () => {
 
         expect(
           result.overflows,
-          `sborda di ${result.overflowBy}px: contenuto nascosto oltre il bordo`,
+          `sborda di ${result.overflowBy}px oltre il bordo — ${result.guilty.join(" | ")}`,
         ).toBe(false);
 
         expect(
