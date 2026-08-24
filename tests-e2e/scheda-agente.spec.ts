@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import { enableSkill } from "./fixtures";
+
+const PROJECT = "checkout";
+
 /**
  * The Scrum Master AI card, judged on whether it can be understood.
  *
@@ -202,6 +206,8 @@ test.describe("scheda dello Scrum Master AI: si capisce", () => {
      * produrlo: la schermata dei resoconti ne mostrava uno solo e sembrava un
      * difetto dei dati, mentre era un limite dell'interfaccia.
      */
+    await enableSkill(page, PROJECT, "Abilita il resoconto di sprint");
+
     const scelta = page.getByLabel("Sprint concluso");
     await expect(scelta).toBeVisible();
 

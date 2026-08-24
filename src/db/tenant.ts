@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import type {
   CreateMembershipInput,
@@ -499,16 +499,43 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         .returning(),
 
     /**
-     * Which capabilities an agent is allowed to run.
+     * Switches **one** capability on or off, without touching the others.
      *
-     * T3 shipped `enabledSkillKeys` with no way to populate it: the wizard never
-     * set it and nothing could change it afterwards, so the field described a
-     * decision nobody could take. With a real skill to enable, it becomes one.
+     * **Why it works this way.** Turning a single switch used to mean reading
+     * the whole set, changing one element and writing the set back. That works
+     * while only one capability can be switched on; with two, the read and the
+     * write are a gap in which the set is decided, and enabling one capability
+     * silently switched the other off.
+     *
+     * Here the database does the change in a single statement, on the value it
+     * holds at that moment. There is no set carried across a round trip, so
+     * there is nothing to overwrite with a stale copy. The bulk writer that used
+     * to sit here was deleted rather than kept beside this one: an unused way to
+     * overwrite the whole set is a ready-made way to reintroduce the fault.
+     *
+     * `- key` before the concatenation is what keeps the list free of
+     * duplicates: removing first makes enabling something already enabled a
+     * no-op rather than a second entry.
      */
-    setEnabledSkills: (projectId: ProjectId, keys: readonly string[]) =>
+    setSkillEnabled: (projectId: ProjectId, key: string, enabled: boolean) =>
       db
         .update(scrumAgents)
-        .set({ enabledSkillKeys: [...keys], updatedAt: new Date() })
+        .set({
+          /*
+           * I cast sono espliciti, e non è pignoleria.
+           *
+           * `jsonb - ?` è ambiguo: Postgres conosce `jsonb - text` (togli la
+           * chiave), `jsonb - integer` (togli la posizione) e `jsonb - text[]`.
+           * Con un parametro di tipo non dichiarato la scelta dipende dal
+           * piano, e la variante sbagliata non solleva un errore: restituisce
+           * un risultato diverso. Il sintomo era una capacità che ne spegneva
+           * un'altra invece di affiancarsi.
+           */
+          enabledSkillKeys: enabled
+            ? sql`(coalesce(${scrumAgents.enabledSkillKeys}, '[]'::jsonb) - ${key}::text) || ${JSON.stringify([key])}::jsonb`
+            : sql`coalesce(${scrumAgents.enabledSkillKeys}, '[]'::jsonb) - ${key}::text`,
+          updatedAt: new Date(),
+        })
         .where(
           and(
             eq(scrumAgents.organizationId, organizationId),

@@ -76,6 +76,7 @@ export const loadScheda = cache(async (slug: string) => {
     context: loaded.context,
     canConfigure: mayConfigureAgent(session.role),
     reportSkillEnabled: loaded.agent.enabledSkillKeys.includes("sprint-report"),
+    healthSkillEnabled: loaded.agent.enabledSkillKeys.includes("sprint-health"),
   };
 });
 

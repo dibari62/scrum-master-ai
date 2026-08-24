@@ -69,6 +69,19 @@ cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un reg
 delle esecuzioni. Le pagine sono verificate **a 375, 640, 768 e 1280 pixel**: nessun
 testo sotto i 10 pixel resi, nessuno sbordamento laterale.
 
+**Quella misura ora copre dodici pagine, non sei.** La scheda dello Scrum Master
+AI sbordava di 41 pixel su telefono mentre la suite era tutta verde, perché
+nessuna delle sue quattro schermate era nell'elenco delle pagine misurate. Un
+banco di prova che misura ciò che qualcuno si è ricordato di aggiungere non dice
+nulla sul resto, e la lacuna è invisibile: ogni test passa.
+
+La causa era una riga di CSS. Un elemento dentro una griglia non si restringe
+sotto la larghezza del proprio contenuto se non glielo si dice, quindi il menù —
+largo 490 pixel — allargava la colonna oltre lo schermo trascinandosi titolo,
+percorso e ogni paragrafo. Lo scorrimento orizzontale c'era già, ma non poteva
+entrare in funzione perché il contenitore si era allargato prima di doverlo
+usare.
+
 **Non esistono più tabelle invisibili.** Fino al 24/08 cinque entità del modello
 canonico avevano righe nel database e nessuna schermata: persone, sprint, bacheca,
 colonne e impedimenti. Erano dati che il prodotto raccoglieva senza mostrarli, cioè
@@ -230,6 +243,40 @@ inutile.
 Una sola pagina rispondeva a quattro domande insieme, e separarle con delle
 intestazioni non bastava: chi leggeva doveva comunque capire quale paragrafo
 appartenesse a quale domanda.
+
+**T5 ora ha anche la sua narrazione, ed è la seconda skill che funziona.** Dalla
+dashboard si può chiedere allo Scrum Master AI di *spiegare* il semaforo. La
+domanda che valeva la pena porsi prima di costruirla era: che cosa resta da dire,
+se il codice scrive già una frase per ogni segnale? Tre cose, e solo quelle
+giustificano la spesa — il **legame** fra segnali calcolati separatamente,
+l'**andamento** rispetto ai controlli conservati, e una lettura senza il gergo
+del team.
+
+Il testo **non viene conservato**: descrive lo stato di adesso, e tenuto da parte
+diventerebbe entro un giorno la descrizione sicura di una situazione non più
+vera. Il verdetto invece resta salvato, perché quello è un fatto datato.
+
+Tre rifiuti lo rendono affidabile: una cifra che nessun segnale ha prodotto,
+un'osservazione ancorata a un segnale non misurato, e — il più importante — un
+**andamento descritto quando non esiste alcun controllo precedente**. Quest'ultimo
+è peggiore di un numero sbagliato: un numero si confronta con la dashboard, una
+storia inventata non si confronta con niente.
+
+**Due difetti veri sono emersi costruendola.** L'interruttore delle capacità
+leggeva l'intero insieme, ne cambiava un elemento e riscriveva tutto: con una
+sola capacità accendibile funzionava, con due **accenderne una spegneva l'altra**.
+Ed era dichiarato in due posti — `src/domain` e le etichette della scheda — già
+divergenti, così una capacità risultava pronta in un file mentre il comando che
+l'accendeva la rifiutava in un altro. Ora la decisione è una sola e la scrittura
+è una singola istruzione al database.
+
+**Il difetto ancora aperto va detto, non taciuto.** Tre test end-to-end passano
+eseguiti da soli e falliscono dentro la suite completa: dopo l'accensione, la
+scheda continua a mostrare il pulsante per accendere. È stato verificato che la
+scrittura arriva al database, che l'agente è uno solo e che non è né la quota né
+il ruolo né l'espressione SQL. I fatti misurati sono in
+[`specs/narrazione-salute/spec.md`](../specs/narrazione-salute/spec.md) §7 Q3,
+così chi riprende non ricomincia dall'inizio.
 
 **T2.1 non era in roadmap.** È nato da un'osservazione del Product Owner: la
 dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di

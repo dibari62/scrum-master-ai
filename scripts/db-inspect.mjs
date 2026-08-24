@@ -13,6 +13,7 @@
  *   npm run db:inspect              -- riepilogo
  *   npm run db:inspect -- tenants   -- organizzazioni, utenti, progetti
  *   npm run db:inspect -- sprints   -- sprint con stime e conteggi
+ *   npm run db:inspect -- agents    -- capacità accese, tetto e uso di oggi
  *   npm run db:inspect -- tables    -- tabelle e righe
  *
  * Behind a TLS-inspecting proxy set `NODE_OPTIONS=--use-system-ca` first
@@ -39,9 +40,13 @@ const QUERIES = {
     sql: `select o.name as organizzazione,
                  o.slug,
                  count(distinct m.user_id)::int as membri,
-                 count(distinct p.id)::int      as progetti
+                 count(distinct p.id)::int      as progetti,
+                 count(*) filter (
+                   where u.email = 'ispettore-temporaneo@example.invalid'
+                 )::int as ispettore_membro
           from organizations o
           left join memberships m on m.organization_id = o.id
+          left join users u       on u.id = m.user_id
           left join projects p    on p.organization_id = o.id
           group by o.id, o.name, o.slug
           order by o.name`,
@@ -58,6 +63,24 @@ const QUERIES = {
           left join work_items w on w.sprint_id = s.id
           group by s.id, s.name, s.starts_at, s.ends_at
           order by s.starts_at`,
+  },
+  agents: {
+    title: "SCRUM MASTER AI: CAPACITÀ ACCESE ED ESECUZIONI DI OGGI",
+    sql: `select p.slug as progetto,
+                 a.name as agente,
+                 a.status as stato,
+                 a.enabled_skill_keys::text as capacita_accese,
+                 to_char(a.updated_at at time zone 'utc', 'HH24:MI:SS') as ultima_modifica_utc,
+                 a.max_runs_per_day::int as tetto_giornaliero,
+                 count(r.id) filter (
+                   where r.started_at >= date_trunc('day', now() at time zone 'utc')
+                 )::int as esecuzioni_oggi
+          from scrum_agents a
+          join projects p on p.id = a.project_id
+          left join skill_runs r on r.scrum_agent_id = a.id
+          group by p.slug, a.name, a.status, a.enabled_skill_keys, a.max_runs_per_day,
+                   a.updated_at
+          order by p.slug`,
   },
   summary: {
     title: "RIEPILOGO",

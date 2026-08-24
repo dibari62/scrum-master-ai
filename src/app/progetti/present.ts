@@ -1,4 +1,5 @@
 import { formatDuration, formatNumber, formatPercent } from "@/lib/format";
+import { SIGNAL_TITLES as HEALTH_SIGNAL_TITLES } from "@/lib/health-words";
 import type { HealthSignal, MetricResult } from "@/metrics";
 
 /**
@@ -112,13 +113,7 @@ export type PresentedSignal = {
   readonly figures: string | null;
 };
 
-const SIGNAL_TITLES = {
-  progress: "Avanzamento",
-  "scope-added": "Lavoro aggiunto dopo l'inizio",
-  "review-wait": "Attesa in revisione",
-  "wip-limit": "Limite di lavoro in corso",
-  aging: "Elementi fermi",
-} as const;
+const SIGNAL_TITLES = HEALTH_SIGNAL_TITLES;
 
 export function presentSignal(signal: HealthSignal): PresentedSignal {
   const title = SIGNAL_TITLES[signal.id];
@@ -189,23 +184,13 @@ export function presentSignal(signal: HealthSignal): PresentedSignal {
   }
 }
 
-/** The verdict itself, said in words rather than carried by a colour. */
-export const VERDICT_WORDS = {
-  respected: {
-    label: "Sereno",
-    summary: "Nessuno dei segnali osservati supera la propria soglia.",
-  },
-  watch: {
-    label: "Da tenere d'occhio",
-    summary: "Qualcosa si sta muovendo nella direzione sbagliata, ma c'è tempo per intervenire.",
-  },
-  critical: {
-    label: "Critico",
-    summary: "Almeno un segnale è ben oltre la soglia: vale la pena parlarne oggi.",
-  },
-  "not-evaluable": {
-    label: "Non valutabile",
-    summary:
-      "Non ci sono abbastanza dati per dire come sta andando. Non è un giudizio positivo: è l'assenza di un giudizio.",
-  },
-} as const;
+/**
+ * The verdict and the signal titles now live in `src/lib/health-words`.
+ *
+ * Re-exported here so the pages that already import them keep working, and so
+ * there is still one obvious place to look. The definition moved because the
+ * `sprint-health` skill needs the same words and `src/agents` cannot import from
+ * `src/app` (§4).
+ */
+export { VERDICT_WORDS } from "@/lib/health-words";
+

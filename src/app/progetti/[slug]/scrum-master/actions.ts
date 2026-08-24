@@ -151,13 +151,34 @@ export async function setSkillEnabledAction(form: FormData): Promise<void> {
     redirect(`/progetti/${slug}/scrum-master`);
   }
 
-  const enabled = new Set(loaded.agent.enabledSkillKeys);
-  if (form.get("enable") === "1") enabled.add(key);
-  else enabled.delete(key);
+  /*
+   * Un solo interruttore per volta, deciso dal database.
+   *
+   * Leggere l'insieme qui e riscriverlo intero significherebbe decidere lo
+   * stato delle altre capacità in base a una copia letta un istante prima —
+   * ed è così che accendere una spegneva l'altra.
+   */
+  await scope.writes.setSkillEnabled(projectId, key, form.get("enable") === "1");
 
-  await scope.writes.setEnabledSkills(projectId, [...enabled]);
-
-  revalidatePath(`/progetti/${slug}/scrum-master`);
+  /*
+   * Anche la dashboard, non solo la scheda.
+   *
+   * Da quando la spiegazione della salute si chiede dalla dashboard, accendere
+   * o spegnere una capacità cambia ciò che quella pagina mostra. Rivalidare
+   * soltanto la scheda lascerebbe chi torna indietro davanti a un pulsante che
+   * non dovrebbe più esserci, o all'assenza di uno appena acceso.
+   */
+  /*
+   * `"layout"` e non la sola pagina.
+   *
+   * `revalidatePath(path)` invalida quel percorso ma non i segmenti che lo
+   * contengono: l'intestazione e il menù della scheda vivono nel layout, e il
+   * conteggio che mostrano cambia insieme alle capacità. Senza questo, chi
+   * accende una capacità può vedere ancora il pulsante per accenderla — che
+   * per chi guarda è indistinguibile da un comando che non ha funzionato.
+   */
+  revalidatePath(`/progetti/${slug}`, "layout");
+  revalidatePath(`/progetti/${slug}/scrum-master`, "layout");
 }
 
 /**
