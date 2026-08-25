@@ -294,5 +294,15 @@ export async function generateSprintReport(input: GenerateInput): Promise<Genera
     };
   }
 
-  return { ok: true, report: { origin: "model", content, snapshot: input.snapshot }, usage };
+  /*
+   * Who actually wrote this.
+   *
+   * The deterministic provider returns the canned answer it was handed, so
+   * recording that as `model` would put «narrato da un modello» above text no
+   * model has seen. The demonstration is legitimate; passing it off as
+   * something else is not.
+   */
+  const origin = outcome.provider === "fake" && input.stubResponse ? "stub" : "model";
+
+  return { ok: true, report: { origin, content, snapshot: input.snapshot }, usage };
 }

@@ -135,6 +135,23 @@ describe("catalogo delle metriche", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("usa nomi distinti, perché il nome è ciò che il lettore vede", () => {
+    /*
+     * L'identificativo è per il codice, il nome è per chi legge.
+     *
+     * Due metriche chiamate allo stesso modo sono indistinguibili sullo schermo:
+     * quando i loro valori differiscono sembrano un errore, quando coincidono
+     * sembrano lo stesso dato stampato due volte. È già successo — la velocity e
+     * il throughput si chiamavano entrambi «Elementi conclusi» sulla scheda del
+     * resoconto — e il difetto non stava nei numeri, che erano corretti, ma
+     * nell'etichetta che non diceva quale domanda ciascuno rispondesse.
+     */
+    const names = METRIC_CATALOG.map((entry) => entry.name);
+    const repeated = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
+
+    expect(repeated, `metriche con lo stesso nome: ${repeated.join(", ")}`).toEqual([]);
+  });
+
   it("dice sempre cosa esclude e quando non è calcolabile", () => {
     // Un'esclusione non dichiarata è il modo più comune di fraintendere una
     // metrica: si dà per contato qualcosa che è deliberatamente fuori.

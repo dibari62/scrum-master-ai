@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
@@ -109,6 +110,24 @@ export default async function MetrichePage() {
           testato. Nessuno è prodotto da un modello linguistico: il modello riceve i numeri già
           calcolati e li racconta. Questa pagina esiste perché quell&apos;affermazione si possa
           controllare senza leggere il codice.
+        </p>
+
+        {/*
+         * Il rimando alla pagina delle formule.
+         *
+         * Una pagina raggiungibile solo scrivendo l'indirizzo a mano è un vicolo
+         * cieco, ed è già successo una volta in questo progetto: `/organizzazione`
+         * annunciava che i progetti sarebbero arrivati mentre esistevano già, e
+         * non offriva alcun collegamento.
+         */}
+        <p className="text-sm">
+          <Link href="/metriche/formule" className="underline underline-offset-4">
+            Le formule dei calcoli
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            — da quali dati parte ogni metrica, fra quali istanti misura e cosa restituisce nei
+            casi difficili.
+          </span>
         </p>
       </div>
 

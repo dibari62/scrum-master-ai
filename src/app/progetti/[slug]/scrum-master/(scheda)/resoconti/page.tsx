@@ -58,7 +58,9 @@ export default async function ResocontiPage({ params }: PageProps) {
                 {formatShortDateTime(report.generatedAt)} ·{" "}
                 {report.origin === "model"
                   ? "narrato da un modello"
-                  : "composto dal codice: non c'era nulla da narrare"}
+                  : report.origin === "stub"
+                    ? "testo dimostrativo: nessun modello configurato"
+                    : "composto dal codice: non c'era nulla da narrare"}
                 {earlier === 0
                   ? ""
                   : earlier === 1

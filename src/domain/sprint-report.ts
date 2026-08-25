@@ -138,8 +138,15 @@ export type AttentionPoint = z.infer<typeof attentionPointSchema>;
  *
  * A report on an empty sprint is legitimate but was not written by a model.
  * Saying so keeps a demonstration from appearing to use AI where it does not.
+ *
+ * `stub` is the same principle applied to the case that was quietly breaking it.
+ * With no vendor key configured the deterministic provider answers, and what it
+ * returns is a constant written by us — so recording that as `model` made the
+ * card announce «narrato da un modello» above text no model had seen. The rule
+ * is not that the demonstration must be hidden: it is that it must not be
+ * mistaken for something else.
  */
-export const reportOriginSchema = z.enum(["model", "code"]);
+export const reportOriginSchema = z.enum(["model", "stub", "code"]);
 
 export type ReportOrigin = z.infer<typeof reportOriginSchema>;
 
