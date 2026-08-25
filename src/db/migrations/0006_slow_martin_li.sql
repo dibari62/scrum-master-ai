@@ -1,0 +1,1 @@
+ALTER TYPE "public"."report_origin" ADD VALUE 'stub' BEFORE 'code';

@@ -179,6 +179,28 @@ describe("generazione del resoconto", () => {
     expect(outcome.ok).toBe(true);
   });
 
+  it("non spaccia per modello una risposta preconfezionata", async () => {
+    /*
+     * Senza una chiave di un fornitore risponde lo stub deterministico, e ciò
+     * che restituisce è una costante scritta da noi. Registrarla come «model»
+     * metteva «narrato da un modello» sopra un testo che nessun modello aveva
+     * visto: la dimostrazione è legittima, farla passare per altro no.
+     */
+    const { gateway } = stubGateway(GOOD_ANSWER);
+
+    const outcome = await generateSprintReport({
+      gateway,
+      snapshot: SNAPSHOT,
+      projectName: "Checkout",
+      language: "it",
+      maxTokens: SPRINT_REPORT_BUDGET,
+      stubResponse: GOOD_ANSWER,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.report.origin).toBe("stub");
+  });
+
   it("porta con sé i consumi, che vanno registrati comunque", async () => {
     const { outcome } = await generate(GOOD_ANSWER);
 
