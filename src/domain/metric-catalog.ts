@@ -61,6 +61,8 @@ export type MetricUnit = z.infer<typeof metricUnitSchema>;
 export const metricInputEntitySchema = z.enum([
   "WorkItem",
   "StateTransition",
+  "EstimateChange",
+  "WorkingCalendar",
   "Sprint",
   "SprintScopeEvent",
 ]);

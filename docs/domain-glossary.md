@@ -173,8 +173,8 @@ metrica è ambigua, l'ambiguità va risolta **qui** prima di implementarla.
 
 | Codice | Italiano | Definizione operativa |
 |---|---|---|
-| `velocity` | Velocity | Somma delle stime dei work item arrivati a `done` **entro** la fine dello sprint. Esclude quelli riaperti dopo. |
-| `burndown` | Burndown | Serie temporale del lavoro residuo per giorno dello sprint |
+| `velocity` | Velocity | Somma delle stime **iniziali** dei work item arrivati a `done` **entro** la fine dello sprint. Esclude quelli riaperti dopo. Le ri-stime fatte durante lo sprint si ignorano. |
+| `burndown` | Burndown | Serie temporale del lavoro residuo, un punto per **giorno lavorativo** dello sprint. I giorni non lavorativi si saltano. |
 | `cycleTime` | Cycle time | Tempo dal primo ingresso in `in_progress` al primo ingresso in `done` |
 | `leadTime` | Lead time | Tempo dalla creazione del work item al primo ingresso in `done` |
 | `throughput` | Throughput | Numero di work item completati per unità di tempo |
@@ -288,6 +288,36 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | `GoldenDataset` | Dataset dorato | Insieme fisso di casi di ingresso, con le proprietà attese del risultato, su cui si valutano gli output di un modello. Vive in `evals/`. | `AGENTS.md` §6 lo usa già come espressione corrente ma non lo definisce; è l'unità di misura di ogni modifica a un prompt. |
 | `NumericFidelity` | Fedeltà numerica | Proprietà verificata su un output: ogni numero citato nel testo appartiene ai `CitableValue` dell'istantanea. | È il nome della verifica che la roadmap chiede in T4. Nominata, può essere una eval; non nominata, resta un'intenzione. |
 
+### Aggiunte proposte — fedeltà al libro, in attesa di approvazione
+
+> Introdotte allineando il portale a *Scrum and XP from the Trenches*
+> ([ADR-0008](architecture/ADR-0008-fedelta-al-libro.md),
+> [mappa formula per formula](scrum-dalle-trincee.md)). Restano qui finché il Product
+> Owner non le approva; una volta approvate vanno assorbite nelle tabelle sopra.
+
+| Codice | Italiano | Definizione | Perché serve |
+|---|---|---|---|
+| `EstimateChange` | Variazione di stima | Il passaggio della stima di un `WorkItem` da un valore a un altro, con l'istante. Come `StateTransition`, ma per le stime. | Il libro impone che la velocity si calcoli sulle stime **iniziali** e che le ri-stime fatte durante lo sprint si ignorino. Con un solo campo `estimate` sul `WorkItem` la stima iniziale è irrecuperabile, e correggere una stima oggi cambierebbe la velocity di uno sprint chiuso settimane fa. È lo stesso motivo per cui ADR-0003 non legge lo stato corrente. |
+| `initialEstimate` | Stima iniziale | La stima di un `WorkItem` **nell'istante in cui è entrato nello sprint**. Per un elemento entrato a metà sprint è la stima all'ingresso, non quella all'inizio dello sprint: prima non faceva parte del piano. | Distinguerla da `Estimate` (che è la stima corrente) è ciò che rende la velocity stabile nel tempo. |
+| `WorkingCalendar` | Calendario lavorativo | Quali giorni della settimana il progetto considera lavorativi, più le festività dichiarate. Predefinito: lunedì-venerdì. | Il burndown del libro salta i fine settimana, perché altrimenti la linea si appiattisce e sembra un allarme. Il calendario è una proprietà del **progetto**: `src/metrics` non può importarlo da un connettore. |
+| `WorkingDay` | Giorno lavorativo | Un giorno che il `WorkingCalendar` del progetto considera lavorativo. Unità dell'asse X del burndown e della capacità. | «Giorno» senza qualificazione ha già prodotto la divergenza fra il burndown (giorni di calendario) e i dati sintetici (giorni lavorativi). |
+| `TeamMemberAvailability` | Disponibilità | Per una `Person` e uno `Sprint`: quota di allocazione e giorni di assenza. **Dato di calendario, mai di rendimento.** | Senza di essa i man-days disponibili sono incalcolabili. La qualifica fa parte della definizione: derivarne punti-per-persona è la metrica vietata numero uno (§8.2). |
+| `availableManDays` | Man-days disponibili | `Σ (giorni lavorativi dello sprint × quota di allocazione) − assenze`. Sempre un totale di **squadra**. | È il denominatore del focus factor. Esiste solo aggregato: nessuna API espone il contributo del singolo. |
+| `focusFactor` | Focus factor | `velocity effettiva ÷ man-days disponibili`. Calcolabile **solo** se tutte le stime dello sprint sono nella stessa unità. | Formula centrale del libro e **ritrattata dall'autore**: resta disponibile, ma non è il predefinito e va mostrata con la ritrattazione accanto (ADR-0008). |
+| `estimatedVelocity` | Velocity stimata | Quanto lavoro il team prevede di chiudere nello sprint. Predefinito: *yesterday's weather*. Alternativa: `man-days disponibili × focus factor`. | Oggi il portale sa dire solo cosa è successo, mai cosa era previsto: senza previsione non esiste scostamento, e senza scostamento non esiste pianificazione. |
+| `yesterdaysWeather` | Meteo di ieri | Velocity stimata pari a quella dell'ultimo sprint, o alla media degli ultimi tre. | È il metodo che l'autore raccomanda oggi. Il nome è il suo, ed è già di uso corrente in Scrum: tradurlo lo renderebbe irriconoscibile. |
+| `committedVelocity` | Velocity impegnata | Somma delle stime delle storie effettivamente scelte per lo sprint. Non è il bersaglio, è il piano. | Il libro le distingue: il bersaglio era 20, le quattro storie scelte fanno 19, e 19 è la previsione dello sprint. |
+| `SprintStatistics` | Statistiche di sprint | Registro per sprint di: velocity stimata e effettiva, focus factor, dimensione del team, durata in giorni lavorativi, scostamento, punti chiave della retrospettiva. | È il «sprint statistics document» che la checklist del libro impone di aggiornare all'inizio e alla fine di ogni sprint. |
+| `UnplannedItem` | Elemento non pianificato | Lavoro entrato nello sprint come **interruzione**, distinto da una storia aggiunta deliberatamente al piano. | Sulla lavagna del libro sono due aree diverse, e la retrospettiva li guarda separatamente. Oggi `scopeChange` li somma. |
+| `AcceptanceThreshold` | Soglia di accettazione | Quanto un elemento è vincolante per un rilascio: `must` \| `should` \| `may`. | Sono il rosso/giallo/verde del capitolo sulla pianificazione di rilascio. Da non confondere con l'ordine nel backlog: l'ordine dice *quando*, la soglia dice *se*. |
+| `backlogOrder` | Posizione in backlog | Posizione ordinale di un `WorkItem` nel backlog di prodotto. | Sostituisce l'«Importance» numerica del 2007, che l'autore ritratta: «there's no importance column. Instead, I just order the list». |
+| `howToDemo` | Come si dimostra | Descrizione breve di come la storia verrà mostrata alla demo. «Essentially a simple test spec». Testo di terzi, **dato non fidato** (§8.1). | Uno dei sei campi che il libro dichiara di aver usato sprint dopo sprint, e la tecnica che secondo l'autore scopre i malintesi di perimetro prima che costino. |
+| `DefinitionOfReady` | Definizione di Pronto | Elenco di condizioni che un `WorkItem` deve soddisfare per poter entrare in uno sprint. | La 2ª edizione la mette esplicitamente in coppia con la Definition of Done: «definition of done is a checklist for when a story is done, and definition of ready is a checklist for when a story is ready to be pulled into a sprint». |
+| `Retrospective` | Retrospettiva | Esito della cerimonia di fine sprint, nelle tre colonne del libro: cosa è andato bene, cosa si poteva fare meglio, cosa migliorare. | La cerimonia è già nel calendario ma non produce niente. Senza entità, il seguito dei miglioramenti non è verificabile. |
+| `ImprovementAction` | Azione di miglioramento | Miglioramento scelto in retrospettiva, con i voti ricevuti e lo stato, verificato alla retrospettiva successiva. | «Focus on just a few improvements per sprint» ha senso solo se qualcuno controlla che siano state fatte. I voti sono **aggregati**: nessun voto è attribuibile a una persona. |
+| `EstimationScale` | Scala di stima | I valori ammessi per una stima in questo progetto: mazzo di planning poker, Fibonacci, taglie, oppure libera. | «There is no 7» è una regola del libro che oggi il nostro schema non applica: `estimateSchema` accetta qualunque numero. |
+| `ScrumMasterChecklist` | Checklist dello Scrum Master | Le attività ricorrenti del capitolo 16, in tre momenti: inizio sprint, ogni giorno, fine sprint. | È la definizione operativa del ruolo secondo il libro. Le voci che il portale sa verificare da solo si spuntano da sole; le altre restano all'umano. |
+
 ---
 
 ## 5. Termini da non usare
@@ -307,3 +337,7 @@ umore o emozione riferibili a una persona. Si misura il **processo**, non le per
 | «contesto» (per gli elementi passati al modello) | `ReportEvidence` — «contesto» significa già `ProjectContext` |
 | «insight» (per un'osservazione dentro un report) | `AttentionPoint` — `Insight` è l'entità persistita di T5, con confidenza e azione |
 | «dato mancante» come sinonimo di zero | `DataGap` — l'assenza di una metrica è un fatto da dichiarare, non un valore |
+| «stima» senza qualificazione, dove conta il tempo | `initialEstimate` (all'ingresso nello sprint) oppure `Estimate` (corrente). La velocity usa la prima. |
+| «giorno» sull'asse del burndown o nella capacità | `WorkingDay` — mescolare giorni di calendario e giorni lavorativi è il difetto che questa distinzione chiude |
+| «importanza» come numero sul backlog | `backlogOrder` — l'autore ritratta la colonna Importance in favore del semplice ordinamento |
+| «velocity» per la previsione | `estimatedVelocity` (previsione) o `committedVelocity` (piano) — `velocity` da sola significa sempre quella effettiva |

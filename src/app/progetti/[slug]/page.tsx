@@ -446,11 +446,12 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
                 <BurndownChart
                   title="Burndown"
                   unitLabel="punti"
-                  points={current.burndown.value.map((point) => ({
+                  points={current.burndown.value.points.map((point) => ({
                     at: point.at,
                     remaining: point.remaining.points ?? 0,
                   }))}
-                  committed={current.burndown.value[0]?.remaining.points ?? 0}
+                  committed={current.burndown.value.points[0]?.ideal ?? 0}
+                  totalDays={current.burndown.value.totalWorkingDays}
                 />
               ) : (
                 <p className="text-muted-foreground text-sm">

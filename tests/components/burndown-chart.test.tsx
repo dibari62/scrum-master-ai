@@ -20,7 +20,13 @@ const POINTS = [
  */
 describe("burndown reso sul server", () => {
   const markup = renderToStaticMarkup(
-    <BurndownChart points={POINTS} committed={36} unitLabel="punti" title="Burndown" />,
+    <BurndownChart
+      points={POINTS}
+      committed={36}
+      totalDays={3}
+      unitLabel="punti"
+      title="Burndown"
+    />,
   );
 
   it("scrive le etichette nell'HTML, non solo dopo l'idratazione", () => {
@@ -37,10 +43,44 @@ describe("burndown reso sul server", () => {
 
   it("dichiara l'assenza di dati invece di disegnare un grafico vuoto", () => {
     const empty = renderToStaticMarkup(
-      <BurndownChart points={[]} committed={0} unitLabel="punti" title="Burndown" />,
+      <BurndownChart
+        points={[]}
+        committed={0}
+        totalDays={0}
+        unitLabel="punti"
+        title="Burndown"
+      />,
     );
 
     expect(empty).toContain("Nessun dato");
     expect(empty).not.toContain("<svg");
+  });
+
+  it("la linea ideale arriva alla fine dello sprint, non all'ultimo punto noto", () => {
+    /*
+     * Su uno sprint in corso i punti disegnati sono meno dei giorni totali.
+     * Scalando la tratteggiata sui punti disponibili arriverebbe a zero
+     * *oggi*, e ogni sprint sembrerebbe in ritardo disperato fino all'ultimo
+     * giorno.
+     *
+     * Si verifica sull'ascissa finale della tratteggiata: con dieci giorni
+     * totali e tre punti, deve toccare il bordo destro dell'area di disegno.
+     */
+    const running = renderToStaticMarkup(
+      <BurndownChart
+        points={POINTS}
+        committed={36}
+        totalDays={10}
+        unitLabel="punti"
+        title="Burndown"
+      />,
+    );
+
+    // 720 di larghezza meno 16 di margine destro: il bordo del grafico.
+    expect(running).toContain("704");
+  });
+
+  it("spiega che i giorni non lavorativi non ci sono", () => {
+    expect(markup).toContain("giorno lavorativo");
   });
 });

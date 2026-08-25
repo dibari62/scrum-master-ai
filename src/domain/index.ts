@@ -19,6 +19,8 @@ export * from "./credentials";
 
 export * from "./work-item";
 export * from "./state-transition";
+export * from "./estimate-change";
+export * from "./working-calendar";
 export * from "./sprint";
 export * from "./collaboration";
 

@@ -55,6 +55,13 @@ const NOT_METRICS: Readonly<Record<string, string>> = {
   summariseDurations: "riassume una distribuzione già calcolata",
   summariseFlow: "aggrega le metriche di flusso ed è documentato come tasso di riapertura",
   totalEstimates: "somma le stime per unità, dietro velocity e carry-over",
+  // Quale stima leggere, e a quale istante. Non misurano: scelgono il numero
+  // che le metriche poi sommano.
+  currentEstimate: "sceglie la stima corrente",
+  estimateAsOf: "sceglie la stima a un istante diverso per ogni elemento",
+  estimateAtInstant: "sceglie la stima a un istante comune",
+  membershipEntriesAt:
+    "ricostruisce quando ciascun elemento è entrato nello sprint, dietro velocity",
   hasNoEstimates: "predicato di comodo",
   membershipAt: "composizione dello sprint a un istante",
 };

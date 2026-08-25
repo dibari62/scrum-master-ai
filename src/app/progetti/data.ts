@@ -25,7 +25,7 @@ import {
   summariseFlow,
   velocity,
   workInProgress,
-  type BurndownPoint,
+  type Burndown,
   type CarryOver,
   type EstimateTotals,
   type FlowSummary,
@@ -57,7 +57,7 @@ export type SprintMetrics = {
   readonly velocity: MetricResult<EstimateTotals>;
   readonly scopeChange: MetricResult<ScopeChange>;
   readonly carryOver: MetricResult<CarryOver>;
-  readonly burndown: MetricResult<readonly BurndownPoint[]>;
+  readonly burndown: MetricResult<Burndown>;
   readonly flow: FlowSummary;
   /** Items that belonged to the sprint at its close. */
   readonly itemCount: number;
