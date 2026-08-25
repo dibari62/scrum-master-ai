@@ -42,6 +42,8 @@ export const metadata: Metadata = {
 const ENTITY_LABELS: Readonly<Record<MetricInputEntity, string>> = {
   WorkItem: "Elemento di lavoro",
   StateTransition: "Passaggio di stato",
+  EstimateChange: "Variazione di stima",
+  WorkingCalendar: "Calendario lavorativo",
   Sprint: "Sprint",
   SprintScopeEvent: "Movimento di perimetro",
 };

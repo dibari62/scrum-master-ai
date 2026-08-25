@@ -378,11 +378,13 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     name: "Velocity",
     question: "Quanto lavoro stimato il team ha effettivamente chiuso in uno sprint?",
     formula:
-      "Somma delle stime degli elementi che risultavano «conclusi» nell'istante di chiusura dello sprint, calcolata separatamente per ogni unità di stima.",
+      "Somma delle stime **iniziali** degli elementi che risultavano «conclusi» nell'istante di chiusura dello sprint, calcolata separatamente per ogni unità di stima. «Iniziale» significa la stima che l'elemento aveva quando è entrato in questo sprint.",
     unit: "points",
     excludes: [
       "Gli elementi conclusi e poi riaperti prima della fine: alla chiusura non erano conclusi.",
       "Gli elementi entrati e poi usciti dallo sprint.",
+      "Le ri-stime fatte durante lo sprint: contano solo le stime d'ingresso.",
+      "Il credito parziale: un elemento quasi finito vale zero, non una frazione.",
       "Le stime in unità diverse, che non vengono mai sommate fra loro.",
     ],
     unavailableWhen: "Lo sprint non conteneva alcun elemento.",
@@ -393,15 +395,21 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
       },
       {
         entity: "SprintScopeEvent",
-        reads: "gli ingressi e le uscite, per ricostruire cosa c'era dentro alla chiusura",
+        reads:
+          "gli ingressi e le uscite, per ricostruire cosa c'era dentro alla chiusura e quando ciascun elemento è entrato",
       },
       {
         entity: "StateTransition",
         reads: "la storia di ogni elemento, per sapere chi risultava concluso a quell'istante",
       },
       {
+        entity: "EstimateChange",
+        reads: "la stima che ogni elemento aveva nell'istante in cui è entrato nello sprint",
+      },
+      {
         entity: "WorkItem",
-        reads: "la stima e la sua unità di misura",
+        reads:
+          "la stima corrente, usata solo per gli elementi di cui la fonte non espone la storia delle stime",
       },
     ],
     observation: {
@@ -414,6 +422,18 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
       "quanti elementi risultavano conclusi alla chiusura, cioè quanti hanno contribuito alla somma — non quanti ne conteneva lo sprint",
     referenceInstant: null,
     edgeCases: [
+      {
+        situation: "La stima di un elemento viene corretta durante lo sprint.",
+        outcome:
+          "Conta la stima d'ingresso, non quella corretta. Altrimenti correggere una stima oggi cambierebbe la velocity di uno sprint chiuso settimane fa.",
+        verifiedBy: "ignora una ri-stima fatta durante lo sprint",
+      },
+      {
+        situation: "Un elemento entra a metà sprint e viene concluso.",
+        outcome:
+          "Conta con la stima che aveva all'ingresso: prima non faceva parte del piano, e non c'era nessuna stima da onorare.",
+        verifiedBy: "usa la stima all'ingresso per un elemento aggiunto a metà sprint",
+      },
       {
         situation: "Un elemento è stato concluso e poi riaperto prima della chiusura.",
         outcome: "Escluso: nell'istante di chiusura non risultava concluso.",
@@ -432,7 +452,7 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
       },
     ],
     decision:
-      "Unità di stima diverse restano separate. Sommare tre punti e mezza giornata produce un numero che non significa nulla, e nessun grafico può accorgersene dopo.",
+      "Conta la stima iniziale, non quella corrente. È la regola del libro — «any updates to the story time estimates done during the sprint are ignored» — e senza di essa la velocity di uno sprint chiuso cambierebbe ogni volta che qualcuno corregge una stima. Unità di stima diverse restano separate: sommare tre punti e mezza giornata produce un numero che non significa nulla, e nessun grafico può accorgersene dopo.",
     sourceFile: "src/metrics/sprint.ts",
     sourceSymbol: "velocity",
     testFile: "tests/metrics/sprint.test.ts",
@@ -619,17 +639,24 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     name: "Burndown",
     question: "Giorno per giorno, quanto lavoro restava aperto nello sprint?",
     formula:
-      "Un campione al giorno, preso all'ora di inizio dello sprint, di quanto lavoro risultava ancora aperto in quell'istante.",
+      "Un campione per ogni giorno lavorativo, preso all'ora di inizio dello sprint, di quanto lavoro risultava ancora aperto in quell'istante. Ogni elemento è pesato con la stima che aveva quel giorno.",
     unit: "points",
     excludes: [
       "Gli elementi conclusi e quelli annullati, che è esattamente ciò che fa scendere la linea.",
+      "I giorni non lavorativi: sabati, domeniche e festività del progetto non compaiono sull'asse.",
       "Nessun elemento entrato a metà sprint viene ignorato: la composizione è ricalcolata a ogni campione, ed è per questo che la linea può salire.",
     ],
-    unavailableWhen: "Lo sprint non ha una durata valida.",
+    unavailableWhen:
+      "Lo sprint non contiene nemmeno un giorno lavorativo prima dell'istante di riferimento.",
     inputs: [
       {
         entity: "Sprint",
         reads: "l'istante di inizio e la data di fine, che delimitano l'arco campionato",
+      },
+      {
+        entity: "WorkingCalendar",
+        reads:
+          "quali giorni della settimana il progetto lavora e quali festività ha dichiarato",
       },
       {
         entity: "SprintScopeEvent",
@@ -641,39 +668,63 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
         reads: "lo stato di ciascun elemento nell'istante del campione",
       },
       {
+        entity: "EstimateChange",
+        reads: "la stima che ciascun elemento aveva nell'istante del campione",
+      },
+      {
         entity: "WorkItem",
-        reads: "la stima degli elementi ancora aperti, tenuta separata per unità",
+        reads:
+          "la stima corrente, usata solo per gli elementi di cui la fonte non espone la storia delle stime",
       },
     ],
     observation: {
       kind: "history",
       over:
-        "dall'inizio dello sprint fino alla sua fine pianificata o all'istante di riferimento, quello che viene prima, un campione ogni ventiquattro ore a partire dall'ora di inizio",
+        "dall'inizio dello sprint fino alla sua fine pianificata o all'istante di riferimento, quello che viene prima, un campione ogni ventiquattro ore a partire dall'ora di inizio, saltando i giorni non lavorativi",
     },
     operation: "series",
     summarisedBy: [],
-    sampleSizeMeaning: "quanti campioni compongono la linea, cioè quanti giorni copre",
+    sampleSizeMeaning:
+      "quanti campioni compongono la linea, cioè quanti giorni lavorativi copre",
     referenceInstant: "parametro asOf",
     edgeCases: [
+      {
+        situation: "Lo sprint attraversa un fine settimana.",
+        outcome:
+          "Sabato e domenica non compaiono: una linea piatta nel fine settimana sembrerebbe lavoro fermo.",
+        verifiedBy: "saltando il fine settimana",
+      },
+      {
+        situation: "Il progetto dichiara una festività dentro lo sprint.",
+        outcome: "Quel giorno non compare: un ponte non è un giorno di lavoro fermo.",
+        verifiedBy: "rispetta le festività dichiarate dal progetto",
+      },
       {
         situation: "Del lavoro entra nello sprint dopo l'inizio.",
         outcome: "La linea sale: la composizione è ricalcolata a ogni campione.",
         verifiedBy: "la linea sale quando arriva lavoro a metà sprint",
       },
       {
+        situation: "Una stima viene corretta a metà sprint.",
+        outcome:
+          "I campioni successivi usano la stima nuova: il burndown è la risposta corrente del team a «quanto manca», e una ri-stima ne fa parte.",
+        verifiedBy: "usa la stima del giorno, non quella corrente",
+      },
+      {
         situation: "Lo sprint dura un solo giorno.",
-        outcome: "Un punto, non zero punti: l'estremo iniziale è sempre campionato.",
+        outcome:
+          "Un punto, non zero punti: l'estremo iniziale è sempre campionato se è lavorativo. La linea ideale però non c'è, perché non ha una pendenza.",
         verifiedBy: "gestisce uno sprint di un solo giorno",
       },
       {
         situation: "Lo sprint è ancora in corso.",
         outcome:
-          "La linea si ferma a oggi invece di proseguire piatta fino alla data di fine, che sembrerebbe lavoro fermo.",
+          "La linea si ferma a oggi invece di proseguire piatta fino alla data di fine, che sembrerebbe lavoro fermo. La linea ideale arriva comunque all'ultimo giorno.",
         verifiedBy: "si ferma a oggi invece di disegnare i giorni non ancora avvenuti",
       },
     ],
     decision:
-      "Il campione è all'ora di inizio e non a mezzanotte, così ogni punto risponde a «dov'eravamo ieri a quest'ora», che è il confronto che un team fa davvero.",
+      "I giorni non lavorativi si saltano. Kniberg racconta di averli inclusi e poi tolti: la linea si appiattiva nel fine settimana «which would look like a warning sign». Un grafico che inventa allarmi insegna a ignorare quelli veri.",
     sourceFile: "src/metrics/sprint.ts",
     sourceSymbol: "burndown",
     testFile: "tests/metrics/sprint.test.ts",

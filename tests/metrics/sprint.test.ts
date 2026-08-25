@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { sprintSchema, sprintScopeEventSchema, type Sprint, type SprintScopeEvent } from "@/domain";
+import {
+  DEFAULT_WORKING_CALENDAR,
+  sprintSchema,
+  sprintScopeEventSchema,
+  type Sprint,
+  type SprintScopeEvent,
+} from "@/domain";
 import {
   burndown,
   carryOver,
@@ -14,7 +20,7 @@ import {
   workItemsByState,
 } from "@/metrics";
 
-import { DAY, item, move, resetIds } from "./builders";
+import { DAY, estimateChange, item, move, resetIds } from "./builders";
 
 const ORGANIZATION_ID = "3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21";
 const PROJECT_ID = "9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905";
@@ -184,6 +190,106 @@ describe("velocity", () => {
     expect(velocity(sprint(), [], [], []).available).toBe(false);
   });
 
+  it("ignora una ri-stima fatta durante lo sprint", () => {
+    /*
+     * La regola più netta del libro sulla velocity: «the actual velocity is
+     * based on the *initial* estimates of each story. Any updates to the story
+     * time estimates done during the sprint are ignored» (pag. 29).
+     *
+     * Senza questa regola il numero non è solo impreciso, è **instabile**:
+     * correggere oggi la stima di una storia sposterebbe la velocity di uno
+     * sprint chiuso settimane fa, e chi la rilegge la vede cambiare sotto gli
+     * occhi. È lo stesso motivo per cui ADR-0003 non legge lo stato corrente.
+     */
+    const transitions = [
+      move(null, "todo", "2026-04-06T08:00:00.000Z", { workItemId: ITEM_A }),
+      move("todo", "done", "2026-04-09T09:00:00.000Z", { workItemId: ITEM_A }),
+    ];
+
+    // Oggi l'elemento è stimato 13, ma quando è entrato nello sprint era 5.
+    const reEstimated = [item({ id: ITEM_A, estimate: { value: 13, unit: "points" } })];
+    const changes = [
+      estimateChange(ITEM_A, null, { value: 5, unit: "points" }, "2026-04-02T08:00:00.000Z"),
+      estimateChange(
+        ITEM_A,
+        { value: 5, unit: "points" },
+        { value: 13, unit: "points" },
+        "2026-04-14T10:00:00.000Z",
+      ),
+    ];
+
+    const result = velocity(
+      sprint(),
+      reEstimated,
+      transitions,
+      [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")],
+      changes,
+    );
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.points).toBe(5);
+  });
+
+  it("usa la stima all'ingresso per un elemento aggiunto a metà sprint", () => {
+    /*
+     * «Iniziale» non significa «alla creazione» né «all'inizio dello sprint»:
+     * significa all'ingresso in *questo* sprint. Un elemento tirato dentro il
+     * decimo giorno ha portato nel piano la taglia che aveva quel giorno, e
+     * nulla di precedente era mai stato promesso.
+     */
+    const transitions = [
+      move(null, "todo", "2026-04-02T08:00:00.000Z", { workItemId: ITEM_C }),
+      move("todo", "done", "2026-04-16T09:00:00.000Z", { workItemId: ITEM_C }),
+    ];
+
+    const changes = [
+      estimateChange(ITEM_C, null, { value: 2, unit: "points" }, "2026-04-02T08:00:00.000Z"),
+      // Ri-stimato *prima* di entrare: è questa la stima che entra nel piano.
+      estimateChange(
+        ITEM_C,
+        { value: 2, unit: "points" },
+        { value: 8, unit: "points" },
+        "2026-04-13T09:00:00.000Z",
+      ),
+      // E ri-stimato di nuovo dopo l'ingresso: questa va ignorata.
+      estimateChange(
+        ITEM_C,
+        { value: 8, unit: "points" },
+        { value: 20, unit: "points" },
+        "2026-04-16T08:00:00.000Z",
+      ),
+    ];
+
+    const result = velocity(
+      sprint(),
+      [item({ id: ITEM_C, estimate: { value: 20, unit: "points" } })],
+      transitions,
+      [scopeEvent(ITEM_C, "added", "2026-04-14T09:00:00.000Z")],
+      changes,
+    );
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.points).toBe(8);
+  });
+
+  it("ricade sulla stima corrente quando la fonte non espone la storia", () => {
+    /*
+     * Comportamento dichiarato, non svista: una fonte che espone solo il valore
+     * corrente ci dà una sola osservazione, e leggerla come «è sempre stato
+     * così» è l'unica lettura disponibile. Ciò che non può fare è nascondere
+     * una ri-stima, perché una ri-stima che la fonte non ha mai registrato non
+     * è conoscibile da nessun calcolo.
+     */
+    const transitions = [
+      move(null, "todo", "2026-04-06T08:00:00.000Z", { workItemId: ITEM_A }),
+      move("todo", "done", "2026-04-09T09:00:00.000Z", { workItemId: ITEM_A }),
+    ];
+
+    const result = velocity(sprint(), items, transitions, events, []);
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.points).toBe(5);
+  });
+
   it("dichiara il risultato parziale quando le unità si mescolano", () => {
     const mixedItems = [
       item({ id: ITEM_A, estimate: { value: 5, unit: "points" } }),
@@ -308,12 +414,98 @@ describe("burndown", () => {
    */
   const AFTER_SPRINT = new Date("2026-05-01T00:00:00.000Z");
 
-  it("produce un punto per ogni giorno dello sprint", () => {
+  it("produce un punto per ogni giorno lavorativo, saltando il fine settimana", () => {
+    /*
+     * Lo sprint va da lunedì 6 a venerdì 17 aprile: dodici giorni di
+     * calendario, dieci lavorativi.
+     *
+     * Prima questa metrica ne produceva dodici, e i due punti in più cadevano
+     * su sabato e domenica — giorni in cui i dati sintetici non producono
+     * niente, quindi la linea si appiattiva. Kniberg racconta di aver fatto e
+     * disfatto esattamente questo: la piattezza del fine settimana «would look
+     * like a warning sign». Un grafico che inventa allarmi insegna a ignorare
+     * quelli veri.
+     */
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
     const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
 
     if (!result.available) throw new Error("attesa disponibile");
-    expect(result.value).toHaveLength(12);
+    expect(result.value.points).toHaveLength(10);
+    expect(result.value.totalWorkingDays).toBe(10);
+
+    const weekendDays = result.value.points.filter((point) =>
+      [0, 6].includes(point.at.getUTCDay()),
+    );
+    expect(weekendDays).toHaveLength(0);
+  });
+
+  it("rispetta le festività dichiarate dal progetto", () => {
+    // Un ponte non è un giorno di lavoro fermo: è un giorno che non c'è.
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
+    const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT, {
+      calendar: { ...DEFAULT_WORKING_CALENDAR, holidays: ["2026-04-07"] },
+    });
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.points).toHaveLength(9);
+    expect(
+      result.value.points.some((point) => point.at.toISOString().startsWith("2026-04-07")),
+    ).toBe(false);
+  });
+
+  it("la linea ideale scende fino all'ultimo giorno, non fino a oggi", () => {
+    /*
+     * Il difetto che questa riga chiude: la linea tratteggiata veniva scalata
+     * sui punti disponibili, quindi su uno sprint in corso arrivava a zero
+     * *oggi*. Ogni sprint sembrava disperatamente in ritardo fino all'ultimo
+     * giorno.
+     */
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
+    const items = [item({ id: ITEM_A, estimate: { value: 9, unit: "points" } })];
+
+    const result = burndown(
+      sprint(),
+      items,
+      [],
+      events,
+      new Date("2026-04-09T12:00:00.000Z"),
+    );
+    if (!result.available) throw new Error("attesa disponibile");
+
+    // Dieci giorni lavorativi, nove passi: si scende di un punto al giorno.
+    expect(result.value.points[0]?.ideal).toBe(9);
+    expect(result.value.points[1]?.ideal).toBe(8);
+    expect(result.value.totalWorkingDays).toBe(10);
+
+    // E la linea reale si ferma prima, com'è giusto.
+    expect(result.value.points.length).toBeLessThan(result.value.totalWorkingDays);
+  });
+
+  it("usa la stima del giorno, non quella corrente", () => {
+    /*
+     * Il burndown è la risposta corrente del team a «quanto manca», e una
+     * ri-stima ne fa parte: è il contrario della velocity, che congela la
+     * stima d'ingresso.
+     */
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
+    const items = [item({ id: ITEM_A, estimate: { value: 13, unit: "points" } })];
+    const changes = [
+      estimateChange(ITEM_A, null, { value: 5, unit: "points" }, "2026-04-06T08:00:00.000Z"),
+      estimateChange(
+        ITEM_A,
+        { value: 5, unit: "points" },
+        { value: 13, unit: "points" },
+        "2026-04-09T10:00:00.000Z",
+      ),
+    ];
+
+    const result = burndown(sprint(), items, [], events, AFTER_SPRINT, {
+      estimateChanges: changes,
+    });
+    if (!result.available) throw new Error("attesa disponibile");
+
+    expect(result.value.points[0]?.remaining.points).toBe(5);
+    expect(result.value.points[result.value.points.length - 1]?.remaining.points).toBe(13);
   });
 
   it("la linea sale quando arriva lavoro a metà sprint", () => {
@@ -331,8 +523,10 @@ describe("burndown", () => {
     const result = burndown(sprint(), items, [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
 
-    const first = result.value[0];
-    const later = result.value.find((p) => p.at.getTime() > new Date("2026-04-10T09:00:00.000Z").getTime());
+    const first = result.value.points[0];
+    const later = result.value.points.find(
+      (p) => p.at.getTime() > new Date("2026-04-10T09:00:00.000Z").getTime(),
+    );
 
     expect(first?.remaining.points).toBe(5);
     expect(later?.remaining.points).toBe(13);
@@ -344,7 +538,25 @@ describe("burndown", () => {
 
     const result = burndown(oneDay, [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
     if (!result.available) throw new Error("attesa disponibile");
-    expect(result.value).toHaveLength(1);
+    expect(result.value.points).toHaveLength(1);
+
+    // Nessuna linea ideale: un solo giorno non ha pendenza, e zero sarebbe
+    // una divisione per zero travestita da numero.
+    expect(result.value.points[0]?.ideal).toBeNull();
+  });
+
+  it("non è disponibile se lo sprint non ha nemmeno un giorno lavorativo", () => {
+    // Un fine settimana intero non è uno sprint vuoto: è uno sprint che non
+    // contiene nessun giorno da campionare. Dichiararlo, invece di restituire
+    // una serie vuota che il grafico disegnerebbe come una riga piatta.
+    const weekend = sprint({
+      startsAt: "2026-04-11T08:00:00.000Z",
+      endsAt: "2026-04-12T18:00:00.000Z",
+    });
+    const events = [scopeEvent(ITEM_A, "added", "2026-04-11T08:00:00.000Z")];
+
+    const result = burndown(weekend, [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
+    expect(result.available).toBe(false);
   });
 
   it("si ferma a oggi invece di disegnare i giorni non ancora avvenuti", () => {
@@ -364,14 +576,14 @@ describe("burndown", () => {
     const result = burndown(sprint(), [item({ id: ITEM_A })], [], events, midSprint);
     if (!result.available) throw new Error("attesa disponibile");
 
-    const last = result.value[result.value.length - 1];
+    const last = result.value.points[result.value.points.length - 1];
     expect(last?.at.getTime()).toBeLessThanOrEqual(midSprint.getTime());
 
     // E resta più corta della linea dello stesso sprint guardato a cose fatte.
     const whole = burndown(sprint(), [item({ id: ITEM_A })], [], events, AFTER_SPRINT);
     if (!whole.available) throw new Error("attesa disponibile");
 
-    expect(result.value.length).toBeLessThan(whole.value.length);
+    expect(result.value.points.length).toBeLessThan(whole.value.points.length);
   });
 });
 
@@ -637,7 +849,7 @@ describe("insieme vuoto", () => {
 });
 
 describe("durata di riferimento", () => {
-  it("il burndown copre l'intero arco dello sprint", () => {
+  it("il burndown copre l'intero arco lavorativo dello sprint", () => {
     const events = [scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z")];
     const result = burndown(
       sprint(),
@@ -648,10 +860,14 @@ describe("durata di riferimento", () => {
     );
 
     if (!result.available) throw new Error("attesa disponibile");
-    const first = result.value[0];
-    const last = result.value[result.value.length - 1];
+    const points = result.value.points;
+    const first = points[0];
+    const last = points[points.length - 1];
 
     expect(first?.at.toISOString()).toBe("2026-04-06T08:00:00.000Z");
+    // Lunedì 6 → venerdì 17: undici giorni di distanza, dieci campioni,
+    // perché i due fine settimana in mezzo non sono giorni di lavoro.
     expect((last as { at: Date }).at.getTime() - (first as { at: Date }).at.getTime()).toBe(11 * DAY);
+    expect(points).toHaveLength(10);
   });
 });

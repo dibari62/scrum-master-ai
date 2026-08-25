@@ -22,8 +22,18 @@ export type BurndownSeries = {
 
 type BurndownChartProps = {
   readonly points: readonly BurndownSeries[];
-  /** Work committed at the start, used to draw the ideal line. */
+  /** Work committed at the start, used as the top of the ideal line. */
   readonly committed: number;
+  /**
+   * Working days the sprint holds in total, including those still to come.
+   *
+   * **Not `points.length`.** On a running sprint the actual line stops at
+   * today, and scaling the ideal line to the points we have would make it reach
+   * zero today too — so every sprint would look catastrophically behind until
+   * its very last day. The ideal line spans the whole sprint; the actual one
+   * spans what has happened.
+   */
+  readonly totalDays: number;
   readonly unitLabel: string;
   readonly title: string;
 };
@@ -55,6 +65,7 @@ const AXIS_TEXT = "max-sm:hidden text-[14px] md:text-[11px]";
 export function BurndownChart({
   points,
   committed,
+  totalDays,
   unitLabel,
   title,
 }: BurndownChartProps) {
@@ -75,10 +86,10 @@ export function BurndownChart({
   const values = points.map((point) => point.remaining);
   const yDomain = niceDomain([...values, committed]);
 
-  const x = linearScale([0, Math.max(points.length - 1, 1)], [
-    PADDING.left,
-    PADDING.left + plotWidth,
-  ]);
+  // The axis spans the whole sprint, never only the days observed so far.
+  const lastDay = Math.max(totalDays - 1, points.length - 1, 1);
+
+  const x = linearScale([0, lastDay], [PADDING.left, PADDING.left + plotWidth]);
   // Inverted range: SVG grows downwards, charts grow upwards.
   const y = linearScale(yDomain, [PADDING.top + plotHeight, PADDING.top]);
 
@@ -91,11 +102,13 @@ export function BurndownChart({
    *
    * Drawn from the *committed* amount rather than from the first actual point,
    * so mid-sprint additions show up as the actual line rising above the ideal
-   * instead of quietly moving the reference.
+   * instead of quietly moving the reference. It reaches zero on the sprint's
+   * last working day, which on a running sprint is beyond where the actual line
+   * stops — that gap is the chart's whole message.
    */
   const ideal = polylinePath([
     [x.to(0), y.to(committed)],
-    [x.to(points.length - 1), y.to(0)],
+    [x.to(lastDay), y.to(0)],
   ]);
 
   const yTicks = ticks(yDomain, 4);
@@ -188,8 +201,11 @@ export function BurndownChart({
       </div>
 
       <p className="text-muted-foreground text-xs">
-        La linea tratteggiata è l&apos;andamento ideale dal lavoro impegnato a zero. Se
-        quella continua le sta sopra, il perimetro è cresciuto o il lavoro è in ritardo.
+        Un punto per giorno lavorativo: sabati, domeniche e festività non compaiono,
+        perché una linea piatta nel fine settimana sembra un allarme e non lo è. La linea
+        tratteggiata è l&apos;andamento ideale dal lavoro impegnato a zero, fino
+        all&apos;ultimo giorno dello sprint. Se quella continua le sta sopra, il perimetro
+        è cresciuto o il lavoro è in ritardo.
       </p>
     </figure>
   );

@@ -1,15 +1,25 @@
 import {
   isMidSprintAddition,
   workItemStateSchema,
+  workingDayInstants,
+  DEFAULT_WORKING_CALENDAR,
+  type EstimateChange,
   type Sprint,
   type SprintScopeEvent,
   type StateTransition,
+  type WorkingCalendar,
   type WorkItem,
   type WorkItemId,
   type WorkItemState,
 } from "@/domain";
 
-import { EMPTY_TOTALS, totalEstimates, type EstimateTotals } from "./estimates";
+import {
+  EMPTY_TOTALS,
+  estimateAsOf,
+  estimateAtInstant,
+  totalEstimates,
+  type EstimateTotals,
+} from "./estimates";
 import { groupByWorkItem, stateAt } from "./history";
 import { available, median, unavailable, type MetricResult } from "./result";
 
@@ -20,23 +30,31 @@ import { available, median, unavailable, type MetricResult } from "./result";
  * All of them read `StateTransition` and `SprintScopeEvent` rather than the
  * current state of a work item. `WorkItem.sprintId` says where an item is
  * *now*; a sprint that closed three weeks ago needs to know where it was
- * *then*, and only the history can answer that (ADR-0002).
+ * *then*, and only the history can answer that (ADR-0003).
+ *
+ * The same rule now applies to estimates. `WorkItem.estimate` says what it is
+ * sized at *now*; `EstimateChange` says what it was sized at *then*, and every
+ * figure below that describes a closed moment reads the second (ADR-0008).
  */
 
 /**
- * Which items belonged to a sprint at a given instant.
+ * When each item entered the sprint, replaying additions and removals in order.
  *
- * Built by replaying additions and removals in order. Replaying rather than
- * reading the current membership is the whole reason `SprintScopeEvent` exists:
- * without it, closing a sprint and moving its leftovers would rewrite history
- * and make every past velocity change.
+ * Built by replaying rather than reading the current membership: that is the
+ * whole reason `SprintScopeEvent` exists. Closing a sprint and moving its
+ * leftovers would otherwise rewrite history and make every past velocity
+ * change.
+ *
+ * An item removed and later added back reports the **later** entry. It is the
+ * arrival that put it into the plan the team is being measured against; the
+ * earlier one was undone.
  */
-export function membershipAt(
+export function membershipEntriesAt(
   scopeEvents: readonly SprintScopeEvent[],
   sprint: Sprint,
   instant: Date,
-): ReadonlySet<WorkItemId> {
-  const members = new Set<WorkItemId>();
+): ReadonlyMap<WorkItemId, Date> {
+  const entries = new Map<WorkItemId, Date>();
 
   const relevant = [...scopeEvents]
     .filter((event) => event.sprintId === sprint.id)
@@ -44,21 +62,50 @@ export function membershipAt(
     .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
 
   for (const event of relevant) {
-    if (event.kind === "added") members.add(event.workItemId);
-    else members.delete(event.workItemId);
+    if (event.kind === "added") entries.set(event.workItemId, event.occurredAt);
+    else entries.delete(event.workItemId);
   }
 
-  return members;
+  return entries;
 }
 
 /**
- * Velocity: estimates of the work that was done when the sprint closed.
+ * Which items belonged to a sprint at a given instant.
  *
- * The glossary says «arrivati a `done` entro la fine dello sprint, esclusi
- * quelli riaperti dopo». Both halves are satisfied by one question: was the
- * item in `done` at the closing instant? An item finished and then reopened
- * before the end was not done when the sprint closed, and counting it would
- * credit the team with work it still had to do.
+ * The membership half of `membershipEntriesAt`, kept as its own name because
+ * most callers only need the set.
+ */
+export function membershipAt(
+  scopeEvents: readonly SprintScopeEvent[],
+  sprint: Sprint,
+  instant: Date,
+): ReadonlySet<WorkItemId> {
+  return new Set(membershipEntriesAt(scopeEvents, sprint, instant).keys());
+}
+
+/**
+ * Velocity: the **initial** estimates of the work that was done when the sprint
+ * closed.
+ *
+ * Two rules from the book, and they are separate.
+ *
+ * **Which items count.** The glossary says «arrivati a `done` entro la fine
+ * dello sprint, esclusi quelli riaperti dopo». Both halves are satisfied by one
+ * question: was the item in `done` at the closing instant? An item finished and
+ * then reopened before the end was not done when the sprint closed, and
+ * counting it would credit the team with work it still had to do. There is no
+ * partial credit either — «The value of stuff half-done is zero (may in fact be
+ * negative)» (pag. 30).
+ *
+ * **Which estimate counts.** «the actual velocity is based on the *initial*
+ * estimates of each story. Any updates to the story time estimates done during
+ * the sprint are ignored» (pag. 29). *Initial* means at the moment the item
+ * entered **this** sprint, not at the moment it was created: an item pulled in
+ * on day six carried its day-six size into the plan, and nothing earlier was
+ * ever promised.
+ *
+ * Without this the number is not merely imprecise, it is unstable: correcting a
+ * story's estimate today would move the velocity of a sprint closed weeks ago.
  *
  * Returned split by estimate unit, never as one number (see `EstimateTotals`).
  */
@@ -67,19 +114,25 @@ export function velocity(
   items: readonly WorkItem[],
   transitions: readonly StateTransition[],
   scopeEvents: readonly SprintScopeEvent[],
+  estimateChanges: readonly EstimateChange[] = [],
 ): MetricResult<EstimateTotals> {
   const closingInstant = sprint.completedAt ?? sprint.endsAt;
-  const members = membershipAt(scopeEvents, sprint, closingInstant);
+  const entries = membershipEntriesAt(scopeEvents, sprint, closingInstant);
   const byItem = groupByWorkItem(transitions);
 
   const completed = items.filter((item) => {
-    if (!members.has(item.id)) return false;
+    if (!entries.has(item.id)) return false;
     return stateAt(byItem.get(item.id) ?? [], closingInstant) === "done";
   });
 
-  if (members.size === 0) return unavailable("no-data", 0);
+  if (entries.size === 0) return unavailable("no-data", 0);
 
-  return available(totalEstimates(completed), completed.length);
+  const initial = estimateAsOf(
+    estimateChanges,
+    (item) => entries.get(item.id) ?? sprint.startsAt,
+  );
+
+  return available(totalEstimates(completed, initial), completed.length);
 }
 
 export type ScopeChange = {
@@ -104,6 +157,7 @@ export function scopeChange(
   sprint: Sprint,
   items: readonly WorkItem[],
   scopeEvents: readonly SprintScopeEvent[],
+  estimateChanges: readonly EstimateChange[] = [],
 ): MetricResult<ScopeChange> {
   const forSprint = scopeEvents.filter((event) => event.sprintId === sprint.id);
   if (forSprint.length === 0) return unavailable("no-data", 0);
@@ -126,11 +180,24 @@ export function scopeChange(
 
   const committed = membershipAt(scopeEvents, sprint, sprint.startsAt);
 
+  // Sized as they were when the sprint closed, not as they are today. The
+  // figure answers "how much did the plan move", and a re-estimate made after
+  // the sprint ended is not the plan moving.
+  const asAtClose = estimateAtInstant(
+    estimateChanges,
+    sprint.completedAt ?? sprint.endsAt,
+  );
+
   return available(
     {
-      added: resolve(addedIds).length > 0 ? totalEstimates(resolve(addedIds)) : EMPTY_TOTALS,
+      added:
+        resolve(addedIds).length > 0
+          ? totalEstimates(resolve(addedIds), asAtClose)
+          : EMPTY_TOTALS,
       removed:
-        resolve(removedIds).length > 0 ? totalEstimates(resolve(removedIds)) : EMPTY_TOTALS,
+        resolve(removedIds).length > 0
+          ? totalEstimates(resolve(removedIds), asAtClose)
+          : EMPTY_TOTALS,
       addedCount: addedIds.length,
       removedCount: removedIds.length,
       committedCount: committed.size,
@@ -160,6 +227,7 @@ export function carryOver(
   items: readonly WorkItem[],
   transitions: readonly StateTransition[],
   scopeEvents: readonly SprintScopeEvent[],
+  estimateChanges: readonly EstimateChange[] = [],
 ): MetricResult<CarryOver> {
   const closingInstant = sprint.completedAt ?? sprint.endsAt;
   const members = membershipAt(scopeEvents, sprint, closingInstant);
@@ -175,10 +243,16 @@ export function carryOver(
     return state !== "done" && state !== "cancelled";
   });
 
+  // Sized as at the close: how much was left *then*, which is what the next
+  // sprint had to absorb. A later re-estimate belongs to the next sprint's
+  // story, not to this one's.
+  const asAtClose = estimateAtInstant(estimateChanges, closingInstant);
+
   return available(
     {
       items: unfinished.map((item) => item.id),
-      estimates: unfinished.length > 0 ? totalEstimates(unfinished) : EMPTY_TOTALS,
+      estimates:
+        unfinished.length > 0 ? totalEstimates(unfinished, asAtClose) : EMPTY_TOTALS,
       consideredCount: members.size,
     },
     members.size,
@@ -227,25 +301,75 @@ export type BurndownPoint = {
   /** Work still open at this instant, split by estimate unit. */
   readonly remaining: EstimateTotals;
   readonly openCount: number;
+
+  /**
+   * Where a perfectly even burn would have been on this day, in points.
+   *
+   * `null` when the sprint's work is not measured in points — an ideal line in
+   * hours drawn on a chart of points would be a second line meaning something
+   * else, which is worse than no line.
+   *
+   * This is the book's dashed guideline: «The dashed trend line shows that they
+   * are approximately on track» (pag. 62). It is arithmetic over the starting
+   * total and the number of working days, not a prediction: nothing here knows
+   * anything about the future.
+   */
+  readonly ideal: number | null;
+};
+
+export type Burndown = {
+  readonly points: readonly BurndownPoint[];
+
+  /**
+   * How many working days the sprint holds in total, including those still to
+   * come.
+   *
+   * Needed to draw the ideal line to its end even while the actual line stops
+   * at today, which is the comparison the chart is for.
+   */
+  readonly totalWorkingDays: number;
+};
+
+export type BurndownOptions = {
+  /**
+   * Which days count. Defaults to Monday-Friday with no holidays.
+   *
+   * An options object rather than two more positional parameters: both of these
+   * are things a caller usually wants to leave alone, and a sixth positional
+   * argument is where call sites start passing them in the wrong order.
+   */
+  readonly calendar?: WorkingCalendar;
+  readonly estimateChanges?: readonly EstimateChange[];
 };
 
 /**
- * Burndown: how much work was still open on each day of the sprint.
+ * Burndown: how much work was still open on each **working day** of the sprint.
  *
- * Sampled daily at the sprint's start-of-day offset rather than at midnight, so
- * each point answers "where were we at this time yesterday" — the comparison a
- * team actually makes.
+ * **Weekends are skipped, and that is the whole point of the calendar.** The
+ * chart used to sample every calendar day, so a three-week sprint drew four
+ * flat days that nobody worked. Kniberg describes making and undoing exactly
+ * that mistake: «We used to include weekends but this would make the burn down
+ * slightly confusing, since it would flatten out over weekends, **which would
+ * look like a warning sign**» (pag. 62). A chart that invents alarms trains
+ * people to ignore real ones.
+ *
+ * Sampled at the sprint's start-of-day offset rather than at midnight, so each
+ * point answers "where were we at this time yesterday" — the comparison a team
+ * actually makes.
  *
  * Membership is recomputed at every point rather than fixed at the start. That
  * is what makes mid-sprint additions visible as a line that goes *up*, which is
- * the entire diagnostic value of the chart.
+ * the entire diagnostic value of the chart. Each item is sized as it was **on
+ * that day**: the burndown is the team's own running answer to "how much is
+ * left", and a re-estimate on day six is part of that answer, not a correction
+ * to be hidden.
  *
  * **The line stops at `asOf`, and that is not a detail.** A running sprint has
  * days that have not happened yet, and sampling them produces points identical
  * to the last real one — a flat tail that a reader interprets as a week of work
  * going nowhere. The chart would be asserting something about the future, which
  * is both false and unflattering. Ending the line where the data ends says only
- * what is known.
+ * what is known; `totalWorkingDays` still lets the ideal line reach the end.
  */
 export function burndown(
   sprint: Sprint,
@@ -253,17 +377,26 @@ export function burndown(
   transitions: readonly StateTransition[],
   scopeEvents: readonly SprintScopeEvent[],
   asOf: Date,
-): MetricResult<readonly BurndownPoint[]> {
+  options: BurndownOptions = {},
+): MetricResult<Burndown> {
+  const calendar = options.calendar ?? DEFAULT_WORKING_CALENDAR;
+  const estimateChanges = options.estimateChanges ?? [];
+
   const byItem = groupByWorkItem(transitions);
   const byId = new Map(items.map((item) => [item.id, item]));
 
-  const points: BurndownPoint[] = [];
-  const dayMs = 24 * 60 * 60 * 1000;
+  const last = new Date(Math.min(sprint.endsAt.getTime(), asOf.getTime()));
+  const sampled = workingDayInstants(calendar, sprint.startsAt, last);
 
-  const last = Math.min(sprint.endsAt.getTime(), asOf.getTime());
+  if (sampled.length === 0) return unavailable("no-data", 0);
 
-  for (let at = sprint.startsAt.getTime(); at <= last; at += dayMs) {
-    const instant = new Date(at);
+  const totalWorkingDays = workingDayInstants(
+    calendar,
+    sprint.startsAt,
+    sprint.endsAt,
+  ).length;
+
+  const measured = sampled.map((instant) => {
     const members = membershipAt(scopeEvents, sprint, instant);
 
     const open = [...members]
@@ -274,15 +407,28 @@ export function burndown(
         return state !== "done" && state !== "cancelled";
       });
 
-    points.push({
+    return {
       at: instant,
-      remaining: open.length > 0 ? totalEstimates(open) : EMPTY_TOTALS,
+      remaining:
+        open.length > 0
+          ? totalEstimates(open, estimateAtInstant(estimateChanges, instant))
+          : EMPTY_TOTALS,
       openCount: open.length,
-    });
-  }
+    };
+  });
 
-  if (points.length === 0) return unavailable("no-data", 0);
-  return available(points, points.length);
+  const start = measured[0]?.remaining.points ?? null;
+
+  // A single-day sprint has nothing to slope down: the ideal line would be a
+  // division by zero, so it is simply absent rather than nought.
+  const slope = start !== null && totalWorkingDays > 1 ? start / (totalWorkingDays - 1) : null;
+
+  const points: BurndownPoint[] = measured.map((point, index) => ({
+    ...point,
+    ideal: slope === null || start === null ? null : Math.max(0, start - slope * index),
+  }));
+
+  return available({ points, totalWorkingDays }, points.length);
 }
 
 /**

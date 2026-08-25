@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { auditFields, displayNameSchema, projectScopedFields, timestampSchema } from "./common";
 import { projectContextIdSchema } from "./ids";
+import { dayOfWeekSchema } from "./working-calendar";
 
 /**
  * `ProjectContext` is how this team has **decided** to work: sprint length,
@@ -45,18 +46,15 @@ export const scrumEventSchema = z.enum([
 
 export type ScrumEvent = z.infer<typeof scrumEventSchema>;
 
-/** Named rather than numbered: "day 0" means Sunday somewhere and Monday elsewhere. */
-export const dayOfWeekSchema = z.enum([
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-]);
-
-export type DayOfWeek = z.infer<typeof dayOfWeekSchema>;
+/**
+ * The days of the week live in `working-calendar.ts`, and `dayOfWeekSchema` is
+ * imported from there rather than declared again.
+ *
+ * R4 forbids the same shape in two places, and this is the case that makes the
+ * rule concrete: a ceremony held on Friday and a Friday that counts as a
+ * working day are the *same* seven values. Two enums would drift the first time
+ * someone added a locale.
+ */
 
 /**
  * A wall-clock time of day, `HH:MM` on 24 hours.

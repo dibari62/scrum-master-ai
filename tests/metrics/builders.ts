@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  estimateChangeSchema,
   stateTransitionSchema,
   workItemSchema,
+  type Estimate,
+  type EstimateChange,
   type StateTransition,
   type WorkItem,
   type WorkItemState,
@@ -106,6 +109,36 @@ export function item(
 
 export const HOUR = 60 * 60 * 1000;
 export const DAY = 24 * HOUR;
+
+/**
+ * A change to an item's estimate.
+ *
+ * Written with both ends explicit — where it came from and where it went — so a
+ * test reads as the story it describes. The `from` half is what makes an
+ * incoherent history visible to a reader: a change claiming to start at 5 in an
+ * item that was at 8 is wrong on the page, not only in an assertion.
+ */
+export function estimateChange(
+  workItemId: string,
+  fromEstimate: Estimate | null,
+  toEstimate: Estimate | null,
+  occurredAt: string,
+): EstimateChange {
+  const id = nextId();
+
+  return estimateChangeSchema.parse({
+    id,
+    ...SCOPE,
+    sourceId: `e-${id}`,
+    workItemId,
+    fromEstimate,
+    toEstimate,
+    occurredAt,
+    actorId: null,
+    createdAt: occurredAt,
+    updatedAt: occurredAt,
+  });
+}
 
 /** Guard that narrows an available result, so tests read without casts. */
 export function expectAvailable<T>(
