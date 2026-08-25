@@ -11,6 +11,7 @@ import type {
   SourceSystem,
   Sprint,
   SprintScopeEvent,
+  SprintStatistics,
   StateTransition,
   WorkItem,
 } from "@/domain";
@@ -53,6 +54,16 @@ export type CanonicalBatch = {
    */
   readonly estimateChanges: readonly EstimateChange[];
   readonly scopeEvents: readonly SprintScopeEvent[];
+  /**
+   * The forecast recorded for each sprint, when the source keeps one.
+   *
+   * Empty for a connector reading a tool that has no such artefact, which is
+   * most of them: a forecast is something a team *writes down*, not something
+   * a board can be asked for. An absent forecast is a legitimate answer and
+   * must never be replaced by a computed one — see
+   * `src/domain/sprint-statistics.ts`.
+   */
+  readonly sprintStatistics: readonly SprintStatistics[];
   readonly comments: readonly Comment[];
   readonly impediments: readonly Impediment[];
   readonly pullRequests: readonly PullRequest[];
@@ -67,6 +78,7 @@ export const EMPTY_BATCH: CanonicalBatch = {
   transitions: [],
   estimateChanges: [],
   scopeEvents: [],
+  sprintStatistics: [],
   comments: [],
   impediments: [],
   pullRequests: [],

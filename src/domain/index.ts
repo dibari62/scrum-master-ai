@@ -22,6 +22,7 @@ export * from "./state-transition";
 export * from "./estimate-change";
 export * from "./working-calendar";
 export * from "./sprint";
+export * from "./sprint-statistics";
 export * from "./availability";
 export * from "./collaboration";
 

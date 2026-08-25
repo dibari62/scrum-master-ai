@@ -215,6 +215,33 @@ export function runConnectorConformance(options: ConformanceOptions): void {
     }
   });
 
+  it("ogni previsione punta a uno sprint del lotto", async () => {
+    /*
+     * Una previsione è facoltativa — quasi nessuno strumento la espone — ma se
+     * c'è deve riferirsi a qualcosa. Una riga orfana produrrebbe un confronto
+     * fra un numero e il nulla.
+     */
+    const batch = await fetchBatch();
+    const sprintIds = new Set(batch.sprints.map((sprint) => sprint.id));
+
+    for (const entry of batch.sprintStatistics) {
+      expect(sprintIds.has(entry.sprintId), `previsione orfana: ${entry.id}`).toBe(true);
+    }
+  });
+
+  it("non registra due previsioni per lo stesso sprint", async () => {
+    // Due previsioni non lasciano modo di dire su quale la squadra ha
+    // pianificato — e «la più recente» è la risposta sbagliata, perché è stata
+    // fatta con informazioni che il piano non aveva.
+    const batch = await fetchBatch();
+    const seen = new Set<string>();
+
+    for (const entry of batch.sprintStatistics) {
+      expect(seen.has(entry.sprintId), `due previsioni per ${entry.sprintId}`).toBe(false);
+      seen.add(entry.sprintId);
+    }
+  });
+
   it("non colloca una transizione prima della creazione dell'elemento", async () => {
     const batch = await fetchBatch();
     const items = new Map(batch.workItems.map((item) => [item.id, item]));

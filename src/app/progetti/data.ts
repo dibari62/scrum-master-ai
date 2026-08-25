@@ -5,6 +5,7 @@ import {
   projectSchema,
   sprintSchema,
   sprintScopeEventSchema,
+  sprintStatisticsSchema,
   stateTransitionSchema,
   workItemSchema,
   type HealthVerdict,
@@ -13,6 +14,7 @@ import {
   type Project,
   type Sprint,
   type SprintScopeEvent,
+  type SprintStatistics,
   type StateTransition,
   type WorkItem,
 } from "@/domain";
@@ -21,6 +23,7 @@ import { toEstimateChange, workItemEstimate } from "@/db/rows";
 import {
   burndown,
   carryOver,
+  forecastVariance,
   scopeChange,
   sprintHealth,
   summariseFlow,
@@ -62,6 +65,24 @@ export type SprintMetrics = {
   readonly flow: FlowSummary;
   /** Items that belonged to the sprint at its close. */
   readonly itemCount: number;
+
+  /**
+   * The forecast recorded when the sprint began.
+   *
+   * `null` when nobody recorded one, and that stays `null`: computing a
+   * forecast now for a sprint that closed weeks ago would be inventing a plan
+   * the team never made. The interface says «nessuna previsione registrata»,
+   * which is true and useful, rather than showing a number nobody promised.
+   */
+  readonly forecast: SprintStatistics | null;
+
+  /**
+   * Delivered minus forecast, in points. `null` without a forecast.
+   *
+   * Derived rather than stored, because both sides of the subtraction are
+   * available and a stored copy could drift from them.
+   */
+  readonly forecastVariance: MetricResult<number> | null;
 };
 
 export type ProjectDashboard = {
@@ -135,6 +156,7 @@ export async function loadProjectDashboard(
     transitionRows,
     estimateRows,
     scopeRows,
+    statisticsRows,
     peopleRows,
     agentRows,
   ] = await Promise.all([
@@ -143,6 +165,7 @@ export async function loadProjectDashboard(
     scope.reads.transitionsByProject(project.id),
     scope.reads.estimateChangesByProject(project.id),
     scope.reads.scopeEventsByProject(project.id),
+    scope.reads.sprintStatisticsByProject(project.id),
     scope.reads.peopleByProject(project.id),
     scope.reads.scrumAgentByProject(project.id),
   ]);
@@ -159,12 +182,20 @@ export async function loadProjectDashboard(
     sprintScopeEventSchema.parse(row),
   );
 
+  const forecastBySprint = new Map(
+    statisticsRows
+      .map((row) => sprintStatisticsSchema.parse(row))
+      .map((entry) => [entry.sprintId, entry]),
+  );
+
   const perSprint = sprints.map((sprint): SprintMetrics => {
     const sprintItems = items.filter((item) => item.sprintId === sprint.id);
     const sprintItemIds = new Set(sprintItems.map((item) => item.id));
     const sprintTransitions = transitions.filter((transition) =>
       sprintItemIds.has(transition.workItemId),
     );
+
+    const forecast = forecastBySprint.get(sprint.id) ?? null;
 
     return {
       sprint,
@@ -176,6 +207,17 @@ export async function loadProjectDashboard(
       }),
       flow: summariseFlow(sprintItems, sprintTransitions, asOf),
       itemCount: sprintItems.length,
+      forecast,
+      forecastVariance: forecast
+        ? forecastVariance(
+            sprint,
+            items,
+            transitions,
+            scopeEvents,
+            forecast.forecastPoints,
+            estimateChanges,
+          )
+        : null,
     };
   });
 
