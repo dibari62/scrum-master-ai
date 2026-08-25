@@ -1,6 +1,11 @@
 import { expect, it } from "vitest";
 
-import { findHistoryDefects, isTerminalState, type StateTransition } from "@/domain";
+import {
+  findHistoryDefects,
+  groupEstimateChanges,
+  isTerminalState,
+  type StateTransition,
+} from "@/domain";
 
 import { allRecords, type CanonicalBatch, type Connector } from "@/connectors/contract";
 
@@ -135,6 +140,78 @@ export function runConnectorConformance(options: ConformanceOptions): void {
       const last = history[history.length - 1];
 
       expect(last?.toState, `stato incoerente per ${item.sourceId}`).toBe(item.state);
+    }
+  });
+
+  it("popola la storia delle stime, non solo la stima corrente", async () => {
+    /*
+     * Stessa ragione della storia degli stati (ADR-0003, ADR-0008): la velocity
+     * conta la stima che un elemento aveva **all'ingresso** nello sprint, e con
+     * il solo valore corrente quella cifra è irrecuperabile.
+     *
+     * Una fonte che espone solo il valore di adesso emette **una** variazione
+     * all'istante di creazione. È una risposta completa a ciò che può
+     * osservare, non un ripiego: ogni elemento ha una storia, anche se lunga
+     * uno.
+     */
+    const batch = await fetchBatch();
+    const byItem = groupEstimateChanges(batch.estimateChanges);
+
+    for (const item of batch.workItems) {
+      expect(
+        byItem.get(item.id),
+        `nessuna variazione di stima per ${item.sourceId}`,
+      ).toBeDefined();
+    }
+  });
+
+  it("la stima corrente coincide con l'ultima variazione", async () => {
+    // Se le due fonti divergono, una delle due mente e non c'è modo di sapere
+    // quale — lo stesso argomento applicato allo stato qui sopra.
+    const batch = await fetchBatch();
+    const byItem = groupEstimateChanges(batch.estimateChanges);
+
+    for (const item of batch.workItems) {
+      const history = byItem.get(item.id) ?? [];
+      const last = history[history.length - 1];
+
+      expect(last?.toEstimate ?? null, `stima incoerente per ${item.sourceId}`).toEqual(
+        item.estimate,
+      );
+    }
+  });
+
+  it("ogni variazione di stima riparte da dove la precedente si era fermata", async () => {
+    // Una catena spezzata — «da 5» su un elemento che valeva 8 — produce una
+    // velocity plausibile e sbagliata, che è la classe di difetto peggiore.
+    const batch = await fetchBatch();
+
+    for (const [itemId, changes] of groupEstimateChanges(batch.estimateChanges)) {
+      let previous = null;
+
+      for (const [index, change] of changes.entries()) {
+        expect(
+          change.fromEstimate,
+          `variazione ${index} di ${itemId}: parte da un valore che l'elemento non aveva`,
+        ).toEqual(previous);
+
+        previous = change.toEstimate;
+      }
+    }
+  });
+
+  it("non colloca una variazione di stima prima della creazione dell'elemento", async () => {
+    const batch = await fetchBatch();
+    const items = new Map(batch.workItems.map((item) => [item.id, item]));
+
+    for (const change of batch.estimateChanges) {
+      const item = items.get(change.workItemId);
+      if (!item) continue;
+
+      expect(
+        change.occurredAt.getTime(),
+        `stima anteriore alla creazione di ${item.sourceId}`,
+      ).toBeGreaterThanOrEqual(item.sourceCreatedAt.getTime());
     }
   });
 

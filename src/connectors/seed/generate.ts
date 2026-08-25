@@ -4,6 +4,7 @@ import {
   boardColumnSchema,
   boardSchema,
   commentSchema,
+  estimateChangeSchema,
   impedimentSchema,
   personSchema,
   pullRequestSchema,
@@ -14,6 +15,7 @@ import {
   type Board,
   type BoardColumn,
   type Comment,
+  type EstimateChange,
   type Impediment,
   type OrganizationId,
   type Person,
@@ -106,6 +108,7 @@ type Timestamps = { readonly createdAt: Date; readonly updatedAt: Date };
 type GeneratedItem = {
   readonly item: WorkItem;
   readonly transitions: readonly StateTransition[];
+  readonly estimateChanges: readonly EstimateChange[];
   readonly scopeEvents: readonly SprintScopeEvent[];
   readonly comments: readonly Comment[];
   readonly pullRequest: PullRequest | null;
@@ -221,6 +224,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       sprints,
       workItems: generated.map((entry) => entry.item),
       transitions: generated.flatMap((entry) => entry.transitions),
+      estimateChanges: generated.flatMap((entry) => entry.estimateChanges),
       scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
       comments: generated.flatMap((entry) => entry.comments),
       impediments: generated
@@ -308,6 +312,18 @@ function truncateAt(batch: CanonicalBatch, asOf: Date): CanonicalBatch {
 
     transitions,
 
+    /*
+     * Anche le stime si tagliano all'istante di lettura.
+     *
+     * Una ri-stima datata domani è lo stesso difetto delle transizioni future,
+     * e più insidiosa: non sposta uno stato, sposta un *numero*, quindi la
+     * dashboard resterebbe interamente plausibile mentre riporta una velocity
+     * che nessuno poteva conoscere.
+     */
+    estimateChanges: batch.estimateChanges.filter(
+      (change) => live.has(change.workItemId) && notAfter(change.occurredAt),
+    ),
+
     scopeEvents: batch.scopeEvents.filter(
       (event) => live.has(event.workItemId) && notAfter(event.occurredAt),
     ),
@@ -383,6 +399,7 @@ function generateSprintItems(input: SprintGenerationInput): SprintGenerationResu
   let blockedRemaining = plan.blockedItems;
   let reopenedRemaining = plan.reopenedItems;
   let incompleteRemaining = incompleteTarget;
+  let reEstimatedRemaining = plan.reEstimatedItems;
 
   for (let position = 0; position < totalNew; position += 1) {
     const addedMidSprint = position >= plan.plannedItems;
@@ -404,6 +421,18 @@ function generateSprintItems(input: SprintGenerationInput): SprintGenerationResu
     const finishes = incompleteRemaining <= 0 || random.chance(0.6);
     if (!finishes) incompleteRemaining -= 1;
 
+    /*
+     * Ri-stimato a sprint iniziato.
+     *
+     * Riservato agli elementi **pianificati**: per uno entrato a metà sprint la
+     * stima d'ingresso è già quella corretta, e ri-stimarlo subito dopo non
+     * proverebbe nulla. Su un elemento presente dall'inizio, invece, la stima
+     * iniziale e quella finale differiscono davvero — che è la sola situazione
+     * in cui la regola del libro produce un numero diverso dall'ingenuo.
+     */
+    const reEstimated = !addedMidSprint && reEstimatedRemaining > 0 && random.chance(0.5);
+    if (reEstimated) reEstimatedRemaining -= 1;
+
     const title = ITEM_TITLES[titleCursor % ITEM_TITLES.length] ?? "Attività";
     titleCursor += 1;
 
@@ -420,6 +449,7 @@ function generateSprintItems(input: SprintGenerationInput): SprintGenerationResu
       blocked,
       reopened,
       finishes,
+      reEstimated,
     });
 
     items.push(generatedItem);
@@ -450,6 +480,7 @@ type BuildItemInput = {
   readonly blocked: boolean;
   readonly reopened: boolean;
   readonly finishes: boolean;
+  readonly reEstimated: boolean;
 };
 
 function buildItem(input: BuildItemInput): GeneratedItem {
@@ -480,6 +511,22 @@ function buildItem(input: BuildItemInput): GeneratedItem {
     }),
   );
 
+  const initialEstimate =
+    kind === "spike" ? null : { value: random.pick([1, 2, 3, 5, 8]), unit: "points" as const };
+
+  /*
+   * Ri-stima solo se c'era una stima da correggere.
+   *
+   * Uno spike non è stimato per definizione — è un'indagine, e stimarla
+   * significherebbe sapere già la risposta. Ri-stimare da «nessuna stima» a un
+   * numero non è una correzione ma una prima stima, e mescolare i due casi
+   * renderebbe il dato di prova ambiguo proprio nel punto che deve chiarire.
+   */
+  const finalEstimate =
+    input.reEstimated && initialEstimate
+      ? { value: initialEstimate.value * plan.reEstimateFactor, unit: "points" as const }
+      : initialEstimate;
+
   const item = workItemSchema.parse({
     id: itemId,
     ...scope,
@@ -489,8 +536,9 @@ function buildItem(input: BuildItemInput): GeneratedItem {
     title: input.title,
     description: null,
     state: finalState,
-    estimate:
-      kind === "spike" ? null : { value: random.pick([1, 2, 3, 5, 8]), unit: "points" },
+    // Lo stato *corrente*: dopo la ri-stima, cioè il numero più grande. È
+    // esattamente ciò che velocity non deve usare.
+    estimate: finalEstimate,
     sprintId: sprint.id,
     assigneeId: assignee.id,
     sourceCreatedAt: createdAt,
@@ -498,6 +546,57 @@ function buildItem(input: BuildItemInput): GeneratedItem {
     createdAt,
     updatedAt: moves[moves.length - 1]?.at ?? createdAt,
   });
+
+  /*
+   * La storia delle stime.
+   *
+   * Il primo evento è la stima alla nascita, e c'è **sempre**: senza, un
+   * elemento risulterebbe privo di storia e ogni calcolo ripiegherebbe sulla
+   * stima corrente, che è la lettura che stiamo cercando di evitare.
+   *
+   * Il secondo, quando c'è, cade a sprint iniziato — così velocity lo ignora e
+   * il burndown lo mostra. Sono due letture diverse dello stesso fatto, ed è
+   * voluto: la velocity misura ciò che era stato promesso, il burndown ciò che
+   * la squadra crede oggi di avere davanti.
+   */
+  const estimateChanges: EstimateChange[] = [
+    estimateChangeSchema.parse({
+      id: randomUUID(),
+      ...scope,
+      ...SOURCE,
+      sourceId: `estimate-${sourceSuffix}-1`,
+      workItemId: itemId,
+      fromEstimate: null,
+      toEstimate: initialEstimate,
+      occurredAt: createdAt,
+      actorId: assignee.id,
+      createdAt,
+      updatedAt: createdAt,
+    }),
+  ];
+
+  if (finalEstimate !== initialEstimate) {
+    const reEstimatedAt = atHour(
+      nextWorkingDay(addDays(input.enteredAt, random.int(2, 5))),
+      random.int(10, 16),
+    );
+
+    estimateChanges.push(
+      estimateChangeSchema.parse({
+        id: randomUUID(),
+        ...scope,
+        ...SOURCE,
+        sourceId: `estimate-${sourceSuffix}-2`,
+        workItemId: itemId,
+        fromEstimate: initialEstimate,
+        toEstimate: finalEstimate,
+        occurredAt: reEstimatedAt,
+        actorId: assignee.id,
+        createdAt: reEstimatedAt,
+        updatedAt: reEstimatedAt,
+      }),
+    );
+  }
 
   const scopeEvents: SprintScopeEvent[] = [
     sprintScopeEventSchema.parse({
@@ -570,7 +669,15 @@ function buildItem(input: BuildItemInput): GeneratedItem {
       ]
     : [];
 
-  return { item, transitions, scopeEvents, comments, pullRequest, impediment };
+  return {
+    item,
+    transitions,
+    estimateChanges,
+    scopeEvents,
+    comments,
+    pullRequest,
+    impediment,
+  };
 }
 
 type Move = { readonly from: WorkItemState | null; readonly to: WorkItemState; readonly at: Date };
@@ -722,6 +829,10 @@ function continueCarriedItem(input: ContinueInput): GeneratedItem {
       updatedAt: at,
     }),
     transitions: [...history, ...extraTransitions],
+    // Un elemento trascinato conserva la propria storia delle stime: è lo
+    // stesso elemento, non uno nuovo, e ricominciarla cancellerebbe la stima
+    // con cui era entrato la prima volta.
+    estimateChanges: previous.estimateChanges,
     scopeEvents: [...previous.scopeEvents, removed, added],
     comments: previous.comments,
     pullRequest: previous.pullRequest,

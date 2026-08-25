@@ -8,6 +8,7 @@ import {
   stateTransitionSchema,
   workItemSchema,
   type HealthVerdict,
+  type EstimateChange,
   type OrganizationId,
   type Project,
   type Sprint,
@@ -16,7 +17,7 @@ import {
   type WorkItem,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
-import { workItemEstimate } from "@/db/rows";
+import { toEstimateChange, workItemEstimate } from "@/db/rows";
 import {
   burndown,
   carryOver,
@@ -128,15 +129,23 @@ export async function loadProjectDashboard(
 
   // Parsed rather than cast: the database returns rows, and trusting their
   // shape would defeat the point of having schemas (R4).
-  const [sprintRows, itemRows, transitionRows, scopeRows, peopleRows, agentRows] =
-    await Promise.all([
-      scope.reads.sprintsByProject(project.id),
-      scope.reads.workItemsByProject(project.id),
-      scope.reads.transitionsByProject(project.id),
-      scope.reads.scopeEventsByProject(project.id),
-      scope.reads.peopleByProject(project.id),
-      scope.reads.scrumAgentByProject(project.id),
-    ]);
+  const [
+    sprintRows,
+    itemRows,
+    transitionRows,
+    estimateRows,
+    scopeRows,
+    peopleRows,
+    agentRows,
+  ] = await Promise.all([
+    scope.reads.sprintsByProject(project.id),
+    scope.reads.workItemsByProject(project.id),
+    scope.reads.transitionsByProject(project.id),
+    scope.reads.estimateChangesByProject(project.id),
+    scope.reads.scopeEventsByProject(project.id),
+    scope.reads.peopleByProject(project.id),
+    scope.reads.scrumAgentByProject(project.id),
+  ]);
 
   const sprints: Sprint[] = sprintRows.map((row) => sprintSchema.parse(row));
   const items: WorkItem[] = itemRows.map((row) =>
@@ -145,6 +154,7 @@ export async function loadProjectDashboard(
   const transitions: StateTransition[] = transitionRows.map((row) =>
     stateTransitionSchema.parse(row),
   );
+  const estimateChanges: EstimateChange[] = estimateRows.map((row) => toEstimateChange(row));
   const scopeEvents: SprintScopeEvent[] = scopeRows.map((row) =>
     sprintScopeEventSchema.parse(row),
   );
@@ -158,10 +168,12 @@ export async function loadProjectDashboard(
 
     return {
       sprint,
-      velocity: velocity(sprint, items, transitions, scopeEvents),
-      scopeChange: scopeChange(sprint, items, scopeEvents),
-      carryOver: carryOver(sprint, items, transitions, scopeEvents),
-      burndown: burndown(sprint, items, transitions, scopeEvents, asOf),
+      velocity: velocity(sprint, items, transitions, scopeEvents, estimateChanges),
+      scopeChange: scopeChange(sprint, items, scopeEvents, estimateChanges),
+      carryOver: carryOver(sprint, items, transitions, scopeEvents, estimateChanges),
+      burndown: burndown(sprint, items, transitions, scopeEvents, asOf, {
+        estimateChanges,
+      }),
       flow: summariseFlow(sprintItems, sprintTransitions, asOf),
       itemCount: sprintItems.length,
     };

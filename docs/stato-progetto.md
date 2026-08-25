@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 974 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 983 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -31,7 +31,7 @@ graph TB
 
     subgraph DB["🗄️ Database"]
         D1["Modello canonico Zod<br/>4 entità di tenancy"]
-        D2["Schema Drizzle<br/>19 tabelle create"]
+        D2["Schema Drizzle<br/>20 tabelle create"]
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
         D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
@@ -133,7 +133,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 18 tabelle popolate, migrazioni applicate: 51 elementi, 203 transizioni, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
+| **Neon (Postgres)** | ✅ attivo | 19 tabelle popolate, migrazioni applicate: 51 elementi, 206 transizioni, 57 variazioni di stima, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
@@ -380,12 +380,36 @@ portale implementerà **entrambe** le famiglie di formule: il predefinito sarà 
 «yesterday's weather» che l'autore raccomanda oggi, e il focus factor resterà
 disponibile con la ritrattazione mostrata accanto, invece che nascosta.
 
-**Una casella resta gialla apposta.** Il motore della velocity è corretto e coperto
-da test, ma il connettore `seed` non produce ancora `EstimateChange` e non esiste
-la tabella che li conserva: nell'applicazione in esecuzione la velocity ricade
-sulla stima corrente, che è il comportamento dichiarato per una fonte senza storia.
-Verde solo quando la storia delle stime arriva fino al database — è il primo pezzo
-del lavoro successivo.
+**Una casella era gialla apposta, e ora è verde.** Il motore della velocity era
+corretto e coperto da test, ma la storia delle stime non arrivava al database:
+in esecuzione ricadeva sulla stima corrente. Ora `estimate_changes` esiste, il
+connettore `seed` la popola — 57 variazioni su 51 elementi — e la **suite di
+conformità** obbliga ogni connettore futuro a fare lo stesso, invece di lasciarlo
+alla memoria di chi lo scriverà.
+
+Il dato di esempio contiene ri-stime **volute**, come già conteneva il collo di
+bottiglia in revisione. Senza una sola ri-stima, la regola del libro e la sua
+assenza produrrebbero numeri identici: il difetto sarebbe stato invisibile, e lo
+sarebbe una futura regressione.
+
+| Sprint | ri-stime | velocity mostrata |
+|---|---|---|
+| 1 — Fondamenta del carrello | nessuna | 31 punti |
+| 2 — Metodi di pagamento | 2 | 32 punti |
+| 3 — Indirizzi e spedizione | 2 | 37 punti |
+| 4 — Conferma d'ordine | 3 | 42 punti |
+
+Lo sprint 1 non ha ri-stime per costruzione, quindi lì le due letture **devono**
+coincidere — ed è il controllo che dice che la differenza altrove non è rumore.
+Sugli altri tre il codice di prima riportava una velocity più alta: una squadra
+che sembra consegnare più di quanto si era impegnata a consegnare.
+
+**Un test ha corretto chi lo aveva scritto.** La prima stesura pretendeva che ogni
+ri-stima cadesse dopo l'ingresso nello sprint, e falliva. Non erano i dati: un
+elemento **trascinato** rientra all'inizio dello sprint successivo, quindi una
+ri-stima dello sprint precedente lo precede legittimamente — ed è la lettura
+giusta, perché in quello sprint la squadra si è impegnata sulla taglia già
+corretta. L'assunzione sbagliata era nel test.
 
 ---
 
@@ -442,9 +466,10 @@ Cose note e volutamente rimandate, non sviste:
 | Nessuna soglia della salute dello sprint è tarata su dati reali | [spec sprint-health](../specs/sprint-health/spec.md) Q2 | sono dichiarate, motivate e citate da un test. Restano provvisorie finché non le si vede lavorare su un progetto vero |
 | «Chiedi una spiegazione» non diceva di che cosa, e la capacità «Salute dello sprint» non si trovava | segnalazione del PO | **fatto**: il riquadro nomina il verdetto che spiegherà ed elenca cosa si riceve; la scheda dell'agente mostra acceso/spento accanto a ogni nome, dice dove si usa ogni capacità e ha un'ancora a cui la dashboard rimanda. Due difetti che nessun test rilevava: ogni valore era corretto, mancava il significato |
 | L'output generato non ha un modo per dire se è stato utile | `AGENTS.md` R1 | la provenienza è ora dichiarata a schermo (calcolato dal codice / scritto da un modello), ma non si può ancora correggere né valutare un testo generato. Serve una tabella e una scrittura: da fare quando i testi generati saranno più d'uno per schermata |
-| **La velocity non legge ancora la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | il motore è corretto e testato, ma manca la tabella `estimate_changes` e la generazione nel connettore `seed`: in esecuzione la velocity ricade sulla stima corrente. È il comportamento dichiarato per una fonte senza storia, **non** la regola del libro. Primo pezzo del lavoro successivo |
+| **La velocity non leggeva la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | ~~manca la tabella e la generazione nel seed~~ **fatto**: `estimate_changes` esiste, il seed la popola con ri-stime volute, e la suite di conformità obbliga ogni connettore futuro a fare lo stesso. Sui dati veri le due letture divergono fino a 16 punti su uno sprint |
+| **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
-| Quindici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Quattordici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
 
 ---
 

@@ -18,16 +18,31 @@
  * literal makes the compiler check the correspondence.
  */
 
-import type { AgentPolicy, ProjectContext, ScrumAgent, SkillRun, WorkItem } from "@/domain";
+import type {
+  AgentPolicy,
+  Estimate,
+  EstimateChange,
+  ProjectContext,
+  ScrumAgent,
+  SkillRun,
+  WorkItem,
+} from "@/domain";
 import {
   agentPolicySchema,
   ceremonyScheduleSchema,
   definitionOfDoneSchema,
+  estimateChangeSchema,
   estimateSchema,
   stakeholdersSchema,
 } from "@/domain";
 
-import type { projectContexts, scrumAgents, skillRuns, workItems } from "./schema";
+import type {
+  estimateChanges,
+  projectContexts,
+  scrumAgents,
+  skillRuns,
+  workItems,
+} from "./schema";
 
 /**
  * Every column, none optional.
@@ -85,6 +100,64 @@ export function workItemEstimate(row: WorkItemEstimateColumns): WorkItem["estima
   if (row.estimateValue === null || row.estimateUnit === null) return null;
 
   return estimateSchema.parse({ value: row.estimateValue, unit: row.estimateUnit });
+}
+
+type EstimateChangeRow = Required<typeof estimateChanges.$inferInsert>;
+
+/**
+ * Canonical estimate change to insertable row.
+ *
+ * Written as an object literal for the reason stated at the top of this file:
+ * `$inferInsert` makes every nullable column optional, and all four estimate
+ * columns here are nullable. A mapper that forgot one would compile and write
+ * silent nulls — which is exactly how `estimate` stayed empty for four sprints.
+ */
+export function toEstimateChangeRow(change: EstimateChange): EstimateChangeRow {
+  return {
+    id: change.id,
+    organizationId: change.organizationId,
+    projectId: change.projectId,
+    sourceSystem: change.sourceSystem,
+    sourceId: change.sourceId,
+    workItemId: change.workItemId,
+    fromValue: change.fromEstimate?.value ?? null,
+    fromUnit: change.fromEstimate?.unit ?? null,
+    toValue: change.toEstimate?.value ?? null,
+    toUnit: change.toEstimate?.unit ?? null,
+    occurredAt: change.occurredAt,
+    actorId: change.actorId,
+    createdAt: change.createdAt,
+    updatedAt: change.updatedAt,
+  };
+}
+
+/** The subset of a selected row needed to rebuild one end of a change. */
+export interface EstimateEndColumns {
+  readonly value: number | null;
+  readonly unit: string | null;
+}
+
+/**
+ * Rebuilds one end of an estimate change from its two columns.
+ *
+ * Same rule as `workItemEstimate`: half an estimate is not an estimate. Kept as
+ * its own function rather than reusing that one because the column names differ
+ * at each end, and renaming a parameter to make one function fit two shapes is
+ * how a mapper ends up reading `from` while claiming to read `to`.
+ */
+export function estimateEnd(row: EstimateEndColumns): Estimate | null {
+  if (row.value === null || row.unit === null) return null;
+
+  return estimateSchema.parse({ value: row.value, unit: row.unit });
+}
+
+/** A selected `estimate_changes` row, rebuilt into the canonical shape. */
+export function toEstimateChange(row: EstimateChangeRow): EstimateChange {
+  return estimateChangeSchema.parse({
+    ...row,
+    fromEstimate: estimateEnd({ value: row.fromValue, unit: row.fromUnit }),
+    toEstimate: estimateEnd({ value: row.toValue, unit: row.toUnit }),
+  });
 }
 
 /* -------------------------------------------------------------------------- */

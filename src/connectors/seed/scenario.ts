@@ -52,6 +52,27 @@ export type SprintPlan = {
 
   /** Items that reach `done` and come back. Feeds `reopenRate`. */
   readonly reopenedItems: number;
+
+  /**
+   * Items re-estimated **after** they entered the sprint, and by how much.
+   *
+   * A deliberate anomaly, like the review bottleneck and the growing carry-over.
+   * It exists so that one rule of the book can actually be observed rather than
+   * merely asserted: velocity counts the estimate an item carried when it
+   * entered the sprint, and «any updates to the story time estimates done
+   * during the sprint are ignored» (pag. 29).
+   *
+   * Without a single re-estimate in the data, that rule and its absence produce
+   * identical numbers — so the defect it fixes would have been invisible, and
+   * so would a future regression.
+   *
+   * Upwards, because that is what happens: a story turns out to be bigger than
+   * it looked. It is also the direction that flatters nobody, so a burndown
+   * that quietly used the new figure would show the team finishing *less*
+   * work than it did.
+   */
+  readonly reEstimatedItems: number;
+  readonly reEstimateFactor: number;
 };
 
 /**
@@ -106,6 +127,8 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     blockedItems: 0,
     blockedDays: [0, 0],
     reopenedItems: 0,
+    reEstimatedItems: 0,
+    reEstimateFactor: 1,
   },
   {
     // Il perimetro cresce: arrivano richieste a sprint iniziato.
@@ -118,6 +141,9 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     blockedItems: 1,
     blockedDays: [1, 2],
     reopenedItems: 1,
+    // Due storie si rivelano più grosse di come sembravano.
+    reEstimatedItems: 2,
+    reEstimateFactor: 2,
   },
   {
     // La revisione si ingolfa: il lavoro procede ma non si chiude.
@@ -130,6 +156,8 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     blockedItems: 2,
     blockedDays: [2, 4],
     reopenedItems: 2,
+    reEstimatedItems: 2,
+    reEstimateFactor: 2,
   },
   {
     // Il trascinato dei tre sprint precedenti presenta il conto.
@@ -142,6 +170,8 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     blockedItems: 3,
     blockedDays: [3, 9],
     reopenedItems: 2,
+    reEstimatedItems: 3,
+    reEstimateFactor: 3,
   },
 ];
 

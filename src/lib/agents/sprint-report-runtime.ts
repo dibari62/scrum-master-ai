@@ -16,7 +16,7 @@ import {
   type WorkItemId,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
-import { workItemEstimate } from "@/db/rows";
+import { toEstimateChange, workItemEstimate } from "@/db/rows";
 import { skillRuns, sprintReports } from "@/db/schema";
 import {
   SPRINT_REPORT_BUDGET,
@@ -202,9 +202,10 @@ export async function runSprintReport(input: {
 
   const project = projectSchema.parse(projectRow);
 
-  const [itemRows, transitionRows, scopeRows] = await Promise.all([
+  const [itemRows, transitionRows, estimateRows, scopeRows] = await Promise.all([
     scope.reads.workItemsByProject(input.projectId),
     scope.reads.transitionsByProject(input.projectId),
+    scope.reads.estimateChangesByProject(input.projectId),
     scope.reads.scopeEventsByProject(input.projectId),
   ]);
 
@@ -212,13 +213,14 @@ export async function runSprintReport(input: {
     workItemSchema.parse({ ...row, estimate: workItemEstimate(row) }),
   );
   const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
+  const estimateChanges = estimateRows.map((row) => toEstimateChange(row));
   const scopeEvents = scopeRows.map((row) => sprintScopeEventSchema.parse(row));
 
   const asOf = sprint.completedAt ?? sprint.endsAt;
   const flow = summariseFlow(items, transitions, asOf);
-  const velocityResult = velocity(sprint, items, transitions, scopeEvents);
-  const scopeResult = scopeChange(sprint, items, scopeEvents);
-  const carryResult = carryOver(sprint, items, transitions, scopeEvents);
+  const velocityResult = velocity(sprint, items, transitions, scopeEvents, estimateChanges);
+  const scopeResult = scopeChange(sprint, items, scopeEvents, estimateChanges);
+  const carryResult = carryOver(sprint, items, transitions, scopeEvents, estimateChanges);
   const throughputResult = throughput(transitions, sprint.startsAt, asOf);
 
   const carried = new Set<WorkItemId>(carryResult.available ? carryResult.value.items : []);

@@ -122,6 +122,70 @@ export const workItems = pgTable(
 );
 
 /**
+ * The history of estimate changes: what a work item was sized at, and when.
+ *
+ * A first-class table for the same reason `state_transitions` is one — **a
+ * snapshot cannot reconstruct a history**. The `estimate_value` column on
+ * `work_items` says what the item is sized at *now*; velocity needs to know
+ * what it was sized at *then*, because the book counts only the estimate an
+ * item carried when it entered the sprint (ADR-0008).
+ *
+ * Without this table, correcting one story's estimate today would move the
+ * velocity of a sprint that closed weeks ago.
+ *
+ * A source exposing only the current value emits a single row at the item's
+ * creation instant. That is not a defect: one observation is all it has, and
+ * the reading "it was always this" is the only one available.
+ */
+export const estimateChanges = pgTable(
+  "estimate_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...projectScopedColumns,
+    ...sourceColumns,
+
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => workItems.id, { onDelete: "cascade" }),
+
+    /**
+     * Both ends of the change, each split into value and unit.
+     *
+     * `null` means "no estimate", which is **not** zero: an unestimated story
+     * contributes nothing to a sum, a zero-point story contributes zero. The
+     * two columns of each pair are always written together — a value without a
+     * unit is the mistake `EstimateTotals` exists to prevent.
+     */
+    fromValue: integer("from_value"),
+    fromUnit: text("from_unit"),
+    toValue: integer("to_value"),
+    toUnit: text("to_unit"),
+
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
+
+    /**
+     * Who changed it, when the source says so. Traceability only — never a
+     * count of how often someone re-estimates (§8.2). In the book estimating is
+     * a whole-team activity.
+     */
+    actorId: uuid("actor_id").references(() => people.id, { onDelete: "set null" }),
+
+    ...auditColumns,
+  },
+  (table) => [
+    unique("estimate_changes_source_key").on(
+      table.projectId,
+      table.sourceSystem,
+      table.sourceId,
+    ),
+    /** The hot path: one item's estimate history, in order. */
+    index("estimate_changes_item_occurred_idx").on(table.workItemId, table.occurredAt),
+    /** Velocity reads a whole project's history for a sprint's window. */
+    index("estimate_changes_project_occurred_idx").on(table.projectId, table.occurredAt),
+  ],
+);
+
+/**
  * The history of state changes: the raw material of almost every flow metric.
  *
  * ADR-0003 makes this a first-class table rather than a detail. Cycle time,
