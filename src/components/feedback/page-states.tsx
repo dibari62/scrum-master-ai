@@ -25,7 +25,7 @@ type LoadingPageProps = {
 
 export function LoadingPage({ title, description, rows = 4 }: LoadingPageProps) {
   return (
-    <main className="mx-auto grid max-w-4xl gap-6 px-6 py-12">
+    <main className="app-shell grid gap-6 py-12">
       <header className="grid gap-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
 
@@ -77,7 +77,7 @@ type ErrorNoticeProps = {
 
 export function ErrorNotice({ title, description, reference, action }: ErrorNoticeProps) {
   return (
-    <main className="mx-auto grid max-w-4xl gap-6 px-6 py-12">
+    <main className="app-shell grid gap-6 py-12">
       <Card className="border-destructive/40">
         <CardHeader>
           <CardTitle className="text-base">{title}</CardTitle>

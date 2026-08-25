@@ -101,7 +101,7 @@ export default async function WorkItemPage({ params }: PageProps) {
   const transitionsLabel = `su ${formatNumber(transitions.length)} transizioni`;
 
   return (
-    <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
+    <main className="app-shell grid gap-8 py-10">
       <header className="grid gap-1">
         <Breadcrumb
           trail={[

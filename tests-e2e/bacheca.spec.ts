@@ -34,7 +34,13 @@ test.describe("flusso di lavoro e impedimenti", () => {
   test("dalla dashboard si raggiunge il flusso di lavoro", async ({ page }) => {
     await page.goto(`/progetti/${PROJECT}`);
 
-    await page.getByRole("link", { name: "Flusso di lavoro" }).click();
+    // Nella barra delle sezioni, che ora vive nel layout: la proprietà difesa
+    // è la stessa — raggiungibile senza scrivere l'indirizzo — ma il posto in
+    // cui guardare è cambiato.
+    await page
+      .getByRole("navigation", { name: "Sezioni del progetto" })
+      .getByRole("link", { name: "Flusso" })
+      .click();
     await page.waitForURL("**/flusso");
 
     await expect(
