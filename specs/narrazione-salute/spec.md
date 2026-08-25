@@ -147,3 +147,22 @@ capire *che cosa stia succedendo* prima di portarlo in una riunione.
   Resta da capire perché la scheda serva una versione superata dopo una server
   action in una sessione lunga. Il sospetto aperto è il caching di rotta di Next
   in `next start`, che in sviluppo non si manifesta.
+
+  **Misurato di nuovo il 25/08, e la firma si restringe.** «Eseguiti da soli»
+  significa **un test alla volta**, non un file alla volta:
+
+  | Come si esegue | Esito |
+  |---|---|
+  | suite intera (132 test) | 3 falliti: `resoconto.spec.ts`, `spiegazione-salute.spec.ts:38` e `:70` |
+  | il solo file `spiegazione-salute.spec.ts` (4 test) | 2 falliti — ma **non gli stessi**: `:38` e `:138` |
+  | il solo test `:38`, con `-g` | passa, in 8 secondi |
+
+  Due fatti nuovi che questo aggiunge. Primo: **quali** test falliscono cambia
+  fra un'esecuzione e l'altra, quindi non c'è un test difettoso — c'è
+  un'interferenza fra test. Secondo: bastano quattro test nello stesso file a
+  provocarla, quindi non serve una suite lunga né molto tempo, e questo rende il
+  difetto molto più economico da riprodurre di quanto sembrasse.
+
+  Escluso anche il tetto giornaliero, che era il sospetto più immediato: al
+  momento della misura le esecuzioni della giornata erano **17 su 50**, nessuna
+  fallita. Vale la pena annotarlo perché era l'ipotesi più comoda, ed era falsa.

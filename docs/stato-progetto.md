@@ -3,9 +3,11 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **24/08/2026** — T0→T5 (primo incremento) in `main`,
+> Ultimo aggiornamento: **25/08/2026** — T0→T5 (primo incremento) in `main`,
 > applicazione online. Ogni entità del modello canonico che contiene dati ha una
-> schermata, e la dashboard dice come sta andando lo sprint **aperto**.
+> schermata, e la dashboard dice come sta andando lo sprint **aperto**. Le formule
+> dei calcoli sono ora ancorate a un libro dichiarato, non a scelte nostre
+> ([ADR-0008](architecture/ADR-0008-fedelta-al-libro.md)).
 
 ---
 
@@ -16,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 727 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 974 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -329,6 +331,64 @@ dashboard dichiarava un cycle time mediano su 44 elementi e non c'era modo di
 vedere quali. Un numero in cui non si può entrare è un numero che si deve
 accettare per fede.
 
+---
+
+## 4.bis Le formule ora hanno una fonte, e due numeri erano sbagliati
+
+Fino al 24/08 le definizioni delle metriche le avevamo scelte noi, caso per caso.
+Difendibili, ma non ancorate a niente: alla domanda «perché la velocity si calcola
+così» la risposta era «ci sembrava giusto».
+
+*Scrum and XP from the Trenches* di Henrik Kniberg è il resoconto operativo di uno
+Scrum Master che quelle formule le ha usate per anni, e le scrive per esteso con
+gli esempi numerici. Prenderlo come riferimento dichiarato trasforma ogni formula
+da preferenza a **citazione**. La mappa formula per formula è in
+[`scrum-dalle-trincee.md`](scrum-dalle-trincee.md): 23 formule, ognuna con la
+pagina del libro, la funzione che la calcola e il test che la dimostra.
+
+**Il confronto ha trovato due numeri che la dashboard mostrava già sbagliati.**
+
+**La velocity sommava la stima *corrente*.** Correggere la stima di una storia
+oggi spostava la velocity di uno sprint chiuso tre settimane fa — un numero che si
+muove sotto gli occhi di chi lo rilegge. Il libro è categorico: «any updates to the
+story time estimates done during the sprint are **ignored**». La correzione ha
+richiesto una entità nuova, `EstimateChange`, per lo stesso motivo per cui
+ADR-0003 aveva introdotto `StateTransition`: **una fotografia non ricostruisce una
+storia**. Un solo campo `estimate` dice quanto vale oggi e non ha modo di dire
+quanto valeva allora.
+
+**Il burndown disegnava anche sabato e domenica.** I dati sintetici saltano i fine
+settimana, quindi il grafico mostrava esattamente l'altopiano piatto che Kniberg
+chiama «warning sign» e che ha smesso di disegnare nel 2007: un grafico che inventa
+allarmi insegna a ignorare quelli veri. Serviva un `WorkingCalendar` nel modello
+canonico — **non** importato dal connettore, che i confini vietano, e che comunque
+non è il posto giusto: i giorni in cui una squadra lavora sono una proprietà del
+progetto, non dello strumento da cui arrivano i dati.
+
+**Un terzo difetto è emerso strada facendo.** La linea ideale tratteggiata veniva
+scalata sui punti disponibili, quindi su uno sprint in corso arrivava a zero
+*oggi*: ogni sprint sembrava disperatamente in ritardo fino all'ultimo giorno.
+
+Verificato nel browser sui dati veri, non solo dai test: la linea salta da venerdì
+21 a lunedì 24 agosto, e la tratteggiata prosegue fino al bordo destro mentre
+quella reale si ferma dove finiscono i dati.
+
+**Il libro si smentisce, e questo è contenuto.** La 2ª edizione è il testo del 2007
+con l'autore che si rilegge otto anni dopo, e sul focus factor scrive: «I never use
+focus factor any more because it takes time, gives a false sense of accuracy». Il
+portale implementerà **entrambe** le famiglie di formule: il predefinito sarà lo
+«yesterday's weather» che l'autore raccomanda oggi, e il focus factor resterà
+disponibile con la ritrattazione mostrata accanto, invece che nascosta.
+
+**Una casella resta gialla apposta.** Il motore della velocity è corretto e coperto
+da test, ma il connettore `seed` non produce ancora `EstimateChange` e non esiste
+la tabella che li conserva: nell'applicazione in esecuzione la velocity ricade
+sulla stima corrente, che è il comportamento dichiarato per una fonte senza storia.
+Verde solo quando la storia delle stime arriva fino al database — è il primo pezzo
+del lavoro successivo.
+
+---
+
 **T3 è dimostrabile e cronometrato:** dalla dashboard alla scheda dell'agente con
 un'esecuzione registrata, in meno di dieci secondi, senza digitare nulla oltre a
 confermare i valori proposti. La roadmap chiedeva due minuti.
@@ -382,6 +442,9 @@ Cose note e volutamente rimandate, non sviste:
 | Nessuna soglia della salute dello sprint è tarata su dati reali | [spec sprint-health](../specs/sprint-health/spec.md) Q2 | sono dichiarate, motivate e citate da un test. Restano provvisorie finché non le si vede lavorare su un progetto vero |
 | «Chiedi una spiegazione» non diceva di che cosa, e la capacità «Salute dello sprint» non si trovava | segnalazione del PO | **fatto**: il riquadro nomina il verdetto che spiegherà ed elenca cosa si riceve; la scheda dell'agente mostra acceso/spento accanto a ogni nome, dice dove si usa ogni capacità e ha un'ancora a cui la dashboard rimanda. Due difetti che nessun test rilevava: ogni valore era corretto, mancava il significato |
 | L'output generato non ha un modo per dire se è stato utile | `AGENTS.md` R1 | la provenienza è ora dichiarata a schermo (calcolato dal codice / scritto da un modello), ma non si può ancora correggere né valutare un testo generato. Serve una tabella e una scrittura: da fare quando i testi generati saranno più d'uno per schermata |
+| **La velocity non legge ancora la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | il motore è corretto e testato, ma manca la tabella `estimate_changes` e la generazione nel connettore `seed`: in esecuzione la velocity ricade sulla stima corrente. È il comportamento dichiarato per una fonte senza storia, **non** la regola del libro. Primo pezzo del lavoro successivo |
+| Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
+| Quindici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
 
 ---
 
