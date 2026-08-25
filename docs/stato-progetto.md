@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 983 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1008 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -380,6 +380,39 @@ portale implementerà **entrambe** le famiglie di formule: il predefinito sarà 
 «yesterday's weather» che l'autore raccomanda oggi, e il focus factor resterà
 disponibile con la ritrattazione mostrata accanto, invece che nascosta.
 
+**Il portale sa dire cosa era previsto, non solo cosa è successo.** Capacità della
+squadra, focus factor, velocity stimata, velocity impegnata e scostamento sono
+calcolati in `src/metrics/planning.ts`, e **ogni formula ha un test che riproduce
+l'esempio numerico stampato nel libro**: 49,5 giorni-uomo, 18/45 = 40 %,
+50 × 40 % = 20, le quattro storie che fanno 19.
+
+Il libro scrive «50 available man-days» dove la sua stessa aritmetica dà **49,5**.
+È un suo arrotondamento: il test verifica 49,5 e controlla che arrotondi a 50,
+invece di piegare la formula per far tornare la cifra stampata.
+
+Due decisioni dichiarate. Il **focus factor si calcola solo in punti e con una
+sola unità di stima**: il rapporto ha senso perché il libro tratta un punto come
+un giorno-uomo ideale, mentre ore divise per giorni sono due scale incompatibili.
+E la **capacità esiste solo come totale di squadra** — non esisterà mai una
+funzione che accetta una persona e restituisce giorni, perché è la strada più
+breve per la metrica che §8.2 vieta.
+
+**Nessuna di queste cifre è ancora visibile**, ed è registrato nel debito:
+mancano la tabella delle disponibilità, quella delle statistiche di sprint e la
+schermata. Un numero corretto che nessuno vede non è ancora una funzionalità.
+
+**Le due figure che non si potevano leggere sono state ricostruite dal testo**, e
+marcate come **nostre, non del libro** (decisione del Product Owner). Per i sette
+segnali d'allarme della lavagna ogni voce porta la prova testuale che la sostiene
+e la propria solidità; per il mazzo di planning poker la ricostruzione è quasi
+forzata — tredici carte, nove nominate nel testo, e una sola successione che
+soddisfa tutti i vincoli. Cinque dei sette segnali hanno già un corrispettivo in
+`sprintHealth`, che però **avevamo scelto noi prima di leggere il libro**: è un
+buon segno, non una conferma.
+
+---
+
+
 **Una casella era gialla apposta, e ora è verde.** Il motore della velocity era
 corretto e coperto da test, ma la storia delle stime non arrivava al database:
 in esecuzione ricadeva sulla stima corrente. Ora `estimate_changes` esiste, il
@@ -470,6 +503,7 @@ Cose note e volutamente rimandate, non sviste:
 | **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | Quattordici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| **La previsione si calcola ma nessuno la vede** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | capacità, focus factor, velocity stimata, velocity impegnata e scostamento esistono in `src/metrics`, testati sugli esempi del libro. Mancano la tabella delle disponibilità, quella delle statistiche di sprint e la schermata: finché non ci sono, il numero è corretto e invisibile |
 
 ---
 

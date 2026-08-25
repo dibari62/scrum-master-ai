@@ -44,6 +44,7 @@ const ENTITY_LABELS: Readonly<Record<MetricInputEntity, string>> = {
   StateTransition: "Passaggio di stato",
   EstimateChange: "Variazione di stima",
   WorkingCalendar: "Calendario lavorativo",
+  TeamMemberAvailability: "Disponibilità di una persona",
   Sprint: "Sprint",
   SprintScopeEvent: "Movimento di perimetro",
 };
@@ -60,6 +61,7 @@ const OPERATION_LABELS: Readonly<Record<MetricOperation, string>> = {
   elapsed: "tempo trascorso — la distanza fra due istanti",
   ratio: "rapporto — una quantità divisa per un'altra dello stesso tipo",
   median: "mediana — il valore di mezzo, non la media",
+  mean: "media — la somma divisa per quanti sono",
   series: "serie — un valore campionato più volte nel tempo",
   worst: "il peggiore — deliberatamente non la media",
 };

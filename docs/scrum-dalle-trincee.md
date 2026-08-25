@@ -24,7 +24,7 @@ Stato di una riga:
 | V1 | La velocity effettiva è la somma delle stime **iniziali** delle storie completate. Le ri-stime fatte durante lo sprint si ignorano. | «the actual velocity is based on the *initial* estimates of each story. Any updates to the story time estimates done during the sprint are ignored» (pag. 29) | `src/metrics/sprint.ts` → `velocity`, `src/domain/estimate-change.ts`, tabella `estimate_changes` | `tests/metrics/sprint.test.ts` → «ignora una ri-stima fatta durante lo sprint»; `tests/connectors/seed.test.ts` → «la velocity conta la stima d'ingresso, non quella corretta dopo» | ✅ |
 | V2 | Una storia quasi finita vale **zero**. Nessun credito parziale. | «The value of stuff half-done is zero (may in fact be negative)» (pag. 30) | `src/metrics/sprint.ts` → `velocity` | `tests/metrics/sprint.test.ts` | ✅ |
 | V3 | Una storia conclusa e poi riaperta prima della chiusura non conta. | conseguenza di V2 e della definizione di *done* | `src/metrics/sprint.ts` → `velocity` | `tests/metrics/sprint.test.ts` | ✅ |
-| Y2 | La velocity **stimata definitiva** di uno sprint è la somma delle storie effettivamente scelte, non il bersaglio di partenza. | «Since these four stories add up to 19 story points, their final estimated velocity for this sprint is 19» (pag. 32) | ⬜ | ⬜ | ⬜ |
+| Y2 | La velocity **stimata definitiva** di uno sprint è la somma delle storie effettivamente scelte, non il bersaglio di partenza. | «Since these four stories add up to 19 story points, their final estimated velocity for this sprint is 19» (pag. 32) | `src/metrics/planning.ts` → `committedVelocity` | `tests/metrics/planning.test.ts` → «somma le storie scelte, non il bersaglio» | ✅ |
 | Y3 | Nel dubbio si prendono **meno** storie. | «When in doubt, choose fewer stories» (pag. 32) | linea guida, non calcolo | — | — |
 
 > **Perché V1 è verde.** La regola vale ora **fino al database**: `EstimateChange` è
@@ -50,13 +50,23 @@ Stato di una riga:
 
 | # | Formula del libro | Citazione / esempio | Dove | Stato |
 |---|---|---|---|---|
-| C1 | `man-days disponibili = Σ (giorni lavorativi × quota di allocazione) − assenze` | 15 giorni, 4 persone, Lisa 2 giorni di ferie, Dave al 50 % più 1 giorno di ferie ⇒ **50 man-days** (pag. 30) | ⬜ | ⬜ |
-| F1 | `focus factor = velocity effettiva ÷ man-days disponibili` | 18 punti su 45 man-days ⇒ **40 %** (pag. 31) | ⬜ | ⬜ |
-| F2 | `velocity stimata = man-days disponibili × focus factor` | 50 × 40 % ⇒ **20 punti** (pag. 31) | ⬜ | ⬜ |
-| F3 | Focus factor predefinito per un team nuovo: **70 %** | «The default focus factor I use for new teams is usually 70%» (pag. 32) | ⬜ | ⬜ |
-| Y1 | *Yesterday's weather*: velocity stimata = velocity dell'ultimo sprint, o media degli ultimi tre. | «pull in only as many story points as you got done last sprint (or the average of the last three sprints if you want to be fancy)» (pag. 89) | ⬜ | ⬜ |
+| C1 | `man-days disponibili = Σ (giorni lavorativi × quota di allocazione) − assenze` | 15 giorni, 4 persone, Lisa 2 giorni di ferie, Dave al 50 % più 1 giorno di ferie ⇒ **50 man-days** (pag. 30) | `src/metrics/planning.ts` → `availableManDays` | ✅ |
+| F1 | `focus factor = velocity effettiva ÷ man-days disponibili` | 18 punti su 45 man-days ⇒ **40 %** (pag. 31) | `src/metrics/planning.ts` → `focusFactor` | ✅ |
+| F2 | `velocity stimata = man-days disponibili × focus factor` | 50 × 40 % ⇒ **20 punti** (pag. 31) | `src/metrics/planning.ts` → `estimatedVelocity`, metodo `focus-factor` | ✅ |
+| F3 | Focus factor predefinito per un team nuovo: **70 %** | «The default focus factor I use for new teams is usually 70%» (pag. 32) | `DEFAULT_FOCUS_FACTOR`, metodo `default-focus-factor` | ✅ |
+| Y1 | *Yesterday's weather*: velocity stimata = velocity dell'ultimo sprint, o media degli ultimi tre. | «pull in only as many story points as you got done last sprint (or the average of the last three sprints if you want to be fancy)» (pag. 89) | `src/metrics/planning.ts` → `yesterdaysWeather`, **metodo predefinito** | ✅ |
+| R4 | Dopo ogni sprint si confronta effettiva vs stimata. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `src/metrics/planning.ts` → `forecastVariance` | 🟡 il confronto si calcola, la revisione del piano no |
 
-> **F1–F3 sono ritrattati dall'autore.** Vedi ADR-0008: restano calcolabili, ma il
+> **Ogni riga ha un test che riproduce l'esempio stampato**, in
+> `tests/metrics/planning.test.ts`: 49,5 man-days (il libro arrotonda a 50), 18/45 = 40 %,
+> 50 × 40 % = 20, le quattro storie che fanno 19.
+>
+> **Una differenza dichiarata invece che nascosta.** Il libro scrive «50 available
+> man-days»; l'aritmetica esatta del suo stesso esempio dà **49,5**
+> (15 + 13 + 15 + 6,5). È un arrotondamento suo. Il test verifica 49,5 e controlla che
+> arrotondi a 50, invece di piegare la formula per far tornare la cifra stampata.
+>
+> **F1–F3 sono ritrattati dall'autore.** Vedi ADR-0008: restano calcolabili, il
 > predefinito è Y1 e la ritrattazione va mostrata accanto al numero.
 
 ## 3. Burndown
@@ -75,13 +85,13 @@ Stato di una riga:
 | R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | ⬜ | ⬜ |
 | R2 | Soglie di accettazione: **must** / **should** / **may**. | rosso = must in 1.0, giallo = should, verde = rimandabile (pag. 97) | ⬜ | ⬜ |
 | R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | ⬜ | ⬜ |
-| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | ⬜ | ⬜ |
+| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` | 🟡 |
 
 ## 5. Stima
 
 | # | Regola del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
-| E1 | Scala non lineare a valori discreti: fra 40 e 100 non c'è nulla, e **7 non esiste**. | «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8; there is no 7» (pag. 40) | `estimateSchema` accetta qualsiasi numero | ⚠️ |
+| E1 | Scala non lineare a valori discreti: fra 40 e 100 non c'è nulla, e **7 non esiste**. | «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8; there is no 7» (pag. 40) | `estimateSchema` accetta qualsiasi numero; il mazzo è [ricostruito](#ricostruzione-b--il-mazzo-di-planning-poker-pag-38) | ⚠️ |
 | E2 | Stima minima di un task: **0,5**. | «Our lowest value is 0.5» (pag. 65) | il dominio ammette 0,5, la colonna del database è `integer` e lo troncherebbe a 0 | ⚠️ |
 | E3 | Vecchia conversione, dichiarata superata: `1 man-day = 6 man-hours`. | «Our general formula was: 1 effective man-day = 6 effective man-hours» (pag. 65) | non implementata di proposito | — |
 | E4 | Si stima il lavoro **totale** della storia, non la propria parte. | «The tester should not just estimate the amount of testing work» (pag. 40) | regola umana | — |
@@ -117,7 +127,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Definition of Ready | 4 (2ª ed.) | ⬜ |
 | Calendario delle cerimonie | 4, 8 | ✅ `ceremonySchedule` |
 | Sprint info page | 5 | ⬜ |
-| Segnali d'allarme della lavagna | 6 | 🟡 `sprintHealth` guarda cose analoghe, scelte da noi |
+| Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |
 | Elementi non pianificati | 6 | 🟡 `scopeChange` li confonde con le aggiunte pianificate |
 | Checklist della demo | 9 | ⬜ |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ⬜ |
@@ -133,6 +143,80 @@ state estratte.
 
 | Contenuto | Pagina | Conseguenza |
 |---|---|---|
-| Elenco dei *task-board warning signs* | 63 | va letto con gli occhi prima di implementare i segnali d'allarme |
-| Foto del mazzo di planning poker | 38 | il testo conferma 0, 5, 8, 20, 40, 100, `?` e la tazzina, e che le carte sono 13; il resto è dedotto dal mazzo Crisp standard |
+| Elenco dei *task-board warning signs* | 63 | **ricostruito**, vedi sotto |
+| Foto del mazzo di planning poker | 38 | **ricostruito**, vedi sotto |
 | Grafico di burndown, rettangoli della velocity | 61-62 | le formule sono comunque descritte a parole |
+
+---
+
+## Figure ricostruite — **nostre, non del libro**
+
+> **Decisione del Product Owner, 25/08/2026.** Le due figure che contano si ricostruiscono
+> dal testo invece di trascriverle dall'immagine, e si marcano come nostre.
+>
+> **Questa sezione non è il libro.** È ciò che abbiamo dedotto da ciò che il libro dice a
+> parole altrove. Ogni voce porta la prova testuale che la sostiene, oppure dichiara di
+> non averne. Chi un giorno leggerà la figura vera deve poter confrontare — e correggerci.
+
+### Ricostruzione A — I segnali d'allarme della lavagna (pag. 63)
+
+Il testo introduce l'elenco e si ferma: «The Scrum master is responsible for making sure
+that the team acts upon warning signs such as:» e la pagina successiva è già un altro
+argomento. Delle voci non resta **nulla**.
+
+Quello che segue è dedotto da altri passaggi del libro, con la loro pagina.
+
+| # | Segnale ricostruito | Prova testuale | Solidità |
+|---|---|---|---|
+| S1 | **Molte storie iniziate, nessuna conclusa.** Il valore del lavoro a metà è zero. | «The value of stuff half-done is zero (may in fact be negative)» (pag. 30); l'esempio della lavagna a pag. 60 distingue esplicitamente ciò che è concluso, parziale, iniziato e non iniziato | alta |
+| S2 | **Il lavoro in corso supera quello che la squadra riesce a reggere.** | gli avatar limitano il multitasking: «if each person only has like two magnets, that indirectly limits work in progress and multitasking. WTF, I'm out of avatars! Yeah, so stop starting and start finishing tasks!» (pag. 59) | alta |
+| S3 | **Un elemento fermo in lavorazione senza che si sappia chi ci sta lavorando.** | «Sometimes, for larger teams, a task gets stuck in *Checked out* because nobody remembers who was working on it» (pag. 59) | alta |
+| S4 | **Troppi elementi non pianificati.** | l'esempio di lavagna a pag. 60 tiene le interruzioni in un'area a sé — «We've had three unplanned items, as you can see down to the right. This is useful to remember when you do the sprint retrospective» — e la retrospettiva ha una voce apposita, «Too many external disturbances» (pag. 89) | alta |
+| S5 | **Il ritmo non porta a chiudere entro la fine.** | la linea di tendenza del burndown: «The dashed trend line shows that they are approximately on track, i.e. at this pace they will complete everything by the end of the sprint» (pag. 62) | alta |
+| S6 | **Qualcuno non sa cosa fare.** | un intero paragrafo, «Dealing with I don't know what to do today» (pag. 76-78), che nasce proprio dal guardare la lavagna insieme | media — il libro lo tratta al daily, non lo elenca fra i segnali |
+| S7 | **La squadra ha preso più di quanto chiude, sprint dopo sprint.** | «We overcommitted and only got half of the stuff done» fra gli esiti tipici della retrospettiva (pag. 89) | media — è un esito di retrospettiva, non un segnale di lavagna |
+
+**Cosa abbiamo già.** Cinque dei sette hanno un corrispettivo in `sprintHealth`: S1 e S5 in
+`progress`, S2 in `wip-limit`, S4 in `scope-added`, S7 indirettamente in `progress`. **Non
+li abbiamo ricavati dal libro** — li avevamo scelti noi, e la coincidenza è un buon segno,
+non una conferma.
+
+**Cosa manca.** S3 (elemento fermo senza titolare) e S6 (nessuno sa cosa fare) non sono
+misurabili oggi: il primo richiederebbe di distinguere «in lavorazione senza assegnatario»
+dal semplice aging, il secondo non lascia traccia nei dati.
+
+> **Attenzione a S3 e §8.2.** «Chi ci sta lavorando» è a un passo dal contare quanto fa
+> ciascuno, che è la metrica vietata numero uno. Se verrà implementato, il segnale dovrà
+> dire *«un elemento è fermo e nessuno lo ha in carico»* — una proprietà dell'**elemento**
+> — mai *«questa persona ha troppi elementi»*.
+
+### Ricostruzione B — Il mazzo di planning poker (pag. 38)
+
+Qui la ricostruzione è quasi **forzata** dal testo, e vale la pena mostrare perché.
+
+Il testo vincola:
+
+1. **Tredici carte**: «Each team member gets a deck of 13 cards as shown above».
+2. Valori citati esplicitamente: **0**, **2**, **5**, **8**, **20**, **40**, **100**,
+   **`?`**, **tazzina**.
+3. «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8;
+   there is **no 7**» ⇒ fra 5 e 8 non c'è nulla.
+4. «there is nothing between 40 and 100».
+5. «Our lowest value is **0.5**» (pag. 65) ⇒ esiste una carta sotto 1.
+
+Nove carte sono nominate. Ne restano quattro, e la successione dev'essere non lineare, con
+0,5 come minimo. La sola sequenza che soddisfa tutti e cinque i vincoli è quella di
+Fibonacci arrotondata:
+
+**0 · ½ · 1 · 2 · 3 · 5 · 8 · 13 · 20 · 40 · 100 · `?` · ☕** — tredici carte esatte.
+
+Le quattro dedotte sono **½, 1, 3, 13**. Restano una deduzione: nessun passaggio del libro
+le nomina.
+
+| Carta | Significato dichiarato dal libro |
+|---|---|
+| `0` | «This story is already done, or this story is pretty much nothing, just a few minutes of work» |
+| `?` | «I have absolutely no idea at all. None.» |
+| ☕ | «I'm too tired to think. Let's take a short break.» |
+
+---
