@@ -1146,4 +1146,336 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     sourceSymbol: "typicalSprintLengthDays",
     testFile: "tests/metrics/sprint-length.test.ts",
   },
+  {
+    id: "available-man-days",
+    name: "Giorni-uomo disponibili",
+    question: "Quanta capacità ha la squadra in questo sprint?",
+    formula:
+      "Per ciascuna persona: giorni lavorativi dello sprint × quota di allocazione, meno i giorni di assenza. Sommato su tutta la squadra.",
+    unit: "count",
+    excludes: [
+      "I giorni non lavorativi: tre settimane di calendario sono quindici giorni, non ventuno.",
+      "I contributi negativi: chi è assente più giorni di quanti ne lavorerebbe conta zero, non meno di zero, altrimenti cancellerebbe i giorni veri di un collega.",
+      "Le disponibilità dichiarate per un altro sprint.",
+    ],
+    unavailableWhen:
+      "Nessuno ha dichiarato la propria disponibilità per questo sprint: è diverso da una capacità di zero.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "le date di inizio e fine, che delimitano i giorni da contare",
+      },
+      {
+        entity: "WorkingCalendar",
+        reads: "quali giorni della settimana il progetto lavora e quali festività ha dichiarato",
+      },
+      {
+        entity: "TeamMemberAvailability",
+        reads: "la quota di allocazione e i giorni di assenza di ciascuna persona",
+      },
+    ],
+    observation: {
+      kind: "between",
+      from: "l'inizio dello sprint",
+      to: "la fine pianificata dello sprint",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quante persone hanno una disponibilità dichiarata per questo sprint",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Una persona è a metà tempo e assente un giorno.",
+        outcome:
+          "L'assenza si sottrae dopo l'allocazione: su quindici giorni fa 6,5 e non 7. Un giorno di assenza è un giorno intero tolto dal piano.",
+        verifiedBy: "sottrae le assenze dopo l'allocazione, non prima",
+      },
+      {
+        situation: "Lo sprint dura tre settimane di calendario.",
+        outcome: "Conta quindici giorni lavorativi, non ventuno.",
+        verifiedBy: "conta i giorni lavorativi, non quelli di calendario",
+      },
+      {
+        situation: "Una persona è assente per tutto lo sprint.",
+        outcome: "Contribuisce zero, mai un valore negativo che toglierebbe giorni ai colleghi.",
+        verifiedBy: "una persona interamente assente non toglie giorni ai colleghi",
+      },
+      {
+        situation: "Nessuna disponibilità è stata dichiarata.",
+        outcome: "Nessun valore, con motivo «no-data»: non una capacità di zero.",
+        verifiedBy: "senza disponibilità dichiarate non risponde zero, dice che non lo sa",
+      },
+    ],
+    decision:
+      "Esiste solo come totale di squadra, e non esisterà mai una variante per persona: §8.2 vieta le metriche di rendimento individuale, e la strada più breve per produrne una è una funzione che accetta una persona e restituisce giorni.",
+    sourceFile: "src/metrics/planning.ts",
+    sourceSymbol: "availableManDays",
+    testFile: "tests/metrics/planning.test.ts",
+  },
+  {
+    id: "focus-factor",
+    name: "Focus factor",
+    question: "Quanta parte del tempo della squadra è finita nel lavoro impegnato?",
+    formula: "Velocity effettiva dello sprint ÷ giorni-uomo disponibili.",
+    unit: "ratio",
+    excludes: [
+      "Gli sprint con stime in unità diverse: punti e ore divisi per giorni sono due scale incompatibili.",
+      "Gli sprint stimati in sole ore: la domanda non si applica, perché il rapporto ha senso solo trattando un punto come un giorno-uomo ideale.",
+    ],
+    unavailableWhen:
+      "La capacità è zero o non dichiarata, oppure la velocity non è calcolabile in punti.",
+    inputs: [
+      {
+        entity: "TeamMemberAvailability",
+        reads: "la capacità della squadra, che è il denominatore",
+      },
+      {
+        entity: "Sprint",
+        reads: "le date, per contare i giorni lavorativi",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "cosa conteneva lo sprint alla chiusura",
+      },
+      {
+        entity: "StateTransition",
+        reads: "chi risultava concluso alla chiusura",
+      },
+      {
+        entity: "EstimateChange",
+        reads: "la stima d'ingresso di ciascun elemento concluso",
+      },
+      {
+        entity: "WorkItem",
+        reads: "la stima corrente, per gli elementi privi di storia",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di chiusura dello sprint",
+    },
+    operation: "ratio",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi conclusi hanno contribuito alla velocity al numeratore",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Lo sprint mescola stime in punti e in ore.",
+        outcome: "Nessun valore, con motivo «mixed-estimate-units», invece di un numero plausibile.",
+        verifiedBy: "non è calcolabile con unità di stima miste",
+      },
+      {
+        situation: "La squadra chiude più punti dei giorni-uomo disponibili.",
+        outcome:
+          "Il valore supera 1 e non viene limitato: sarebbe proprio il segnale che invita a guardare le stime.",
+        verifiedBy: "non viene limitato a uno quando la squadra supera la propria capacità",
+      },
+      {
+        situation: "La capacità dichiarata è zero.",
+        outcome: "Nessun valore, con motivo «empty-denominator»: mai una divisione per zero.",
+        verifiedBy: "una capacità di zero non produce una divisione per zero",
+      },
+    ],
+    decision:
+      "L'autore del libro ritratta questa formula — «I never use focus factor any more… it gives a false sense of accuracy» — quindi resta calcolabile ma non è il metodo predefinito, e ovunque compaia va mostrata insieme alla ritrattazione (ADR-0008).",
+    sourceFile: "src/metrics/planning.ts",
+    sourceSymbol: "focusFactor",
+    testFile: "tests/metrics/planning.test.ts",
+  },
+  {
+    id: "estimated-velocity",
+    name: "Velocity stimata",
+    question: "Quanto lavoro la squadra prevede di chiudere in questo sprint?",
+    formula:
+      "Con «meteo di ieri»: media della velocity effettiva degli ultimi sprint conclusi. Con il focus factor: giorni-uomo disponibili × focus factor dell'ultimo sprint chiuso. Per un team senza storia: giorni-uomo disponibili × 70%.",
+    unit: "points",
+    excludes: [
+      "Lo sprint ancora in corso, che non ha finito di consegnare: mediarne il parziale abbasserebbe ogni previsione per un motivo che dipende solo da quando si è posta la domanda.",
+      "Gli sprint conclusi dopo l'inizio di quello che si sta prevedendo.",
+    ],
+    unavailableWhen:
+      "Il metodo scelto non ha i dati che gli servono. Non si ripiega in silenzio su un altro metodo.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "gli sprint conclusi e le loro date",
+      },
+      {
+        entity: "TeamMemberAvailability",
+        reads: "la capacità, quando il metodo scelto la usa",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "cosa conteneva ciascuno sprint concluso",
+      },
+      {
+        entity: "StateTransition",
+        reads: "cosa risultava concluso alla chiusura di ciascuno",
+      },
+      {
+        entity: "EstimateChange",
+        reads: "le stime d'ingresso su cui si calcola la velocity passata",
+      },
+      {
+        entity: "WorkItem",
+        reads: "la stima corrente, per gli elementi privi di storia",
+      },
+    ],
+    observation: {
+      kind: "history",
+      over: "gli sprint conclusi prima dell'inizio di quello da prevedere",
+    },
+    operation: "mean",
+    summarisedBy: ["mean"],
+    sampleSizeMeaning: "su quanti sprint conclusi poggia la previsione",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Il progetto ha uno sprint aperto e uno concluso.",
+        outcome: "Conta solo quello concluso: l'aperto non ha finito di consegnare.",
+        verifiedBy: "ignora lo sprint ancora in corso",
+      },
+      {
+        situation: "Il team è nuovo e non ha alcuno sprint concluso.",
+        outcome:
+          "Con il metodo di ripiego si usa il 70% che il libro indica per i team nuovi, e il metodo viene dichiarato.",
+        verifiedBy: "per un team nuovo ripiega sul 70% dichiarato dal libro",
+      },
+      {
+        situation: "Si chiede il focus factor ma nessuno ha dichiarato la capacità.",
+        outcome:
+          "Nessun valore, con il motivo del metodo richiesto: non si cambia metodo di nascosto.",
+        verifiedBy: "un metodo senza dati dichiara il proprio motivo invece di cambiare metodo",
+      },
+    ],
+    decision:
+      "Il metodo è un parametro esplicito e viene sempre dichiarato insieme al numero. Una previsione che cambia metodo da uno sprint all'altro cambia significato senza dirlo, e nessuno può contestarla perché nessuno sa cosa afferma.",
+    sourceFile: "src/metrics/planning.ts",
+    sourceSymbol: "estimatedVelocity",
+    testFile: "tests/metrics/planning.test.ts",
+  },
+  {
+    id: "committed-velocity",
+    name: "Velocity impegnata",
+    question: "Quanto lavoro conteneva il piano all'inizio dello sprint?",
+    formula:
+      "Somma delle stime d'ingresso degli elementi presenti nello sprint nell'istante in cui è cominciato.",
+    unit: "points",
+    excludes: [
+      "Il lavoro entrato dopo l'inizio: è una variazione di perimetro, e c'è una metrica che lo dice.",
+      "Il bersaglio della previsione: contano le storie effettivamente scelte, non il numero a cui si mirava.",
+    ],
+    unavailableWhen:
+      "Lo sprint non conteneva nulla all'inizio, o nessun elemento aveva una stima.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "l'istante di inizio",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "cosa era già dentro all'inizio e quando ciascun elemento è entrato",
+      },
+      {
+        entity: "EstimateChange",
+        reads: "la stima che ciascun elemento aveva all'ingresso",
+      },
+      {
+        entity: "WorkItem",
+        reads: "la stima corrente, per gli elementi privi di storia",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di inizio dello sprint",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi c'erano nel piano iniziale",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "La squadra mirava a 20 punti e ha scelto quattro storie da 19.",
+        outcome: "Il piano è 19: si misura lo sprint contro ciò che si è preso, non contro il bersaglio.",
+        verifiedBy: "somma le storie scelte, non il bersaglio",
+      },
+      {
+        situation: "Del lavoro entra dopo l'inizio.",
+        outcome: "Non entra nel conto: farebbe sembrare che la squadra si fosse impegnata su qualcosa che ancora non esisteva.",
+        verifiedBy: "non conta il lavoro entrato dopo l'inizio",
+      },
+      {
+        situation: "Nessun elemento del piano ha una stima.",
+        outcome: "Nessun valore, con motivo «no-qualifying-data»: non un piano da zero punti.",
+        verifiedBy: "uno sprint senza stime dichiara la lacuna invece di rispondere zero",
+      },
+    ],
+    decision:
+      "Distinta dalla velocity stimata perché il libro le distingue: il bersaglio era 20, le quattro storie scelte fanno 19, e 19 è il piano. Misurare lo sprint contro il bersaglio significherebbe confrontarlo con un numero che nessuno si è preso.",
+    sourceFile: "src/metrics/planning.ts",
+    sourceSymbol: "committedVelocity",
+    testFile: "tests/metrics/planning.test.ts",
+  },
+  {
+    id: "forecast-variance",
+    name: "Scostamento dalla previsione",
+    question: "Di quanto lo sprint si è discostato da ciò che era previsto?",
+    formula: "Velocity effettiva meno velocity prevista, in punti.",
+    unit: "points",
+    excludes: [
+      "Gli sprint con stime in unità miste, che non hanno una velocity in punti da confrontare.",
+    ],
+    unavailableWhen: "La velocity effettiva non è calcolabile in punti.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "l'istante di chiusura, tramite la velocity effettiva",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "cosa conteneva lo sprint alla chiusura",
+      },
+      {
+        entity: "StateTransition",
+        reads: "cosa risultava concluso a quell'istante",
+      },
+      {
+        entity: "EstimateChange",
+        reads: "le stime d'ingresso degli elementi conclusi",
+      },
+      {
+        entity: "WorkItem",
+        reads: "la stima corrente, per gli elementi privi di storia",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di chiusura dello sprint",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi conclusi hanno contribuito alla velocity effettiva",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Si è consegnato meno del previsto.",
+        outcome: "Valore negativo, con il segno che dice la direzione.",
+        verifiedBy: "è negativo quando si consegna meno del previsto",
+      },      {
+        situation: "Si è consegnato più del previsto.",
+        outcome: "Valore positivo.",
+        verifiedBy: "è positivo quando si consegna di più",
+      },
+      {
+        situation: "Lo sprint non ha una velocity calcolabile.",
+        outcome: "Nessuno scostamento, invece di uno inventato contro zero.",
+        verifiedBy: "senza velocity effettiva non inventa uno scostamento",
+      },
+    ],
+    decision:
+      "Una differenza con segno e non un rapporto: un rapporto nasconde la dimensione dello sprint che descrive, e sbagliare di tre punti su cinque è una situazione diversa dallo sbagliare di tre su cinquanta.",
+    sourceFile: "src/metrics/planning.ts",
+    sourceSymbol: "forecastVariance",
+    testFile: "tests/metrics/planning.test.ts",
+  },
 ]);

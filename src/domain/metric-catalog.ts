@@ -63,6 +63,7 @@ export const metricInputEntitySchema = z.enum([
   "StateTransition",
   "EstimateChange",
   "WorkingCalendar",
+  "TeamMemberAvailability",
   "Sprint",
   "SprintScopeEvent",
 ]);
@@ -95,6 +96,8 @@ export const metricOperationSchema = z.enum([
   "ratio",
   /** The middle value of a set, chosen when a mean would be dragged by outliers. */
   "median",
+  /** The arithmetic average of a set. */
+  "mean",
   /** A value sampled repeatedly over time. */
   "series",
   /**

@@ -62,6 +62,10 @@ const NOT_METRICS: Readonly<Record<string, string>> = {
   estimateAtInstant: "sceglie la stima a un istante comune",
   membershipEntriesAt:
     "ricostruisce quando ciascun elemento è entrato nello sprint, dietro velocity",
+  // Pianificazione: costanti dichiarate dal libro e primitiva del meteo di ieri.
+  YESTERDAYS_WEATHER_SPRINTS: "costante dichiarata dal libro",
+  DEFAULT_FOCUS_FACTOR: "costante dichiarata dal libro",
+  yesterdaysWeather: "primitiva dietro la velocity stimata, documentata come tale",
   hasNoEstimates: "predicato di comodo",
   membershipAt: "composizione dello sprint a un istante",
 };
