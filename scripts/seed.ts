@@ -28,12 +28,13 @@ import { and, eq } from "drizzle-orm";
 
 import { seedConnector } from "../src/connectors/seed";
 import { createDatabase } from "../src/db/client";
-import { toWorkItemRow } from "../src/db/rows";
+import { toEstimateChangeRow, toWorkItemRow } from "../src/db/rows";
 import { organizationIdSchema, projectIdSchema } from "../src/domain";
 import {
   boardColumns,
   boards,
   comments,
+  estimateChanges,
   impediments,
   organizations,
   people,
@@ -178,6 +179,7 @@ async function main(): Promise<void> {
     ["impedimenti", impediments],
     ["commenti", comments],
     ["variazioni di perimetro", sprintScopeEvents],
+    ["variazioni di stima", estimateChanges],
     ["transizioni", stateTransitions],
     ["elementi di lavoro", workItems],
     ["sprint", sprints],
@@ -234,6 +236,14 @@ async function main(): Promise<void> {
       "transizioni",
       batch.transitions.length,
       () => db.insert(stateTransitions).values([...batch.transitions]),
+    ],
+    [
+      "variazioni di stima",
+      batch.estimateChanges.length,
+      // Row shape differs from the canonical one: two nullable estimates become
+      // four nullable columns, which is precisely the situation a hand-written
+      // mapper exists to keep honest.
+      () => db.insert(estimateChanges).values(batch.estimateChanges.map(toEstimateChangeRow)),
     ],
     [
       "variazioni di perimetro",

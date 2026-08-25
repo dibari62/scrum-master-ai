@@ -21,18 +21,30 @@ Stato di una riga:
 
 | # | Formula del libro | Citazione | Dove | Test | Stato |
 |---|---|---|---|---|---|
-| V1 | La velocity effettiva è la somma delle stime **iniziali** delle storie completate. Le ri-stime fatte durante lo sprint si ignorano. | «the actual velocity is based on the *initial* estimates of each story. Any updates to the story time estimates done during the sprint are ignored» (pag. 29) | `src/metrics/sprint.ts` → `velocity` | `tests/metrics/sprint.test.ts` → «ignora una ri-stima fatta durante lo sprint», «usa la stima all'ingresso per un elemento aggiunto a metà sprint» | 🟡 |
+| V1 | La velocity effettiva è la somma delle stime **iniziali** delle storie completate. Le ri-stime fatte durante lo sprint si ignorano. | «the actual velocity is based on the *initial* estimates of each story. Any updates to the story time estimates done during the sprint are ignored» (pag. 29) | `src/metrics/sprint.ts` → `velocity`, `src/domain/estimate-change.ts`, tabella `estimate_changes` | `tests/metrics/sprint.test.ts` → «ignora una ri-stima fatta durante lo sprint»; `tests/connectors/seed.test.ts` → «la velocity conta la stima d'ingresso, non quella corretta dopo» | ✅ |
 | V2 | Una storia quasi finita vale **zero**. Nessun credito parziale. | «The value of stuff half-done is zero (may in fact be negative)» (pag. 30) | `src/metrics/sprint.ts` → `velocity` | `tests/metrics/sprint.test.ts` | ✅ |
 | V3 | Una storia conclusa e poi riaperta prima della chiusura non conta. | conseguenza di V2 e della definizione di *done* | `src/metrics/sprint.ts` → `velocity` | `tests/metrics/sprint.test.ts` | ✅ |
 | Y2 | La velocity **stimata definitiva** di uno sprint è la somma delle storie effettivamente scelte, non il bersaglio di partenza. | «Since these four stories add up to 19 story points, their final estimated velocity for this sprint is 19» (pag. 32) | ⬜ | ⬜ | ⬜ |
 | Y3 | Nel dubbio si prendono **meno** storie. | «When in doubt, choose fewer stories» (pag. 32) | linea guida, non calcolo | — | — |
 
-> **Perché V1 è gialla e non verde.** Il motore è corretto e coperto da test: data
-> una storia delle stime, usa quella d'ingresso. Ma il connettore `seed` non produce
-> ancora `EstimateChange`, e non esiste la tabella che li conserva — quindi
-> nell'applicazione in esecuzione la velocity ricade sulla stima corrente, che è il
-> comportamento dichiarato per una fonte senza storia. **Verde solo quando la storia
-> delle stime arriva davvero fino al database.**
+> **Perché V1 è verde.** La regola vale ora **fino al database**: `EstimateChange` è
+> un'entità canonica, la tabella `estimate_changes` esiste, il connettore `seed` la
+> popola — 57 righe su 51 elementi — e ogni connettore futuro deve farlo, perché la
+> suite di conformità lo verifica.
+>
+> La prova che il dato di esempio eserciti davvero la regola, e non passi per caso:
+>
+> | Sprint | ri-stime | velocity con stima **iniziale** | con stima **corrente** |
+> |---|---|---|---|
+> | 1 — Fondamenta del carrello | nessuna | 31 | 31 |
+> | 2 — Metodi di pagamento | 2 | 32 | più alta |
+> | 3 — Indirizzi e spedizione | 2 | 37 | più alta |
+> | 4 — Conferma d'ordine | 3 | 42 | più alta |
+>
+> Lo sprint 1 non ha ri-stime **per costruzione**, quindi le due letture devono
+> coincidere: è il controllo che dice che la differenza altrove non è rumore. Dagli
+> altri tre, il codice di prima avrebbe riportato una velocity gonfiata — una squadra
+> che sembra consegnare più di quanto si era impegnata a consegnare.
 
 ## 2. Capacità e previsione
 
@@ -70,7 +82,7 @@ Stato di una riga:
 | # | Regola del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
 | E1 | Scala non lineare a valori discreti: fra 40 e 100 non c'è nulla, e **7 non esiste**. | «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8; there is no 7» (pag. 40) | `estimateSchema` accetta qualsiasi numero | ⚠️ |
-| E2 | Stima minima di un task: **0,5**. | «Our lowest value is 0.5» (pag. 65) | ⬜ | ⬜ |
+| E2 | Stima minima di un task: **0,5**. | «Our lowest value is 0.5» (pag. 65) | il dominio ammette 0,5, la colonna del database è `integer` e lo troncherebbe a 0 | ⚠️ |
 | E3 | Vecchia conversione, dichiarata superata: `1 man-day = 6 man-hours`. | «Our general formula was: 1 effective man-day = 6 effective man-hours» (pag. 65) | non implementata di proposito | — |
 | E4 | Si stima il lavoro **totale** della storia, non la propria parte. | «The tester should not just estimate the amount of testing work» (pag. 40) | regola umana | — |
 
@@ -93,7 +105,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | ID | `id` | ✅ |
 | Name | `title` | ✅ |
 | Importance | ⬜ | l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementeremo `backlogOrder`, non un numero. |
-| Initial estimate | 🟡 `estimate` esiste, ma senza storia: vedi V1 | |
+| Initial estimate | ✅ | `EstimateChange` conserva la storia; `estimate` resta la corrente |
 | How to demo | ⬜ | «essentially a simple test spec» |
 | Notes | `description` | 🟡 |
 

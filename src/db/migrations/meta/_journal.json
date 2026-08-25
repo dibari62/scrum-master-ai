@@ -50,6 +50,13 @@
       "when": 1787659725951,
       "tag": "0006_slow_martin_li",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787667704534,
+      "tag": "0007_illegal_electro",
+      "breakpoints": true
     }
   ]
 }

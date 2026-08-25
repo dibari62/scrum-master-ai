@@ -2,6 +2,7 @@ import type {
   Board,
   BoardColumn,
   Comment,
+  EstimateChange,
   Impediment,
   OrganizationId,
   Person,
@@ -41,6 +42,16 @@ export type CanonicalBatch = {
   readonly workItems: readonly WorkItem[];
   /** The raw material of almost every metric (ADR-0003). */
   readonly transitions: readonly StateTransition[];
+  /**
+   * What each item was sized at, and when (ADR-0008).
+   *
+   * A connector whose source exposes only the current estimate emits **one**
+   * change at the item's creation instant. That is a complete answer to what it
+   * can observe, not a placeholder: velocity then reads the same figure it
+   * would have read anyway, and no re-estimate is silently attributed to a
+   * moment nobody recorded.
+   */
+  readonly estimateChanges: readonly EstimateChange[];
   readonly scopeEvents: readonly SprintScopeEvent[];
   readonly comments: readonly Comment[];
   readonly impediments: readonly Impediment[];
@@ -54,6 +65,7 @@ export const EMPTY_BATCH: CanonicalBatch = {
   sprints: [],
   workItems: [],
   transitions: [],
+  estimateChanges: [],
   scopeEvents: [],
   comments: [],
   impediments: [],
@@ -124,6 +136,7 @@ export function allRecords(batch: CanonicalBatch): readonly SourceIdentified[] {
     ...batch.sprints,
     ...batch.workItems,
     ...batch.transitions,
+    ...batch.estimateChanges,
     ...batch.scopeEvents,
     ...batch.comments,
     ...batch.impediments,

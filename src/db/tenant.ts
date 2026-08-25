@@ -18,6 +18,7 @@ import {
   boardColumns,
   boards,
   comments,
+  estimateChanges,
   impediments,
   memberships,
   organizations,
@@ -243,6 +244,26 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           ),
         )
         .orderBy(stateTransitions.occurredAt),
+
+    /**
+     * A project's estimate history, in order.
+     *
+     * Read whole rather than per sprint because velocity needs the estimate an
+     * item carried when it *entered* a sprint, and that change may predate the
+     * sprint by weeks — a window around the sprint would miss it and silently
+     * report the item as never estimated.
+     */
+    estimateChangesByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(estimateChanges)
+        .where(
+          and(
+            eq(estimateChanges.organizationId, organizationId),
+            eq(estimateChanges.projectId, projectId),
+          ),
+        )
+        .orderBy(estimateChanges.occurredAt),
 
     scopeEventsBySprint: (sprintId: SprintId) =>
       db

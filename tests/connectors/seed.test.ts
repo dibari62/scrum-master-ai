@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { seedConnector, generateSeedBatch } from "@/connectors/seed";
 import { ITEM_TITLES } from "@/connectors/seed/scenario";
 import { isMidSprintAddition, organizationIdSchema, projectIdSchema } from "@/domain";
+import { velocity } from "@/metrics";
 
 import { runConnectorConformance } from "./conformance";
 
@@ -149,6 +150,116 @@ describe("connettore seed — anomalie volute", () => {
   it("contiene elementi riaperti dopo essere stati conclusi", () => {
     const reopened = batch.transitions.filter((t) => t.fromState === "done");
     expect(reopened.length).toBeGreaterThan(0);
+  });
+
+  it("contiene elementi ri-stimati a sprint iniziato", () => {
+    /*
+     * Anomalia voluta, come il collo di bottiglia in revisione.
+     *
+     * Serve perché senza una sola ri-stima nei dati la regola del libro e la
+     * sua assenza producono numeri **identici**: il difetto che abbiamo
+     * corretto sarebbe stato invisibile, e lo sarebbe una futura regressione.
+     */
+    const reEstimates = batch.estimateChanges.filter(
+      (change) => change.fromEstimate !== null,
+    );
+
+    expect(reEstimates.length).toBeGreaterThan(0);
+
+    // Verso l'alto: una storia si rivela più grossa di come sembrava. È anche
+    // la direzione che non lusinga nessuno, quindi un burndown che usasse di
+    // nascosto la cifra nuova mostrerebbe la squadra chiudere *meno* lavoro.
+    for (const change of reEstimates) {
+      expect(change.toEstimate?.value ?? 0).toBeGreaterThan(change.fromEstimate?.value ?? 0);
+    }
+  });
+
+  it("la ri-stima cade dopo l'ingresso nello sprint, o non proverebbe nulla", () => {
+    /*
+     * Una ri-stima *precedente* all'ingresso sarebbe già parte del piano, e la
+     * velocity la conterebbe legittimamente: non distinguerebbe le due letture.
+     *
+     * Il confronto è con il **primo** ingresso dell'elemento, non con l'ultimo.
+     * Un elemento trascinato rientra all'inizio dello sprint successivo, quindi
+     * una ri-stima avvenuta durante lo sprint precedente precede quel secondo
+     * ingresso in modo del tutto legittimo — ed è la lettura giusta: in quello
+     * sprint la squadra si è impegnata sulla taglia già corretta.
+     *
+     * La prima stesura di questo test guardava l'ultimo ingresso e falliva
+     * proprio su un trascinato. Il difetto era nel test, non nei dati.
+     */
+    const firstEntry = new Map<string, Date>();
+    for (const event of batch.scopeEvents) {
+      if (event.kind !== "added") continue;
+
+      const known = firstEntry.get(event.workItemId);
+      if (!known || event.occurredAt.getTime() < known.getTime()) {
+        firstEntry.set(event.workItemId, event.occurredAt);
+      }
+    }
+
+    const reEstimates = batch.estimateChanges.filter(
+      (change) => change.fromEstimate !== null,
+    );
+
+    for (const change of reEstimates) {
+      const enteredAt = firstEntry.get(change.workItemId);
+      if (!enteredAt) continue;
+
+      expect(change.occurredAt.getTime()).toBeGreaterThan(enteredAt.getTime());
+    }
+  });
+
+  it("la velocity conta la stima d'ingresso, non quella corretta dopo", () => {
+    /*
+     * Il test che chiude il cerchio: non verifica il motore su dati inventati
+     * per l'occasione, ma sul **dataset che l'applicazione mostra davvero**.
+     *
+     * Uno sprint concluso che contiene almeno una ri-stima deve produrre due
+     * numeri diversi a seconda di quale stima si legge. Se coincidessero, il
+     * dato di prova non starebbe esercitando la regola — e il test passerebbe
+     * senza dimostrare niente.
+     */
+    const reEstimatedItems = new Set(
+      batch.estimateChanges
+        .filter((change) => change.fromEstimate !== null)
+        .map((change) => change.workItemId),
+    );
+
+    const closed = sprints.filter((sprint) => sprint.completedAt !== null);
+
+    const exercised = closed.filter((sprint) =>
+      batch.workItems.some(
+        (item) => item.sprintId === sprint.id && reEstimatedItems.has(item.id),
+      ),
+    );
+
+    expect(exercised.length, "nessuno sprint chiuso contiene una ri-stima").toBeGreaterThan(0);
+
+    for (const sprint of exercised) {
+      const honest = velocity(
+        sprint,
+        [...batch.workItems],
+        [...batch.transitions],
+        [...batch.scopeEvents],
+        [...batch.estimateChanges],
+      );
+
+      // Lo stesso calcolo senza storia: ricade sulla stima corrente, cioè
+      // quella gonfiata dopo. È il comportamento di prima della correzione.
+      const naive = velocity(
+        sprint,
+        [...batch.workItems],
+        [...batch.transitions],
+        [...batch.scopeEvents],
+        [],
+      );
+
+      if (!honest.available || !naive.available) continue;
+      if (honest.value.points === null || naive.value.points === null) continue;
+
+      expect(honest.value.points).toBeLessThan(naive.value.points);
+    }
   });
 
   it("contiene lavoro trascinato da uno sprint al successivo", () => {
