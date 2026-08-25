@@ -4,11 +4,13 @@ import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { organizationIdSchema, type WorkItemState } from "@/domain";
+import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
+import { STATE_LABELS as SHARED_STATE_LABELS } from "@/lib/state-words";
 
 import { loadProjectFlow, type ColumnOccupancy } from "./data";
+import { FlowNarration } from "./flow-narration";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: `Flusso di lavoro · ${slug} · Scrum Master AI` };
 }
 
-const STATE_LABELS: Readonly<Record<WorkItemState, string>> = {
-  todo: "Da fare",
-  in_progress: "In lavorazione",
-  in_review: "In revisione",
-  blocked: "Bloccato",
-  done: "Concluso",
-  cancelled: "Annullato",
-};
+const STATE_LABELS = SHARED_STATE_LABELS;
 
 /**
  * How a column reads against its own limit.
@@ -337,6 +332,15 @@ export default async function ProjectFlowPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/*
+           * La lettura sta sotto la tabella che spiega.
+           *
+           * Non si genera all'apertura: chi arriva qui spesso vuole solo
+           * guardare le percentuali, e pagare un modello a ogni occhiata
+           * significherebbe spendere per non essere letti.
+           */}
+          <FlowNarration slug={slug} enabled={flow.narrationEnabled} />
         </section>
       ) : null}
 

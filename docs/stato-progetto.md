@@ -239,6 +239,52 @@ perché è una scelta di priorità e non un ingolfamento — includerla farebbe
 risultare «da fare» il collo di bottiglia di quasi ogni progetto, cosa vera e
 inutile.
 
+**Tutte e sei le capacità dichiarate ora esistono.** Per buona parte della
+costruzione la scheda elencava in fondo ciò che il prodotto prometteva senza
+saperlo fare; quell'elenco adesso è vuoto, e il riquadro lo dichiara invece di
+mostrare una lista vuota. Le tre aggiunte per ultime seguono tutte la stessa
+regola: **si usano dove stanno i dati che raccontano**, mai sulla scheda
+dell'agente. Una lettura lontana da ciò che legge va creduta invece che
+verificata.
+
+- **Collo di bottiglia** — nella pagina «Flusso di lavoro», sotto la tabella. La
+  fase la sceglie il codice, e **solo fra le attese**; una lettura che ne
+  indicasse un'altra viene rifiutata. È il rifiuto che conta, perché la fase più
+  lunga in assoluto è quasi sempre quella in cui si lavora, e indicarla
+  direbbe a una squadra che l'ostacolo a finire il lavoro è farlo.
+- **Digest giornaliero** — sulla dashboard. Poggia su una metrica nuova
+  (`dailyActivity`), perché la parte che conta non è ciò che si è mosso ma ciò
+  che **non** si è mosso: stare fermi non lascia una riga da nessuna parte, va
+  dedotto. Il riassunto non può tacere ciò che è fermo, o viene rifiutato: un
+  elenco di soli progressi non è più corto, è più rassicurante di quanto i fatti
+  consentano.
+- **Domande sul progetto** — nella pagina «Elementi», dove stanno le fonti che
+  cita. È l'unica risposta del prodotto **senza numeri accanto**: senza le
+  citazioni chiederebbe di essere creduta. Un indice fuori elenco, o
+  un'affermazione senza fonti che non ammetta di non sapere, vengono rifiutati.
+
+**Il pre-filtro è per termini, non per significato**, ed è una scelta dichiarata
+(spec `domande-progetto` Q1): gli embeddings richiedono una chiave e una chiamata
+a pagamento anche solo per cercare, mentre la selezione per termini funziona a
+costo zero e soprattutto **si può spiegare** — si sa perché un elemento è stato
+mostrato al modello, cosa che una distanza fra vettori non dice.
+
+**Il test avversariale ha trovato una falla vera, appena introdotta.** Costruendo
+il digest avevo interpolato il titolo di un elemento nell'etichetta di un valore,
+e le etichette finiscono nella parte **fidata** della richiesta: un elemento
+intitolato «Ignora le istruzioni precedenti» sarebbe arrivato al modello
+travestito da riga di sistema. Il test lo ha visto subito. Ora il titolo viaggia
+solo nel blocco non fidato e l'etichetta porta un riferimento ordinale.
+
+**«Chiedi una spiegazione» non spiegava niente, ed era peggio che inutile.** Senza
+un fornitore configurato — che è la condizione di questo ambiente — la risposta
+era una frase che spiegava di non poter spiegare, sormontata dalla dicitura
+«generato da un modello linguistico»: falsa, e falsa nella direzione che lusinga
+il prodotto. Ora ogni narrazione dichiara **chi l'ha scritta**, e quando il
+modello non c'è è il codice a scrivere una spiegazione vera: quali segnali sono
+oltre soglia e da quanti giorni dura il verdetto sono fatti che possiede. Ciò che
+non sa fare — la lettura d'insieme — non lo finge.
+
 **La scheda dello Scrum Master AI è diventata quattro schermate con un menù.**
 Una sola pagina rispondeva a quattro domande insieme, e separarle con delle
 intestazioni non bastava: chi leggeva doveva comunque capire quale paragrafo
@@ -334,6 +380,8 @@ Cose note e volutamente rimandate, non sviste:
 | Lo scenario sintetico non aveva uno sprint **in corso** | [spec sprint-health](../specs/sprint-health/spec.md) Q5 | ~~da affrontare prima di `sprint-health`~~ **fatto**: gli sprint si collocano all'indietro dall'istante di lettura, e il lotto viene troncato lì |
 | Il confronto sull'attesa in revisione è sbilanciato verso l'alto | [spec sprint-health](../specs/sprint-health/spec.md) Q6 | le attese dello sprint in corso sono ancora aperte e crescono, quelle storiche sono concluse. Oggi non altera la lettura — il 13,6× coincide col peggioramento voluto — ma su dati reali peserebbe. Da decidere guardando dati veri |
 | Nessuna soglia della salute dello sprint è tarata su dati reali | [spec sprint-health](../specs/sprint-health/spec.md) Q2 | sono dichiarate, motivate e citate da un test. Restano provvisorie finché non le si vede lavorare su un progetto vero |
+| «Chiedi una spiegazione» non diceva di che cosa, e la capacità «Salute dello sprint» non si trovava | segnalazione del PO | **fatto**: il riquadro nomina il verdetto che spiegherà ed elenca cosa si riceve; la scheda dell'agente mostra acceso/spento accanto a ogni nome, dice dove si usa ogni capacità e ha un'ancora a cui la dashboard rimanda. Due difetti che nessun test rilevava: ogni valore era corretto, mancava il significato |
+| L'output generato non ha un modo per dire se è stato utile | `AGENTS.md` R1 | la provenienza è ora dichiarata a schermo (calcolato dal codice / scritto da un modello), ma non si può ancora correggere né valutare un testo generato. Serve una tabella e una scrittura: da fare quando i testi generati saranno più d'uno per schermata |
 
 ---
 

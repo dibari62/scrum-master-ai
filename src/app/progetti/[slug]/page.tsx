@@ -22,6 +22,7 @@ import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
 import { HealthNarration } from "./health-narration";
+import { DailyDigest } from "./daily-digest";
 import {
   presentCount,
   presentDuration,
@@ -189,62 +190,100 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
        * È l'unica cosa in questa pagina che riguarda ciò su cui si può ancora
        * intervenire: tutto il resto descrive com'è andata. Metterlo in fondo lo
        * trasformerebbe in una nota a piè di pagina di se stesso.
+       *
+       * Giudizio e spiegazione stanno nella stessa sezione perché parlano della
+       * stessa cosa, e l'intestazione dichiara chi ha prodotto il numero: qui
+       * misura il codice, nel riquadro sotto interpreta un modello. Sono due
+       * gradi di fiducia diversi, e un lettore che non sa distinguerli finisce
+       * per applicarne uno solo a tutta la pagina.
        */}
-      {dashboard.health === null ? (
-        /*
-         * Nessuno sprint aperto: si dice, e si dice perché.
+      <section aria-labelledby="salute-sprint" className="grid gap-4">
+        <div className="grid gap-1">
+          <h2 id="salute-sprint" className="text-lg font-medium">
+            Salute dello sprint
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Riguarda soltanto lo sprint aperto adesso. La calcola il codice ogni volta che
+            si apre questa pagina, confrontando cinque segnali con altrettante soglie
+            dichiarate: nessun modello linguistico partecipa al giudizio.
+          </p>
+        </div>
+
+        {dashboard.health === null ? (
+          /*
+           * Nessuno sprint aperto: si dice, e si dice perché.
+           *
+           * Un semaforo verde su un progetto fermo è la peggiore delle risposte
+           * — afferma che va tutto bene proprio dove non sta succedendo nulla.
+           */
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nessuno sprint in corso</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm">
+              <p>
+                La salute dello sprint giudica ciò che è ancora aperto, quindi qui non
+                compare alcun indicatore. Non significa che il progetto stia bene o male:
+                significa che in questo momento non c&apos;è uno sprint su cui intervenire.
+              </p>
+            </CardContent>
+          </Card>
+        ) : !dashboard.health.available ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Salute dello sprint non calcolabile</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm">
+              <p>
+                Uno sprint risulta aperto, ma le sue date non permettono di dire quanto ne
+                sia trascorso. Finché il dato non è coerente non viene proposto un giudizio:
+                inventarne uno sarebbe peggio che non averlo.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <HealthBanner
+            verdict={dashboard.health.value.verdict}
+            label={VERDICT_WORDS[dashboard.health.value.verdict].label}
+            summary={VERDICT_WORDS[dashboard.health.value.verdict].summary}
+            elapsed={`${formatPercent(dashboard.health.value.elapsedFraction)} dello sprint trascorso`}
+            signals={dashboard.health.value.signals.map((signal) => ({
+              ...presentSignal(signal),
+              tone: signal.status,
+            }))}
+          />
+        )}
+
+        {/*
+         * La spiegazione sta sotto il giudizio che spiega.
          *
-         * Un semaforo verde su un progetto fermo è la peggiore delle risposte
-         * — afferma che va tutto bene proprio dove non sta succedendo nulla.
-         */
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Nessuno sprint in corso</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            <p>
-              La salute dello sprint giudica ciò che è ancora aperto, quindi qui non
-              compare alcun indicatore. Non significa che il progetto stia bene o male:
-              significa che in questo momento non c&apos;è uno sprint su cui intervenire.
-            </p>
-          </CardContent>
-        </Card>
-      ) : !dashboard.health.available ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Salute dello sprint non calcolabile</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            <p>
-              Uno sprint risulta aperto, ma le sue date non permettono di dire quanto ne
-              sia trascorso. Finché il dato non è coerente non viene proposto un giudizio:
-              inventarne uno sarebbe peggio che non averlo.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <HealthBanner
-          verdict={dashboard.health.value.verdict}
-          label={VERDICT_WORDS[dashboard.health.value.verdict].label}
-          summary={VERDICT_WORDS[dashboard.health.value.verdict].summary}
-          elapsed={`${formatPercent(dashboard.health.value.elapsedFraction)} dello sprint trascorso`}
-          signals={dashboard.health.value.signals.map((signal) => ({
-            ...presentSignal(signal),
-            tone: signal.status,
-          }))}
-        />
-      )}
+         * Non si genera all'apertura: la maggior parte delle visite a una
+         * dashboard è un'occhiata al colore, e pagare un modello a ogni occhiata
+         * sarebbe spendere per non essere letti.
+         *
+         * Il verdetto arriva già in parole: il riquadro lo nomina nel proprio
+         * titolo, perché «chiedi una spiegazione» senza dire di che cosa è una
+         * domanda a cui nessuno sa se vuole rispondere.
+         */}
+        {dashboard.health?.available ? (
+          <HealthNarration
+            slug={slug}
+            enabled={dashboard.healthNarrationEnabled}
+            verdictLabel={VERDICT_WORDS[dashboard.health.value.verdict].label}
+            historyCount={dashboard.healthHistory.length}
+          />
+        ) : null}
+      </section>
 
       {/*
-       * La spiegazione sta sotto il giudizio che spiega.
+       * Il giorno prima, sotto la salute di oggi.
        *
-       * Non si genera all'apertura: la maggior parte delle visite a una
-       * dashboard è un'occhiata al colore, e pagare un modello a ogni occhiata
-       * sarebbe spendere per non essere letti.
+       * La salute dice come sta andando lo sprint; il digest dice cosa è
+       * successo nelle ultime ventiquattro ore. Sono due orizzonti diversi, e
+       * questo è il più corto: sta sotto perché si legge dopo aver visto il
+       * quadro generale, non al posto suo.
        */}
-      {dashboard.health?.available ? (
-        <HealthNarration slug={slug} enabled={dashboard.healthNarrationEnabled} />
-      ) : null}
+      <DailyDigest slug={slug} enabled={dashboard.digestEnabled} />
 
       {/*
        * Da quanto dura, e non solo com'è adesso.

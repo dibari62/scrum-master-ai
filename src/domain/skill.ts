@@ -50,6 +50,9 @@ const AVAILABLE_SKILL_KEYS: ReadonlySet<SkillKey> = new Set([
   "configuration-check",
   "sprint-report",
   "sprint-health",
+  "bottleneck-detection",
+  "daily-digest",
+  "project-qa",
 ]);
 
 export function isSkillAvailable(key: SkillKey): boolean {

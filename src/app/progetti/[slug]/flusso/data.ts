@@ -69,6 +69,13 @@ export type ProjectFlow = {
    * only the second is a bottleneck.
    */
   readonly bottleneck: MetricResult<Bottleneck>;
+  /**
+   * Whether the agent may be asked to read the flow aloud.
+   *
+   * Read here so the button is offered only when pressing it would work: a
+   * control that always refuses teaches a reader to ignore controls.
+   */
+  readonly narrationEnabled: boolean;
   readonly asOf: Date;
 };
 
@@ -94,10 +101,11 @@ export async function loadProjectFlow(
 
   const project = projectSchema.parse(projectRow);
 
-  const [boardRows, columnRows, transitionRows] = await Promise.all([
+  const [boardRows, columnRows, transitionRows, agentRows] = await Promise.all([
     scope.reads.boardsByProject(project.id),
     scope.reads.boardColumnsByProject(project.id),
     scope.reads.transitionsByProject(project.id),
+    scope.reads.scrumAgentByProject(project.id),
   ]);
 
   const columns = columnRows.map((row) => boardColumnSchema.parse(row));
@@ -142,6 +150,7 @@ export async function loadProjectFlow(
     columns: occupancies,
     byState,
     bottleneck: bottleneck(transitions, asOf),
+    narrationEnabled: agentRows[0]?.enabledSkillKeys.includes("bottleneck-detection") ?? false,
     asOf,
   };
 }

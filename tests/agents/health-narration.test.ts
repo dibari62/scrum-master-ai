@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { healthSignalIdSchema } from "@/domain";
+import { healthNarrativeSchema, healthSignalIdSchema } from "@/domain";
 import {
   SPRINT_HEALTH_BUDGET,
   buildHealthSnapshot,
+  composeCodeNarrative,
   composeHealthPrompt,
   isNarratable,
   narrateSprintHealth,
@@ -137,6 +138,63 @@ describe("istantanea della salute", () => {
     for (const signal of HEALTH.signals) {
       expect(healthSignalIdSchema.safeParse(signal.id).success).toBe(true);
     }
+  });
+});
+
+describe("la spiegazione che il codice scrive da sé", () => {
+  /*
+   * Senza fornitore la skill non deve produrre una non-risposta.
+   *
+   * La prima versione mostrava una frase che spiegava di non poter spiegare, e
+   * sotto dichiarava di essere stata «generata da un modello linguistico»:
+   * inutile e falsa insieme. Due delle tre cose promesse — quali segnali sono
+   * oltre soglia e come si è mosso il verdetto — sono fatti che il codice
+   * possiede.
+   */
+  it("rispetta lo stesso schema preteso dal modello", () => {
+    const parsed = healthNarrativeSchema.safeParse(composeCodeNarrative(snapshotOf()));
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("nomina i segnali oltre soglia, con le loro cifre", () => {
+    const narrative = composeCodeNarrative(snapshotOf());
+
+    const ids = narrative.observations.map((observation) => observation.signalId);
+    expect(ids).toContain("progress");
+    expect(ids).toContain("review-wait");
+
+    // Il segnale non valutabile non diventa un'osservazione: non c'è misura.
+    expect(ids).not.toContain("wip-limit");
+
+    expect(narrative.observations.map((o) => o.observation).join(" ")).toContain("31%");
+  });
+
+  it("non descrive un andamento se non esiste un controllo precedente", () => {
+    expect(composeCodeNarrative(snapshotOf()).trend).toBeUndefined();
+  });
+
+  it("dice da quanto dura un giudizio che non è cambiato", () => {
+    const narrative = composeCodeNarrative(
+      snapshotOf([{ date: "12 marzo 2026", verdictLabel: "Critico" }]),
+    );
+
+    expect(narrative.trend).toContain("già dal controllo del 12 marzo 2026");
+  });
+
+  it("dichiara il cambiamento quando il verdetto si è mosso", () => {
+    const narrative = composeCodeNarrative(
+      snapshotOf([{ date: "12 marzo 2026", verdictLabel: "Sereno" }]),
+    );
+
+    expect(narrative.trend).toContain("Sereno");
+    expect(narrative.trend).toContain("Critico");
+  });
+
+  it("non tace i segnali che non è stato possibile valutare", () => {
+    // «Non valutabile» taciuto si legge come «sereno», che è la lettura
+    // opposta a quella giusta.
+    expect(composeCodeNarrative(snapshotOf()).situation).toContain("non è valutabile");
   });
 });
 

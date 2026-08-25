@@ -1,40 +1,33 @@
 "use server";
 
-import { organizationIdSchema, projectIdSchema, type HealthNarrative } from "@/domain";
-import type { NarrationOrigin } from "@/agents/sprint-health";
+import { organizationIdSchema, projectIdSchema, type DigestNarrative } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { auth } from "@/lib/auth";
 import { loadAgent } from "@/lib/agents/scrum-agent";
-import { runSprintHealthNarration } from "@/lib/agents/sprint-health-runtime";
+import { runDailyDigest } from "@/lib/agents/daily-digest-runtime";
+import type { NarrationOrigin } from "@/agents/sprint-health";
 
 /**
- * Asking the Scrum Master AI to explain the verdict on screen.
+ * Asking the Scrum Master AI to write up the previous day.
  *
- * **Why this returns its result instead of revalidating a page.** The narration
- * is not stored: it describes the state of this minute, and keeping it would
- * produce, within a day, a confident description of a situation that is no
- * longer true. So there is nothing for a page to reload — the text exists only
- * as the answer to this request, and travels back as one.
- *
- * A refusal comes back the same way, with its reason. «Non è stato possibile»
- * tells a reader nothing about whether to retry, to fix a configuration, or to
- * stop asking.
+ * Not stored, like the other narrations: a digest kept past its day becomes a
+ * confident statement about a situation that has moved on. What *is* kept is the
+ * run, in the register, with what it cost.
  */
 
-export type NarrationState =
+export type DigestState =
   | { readonly status: "idle" }
   | {
       readonly status: "ok";
-      readonly narrative: HealthNarrative;
-      /** Chi ha scritto il testo: l'interfaccia non deve mai attribuirlo a un modello assente. */
+      readonly narrative: DigestNarrative;
       readonly origin: NarrationOrigin;
     }
   | { readonly status: "refused"; readonly message: string };
 
-export async function narrateHealthAction(
-  _previous: NarrationState,
+export async function requestDigestAction(
+  _previous: DigestState,
   form: FormData,
-): Promise<NarrationState> {
+): Promise<DigestState> {
   const session = await auth();
   if (!session?.organizationId) {
     return { status: "refused", message: "Sessione scaduta: rientra e riprova." };
@@ -70,7 +63,7 @@ export async function narrateHealthAction(
       run.scrumAgentId === loaded.agent.id && run.startedAt.getTime() >= startOfDay.getTime(),
   ).length;
 
-  const outcome = await runSprintHealthNarration({
+  const outcome = await runDailyDigest({
     organizationId,
     projectId,
     agent: loaded.agent,

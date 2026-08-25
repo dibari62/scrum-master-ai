@@ -47,7 +47,12 @@ test.describe("resoconto di sprint", () => {
     }
 
     await expect(page.getByRole("button", { name: "Genera il resoconto" })).toHaveCount(0);
-    await expect(page.getByText("non è fra le skill abilitate")).toBeVisible();
+
+    // La frase diceva «non è fra le skill abilitate»: «skill» è gergo, e la
+    // schermata esiste per essere capita da chi non lo conosce. Ciò che il test
+    // difende non è la frase ma la proprietà — a capacità spenta la pagina dice
+    // che è spenta, invece di limitarsi a non mostrare il comando.
+    await expect(page.getByText("Questa capacità è spenta")).toBeVisible();
 
     await page.getByRole("button", { name: "Abilita il resoconto di sprint" }).click();
     await page.waitForLoadState("networkidle");

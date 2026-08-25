@@ -975,6 +975,78 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/bottleneck.test.ts",
   },
   {
+    id: "daily-activity",
+    name: "Attività di una giornata",
+    question:
+      "In una giornata, che cosa si è mosso, che cosa è tornato indietro e che cosa è rimasto fermo?",
+    formula:
+      "Si contano le transizioni cadute dentro la finestra e si classificano: gli ingressi in «concluso» sono lavoro finito, il primo ingresso in «in lavorazione» è lavoro iniziato, le uscite da «concluso» sono riaperture. A fine finestra si guarda lo stato di ogni elemento: quelli in «bloccato» si elencano, e quelli non terminali la cui ultima transizione è più vecchia della soglia ricevuta risultano fermi.",
+    unit: "count",
+    excludes: [
+      "Il ritorno in lavorazione dopo una revisione, che è movimento ma non è un inizio: contarlo gonfierebbe il digest proprio nei giorni di rilavorazione, quando un resoconto ottimista inganna di più.",
+      "Gli elementi conclusi, quando si cerca ciò che è fermo: un elemento chiuso da un mese non è fermo, è finito.",
+      "Qualsiasi attribuzione a una persona: si contano gli elementi e i loro passaggi, mai chi li ha fatti.",
+      "La definizione di «ieri»: dove cominci un giorno dipende dal fuso di chi guarda, e deciderlo qui farebbe raccontare fatti diversi a due persone sullo stesso progetto.",
+    ],
+    unavailableWhen:
+      "Non esiste alcuna storia degli stati, oppure la finestra richiesta finisce prima di cominciare. Una giornata senza movimenti resta invece disponibile, con le liste vuote: «ieri non si è mosso nulla» è l'informazione più preoccupante che questa metrica possa dare, e trasformarla in «non disponibile» la cancellerebbe.",
+    inputs: [
+      {
+        entity: "StateTransition",
+        reads:
+          "la storia degli stati, da cui i passaggi caduti nella finestra e lo stato di ciascun elemento alla sua fine",
+      },
+    ],
+    observation: {
+      kind: "between",
+      from: "l'inizio della finestra, passato dal chiamante",
+      to: "la fine della finestra, passata dal chiamante",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning:
+      "quanti elementi distinti hanno una storia di stati, cioè su quanti la giornata è stata osservabile",
+    referenceInstant: "parametri from e to",
+    edgeCases: [
+      {
+        situation: "Nella finestra non cade alcuna transizione.",
+        outcome:
+          "La metrica è disponibile con le liste vuote: «non si è mosso nulla» è un fatto, non un dato mancante.",
+        verifiedBy: "un giorno senza movimenti è un fatto, non un'assenza di dati",
+      },
+      {
+        situation: "Un elemento rientra in lavorazione dopo una revisione.",
+        outcome: "Conta come movimento, non come lavoro iniziato.",
+        verifiedBy: "considera «iniziato» solo il primo ingresso in lavorazione",
+      },
+      {
+        situation: "Un elemento esce da «concluso».",
+        outcome: "È una riapertura, tenuta distinta da ciò che è stato completato.",
+        verifiedBy: "registra una riapertura come tale, non come avanzamento",
+      },
+      {
+        situation: "Un elemento cambia stato dopo la fine della finestra.",
+        outcome: "Si guarda lo stato che aveva alla fine della finestra, non l'ultimo noto.",
+        verifiedBy: "guarda lo stato alla fine della finestra, non l'ultimo conosciuto",
+      },
+      {
+        situation: "Non viene passata alcuna soglia di immobilità.",
+        outcome: "L'elenco dei fermi resta vuoto, invece di adottare una soglia inventata.",
+        verifiedBy: "senza una soglia non inventa una definizione di «troppo»",
+      },
+      {
+        situation: "Non esiste alcuna storia degli stati.",
+        outcome: "Nessun valore, con motivo «no-data».",
+        verifiedBy: "non è disponibile senza alcuna storia degli stati",
+      },
+    ],
+    decision:
+      "La finestra è un parametro e non «ieri» calcolato qui dentro. Il motore non legge l'orologio (ADR-0002), e il confine di una giornata dipende dal fuso di chi guarda: deciderlo nel calcolo produrrebbe due verità diverse sullo stesso progetto, entrambe apparentemente affidabili.",
+    sourceFile: "src/metrics/daily.ts",
+    sourceSymbol: "dailyActivity",
+    testFile: "tests/metrics/daily.test.ts",
+  },
+  {
     id: "sprint-length",
     name: "Durata tipica dello sprint",
     question: "Di quanti giorni sono, di solito, gli sprint di questo team?",

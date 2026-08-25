@@ -88,6 +88,53 @@ test.describe("spiegazione della salute", () => {
     ).toBeVisible();
   });
 
+  test("il riquadro dice di quale giudizio darà spiegazione", async ({ page }) => {
+    /*
+     * Il difetto segnalato dal Product Owner: «"Chiedi una spiegazione" non è
+     * chiara». Il titolo era «Spiegazione del giudizio» e il pulsante non
+     * diceva spiegazione *di che cosa*, né cosa sarebbe arrivato premendolo.
+     *
+     * Questo test non accende nulla, ed è deliberato: le capacità sono stato
+     * condiviso in un database condiviso, e un test che le muove per leggere un
+     * titolo aggiunge una causa di fallimento che non ha niente a che vedere con
+     * ciò che sta verificando. Le due proprietà valgono in entrambi gli stati —
+     * a capacità accesa il riquadro offre il pulsante, a capacità spenta offre
+     * la strada per accenderla, e in nessuno dei due casi si limita a dire
+     * «spiegazione».
+     */
+    await page.goto(`/progetti/${PROJECT}`);
+
+    const body = await page.locator("main").innerText();
+    if (body.includes("Nessuno sprint in corso") || body.includes("non calcolabile")) {
+      test.skip(true, "senza un giudizio calcolato non c'è alcun riquadro da leggere");
+    }
+
+    // Il verdetto è nominato nel titolo: si sa di che cosa si otterrà la
+    // spiegazione prima di premere qualcosa.
+    expect(body).toMatch(
+      /Perché il giudizio dice «(Sereno|Da tenere d'occhio|Critico|Non valutabile)»/,
+    );
+
+    const ask = page.getByRole("button", { name: "Chiedi una spiegazione del giudizio" });
+
+    if ((await ask.count()) > 0) {
+      await expect(ask).toBeVisible();
+      // Cosa arriva premendolo, scritto prima e non dopo.
+      expect(body).toContain("Cosa ricevi premendo il pulsante");
+      return;
+    }
+
+    /*
+     * Capacità spenta: il collegamento porta **all'ancora** della capacità, non
+     * in cima alla scheda. «Non trovo Salute dello sprint» è il secondo difetto
+     * segnalato, e una pagina in cui bisogna comunque cercarla non lo risolve.
+     */
+    const link = page.locator("main").getByRole("link", { name: /Salute dello sprint/ });
+
+    await expect(link).toBeVisible();
+    expect(await link.getAttribute("href")).toContain("#salute-dello-sprint");
+  });
+
   test("dichiara che il testo non viene conservato", async ({ page }) => {
     /*
      * Perché è un requisito e non una gentilezza: la narrazione descrive lo
