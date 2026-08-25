@@ -27,5 +27,8 @@ export * from "./project-context";
 export * from "./scrum-agent";
 export * from "./sprint-report";
 export * from "./sprint-health";
+export * from "./bottleneck";
+export * from "./daily-digest";
+export * from "./project-qa";
 
 export * from "./metric-catalog";

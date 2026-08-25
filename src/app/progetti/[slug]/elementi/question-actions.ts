@@ -1,48 +1,43 @@
 "use server";
 
-import { organizationIdSchema, projectIdSchema, type HealthNarrative } from "@/domain";
-import type { NarrationOrigin } from "@/agents/sprint-health";
+import { organizationIdSchema, projectIdSchema, type ProjectAnswer } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { auth } from "@/lib/auth";
 import { loadAgent } from "@/lib/agents/scrum-agent";
-import { runSprintHealthNarration } from "@/lib/agents/sprint-health-runtime";
+import { runProjectQuestion, type CitedSource } from "@/lib/agents/project-qa-runtime";
 
 /**
- * Asking the Scrum Master AI to explain the verdict on screen.
+ * Asking a free question about the project.
  *
- * **Why this returns its result instead of revalidating a page.** The narration
- * is not stored: it describes the state of this minute, and keeping it would
- * produce, within a day, a confident description of a situation that is no
- * longer true. So there is nothing for a page to reload — the text exists only
- * as the answer to this request, and travels back as one.
- *
- * A refusal comes back the same way, with its reason. «Non è stato possibile»
- * tells a reader nothing about whether to retry, to fix a configuration, or to
- * stop asking.
+ * The answer travels back with the sources it was built from, because it is the
+ * only output of this product with no figures beside it on screen: without the
+ * links it would have to be believed rather than checked.
  */
 
-export type NarrationState =
+export type QuestionState =
   | { readonly status: "idle" }
   | {
       readonly status: "ok";
-      readonly narrative: HealthNarrative;
-      /** Chi ha scritto il testo: l'interfaccia non deve mai attribuirlo a un modello assente. */
-      readonly origin: NarrationOrigin;
+      readonly answer: ProjectAnswer;
+      readonly sources: readonly CitedSource[];
+      readonly question: string;
     }
   | { readonly status: "refused"; readonly message: string };
 
-export async function narrateHealthAction(
-  _previous: NarrationState,
+export async function askProjectAction(
+  _previous: QuestionState,
   form: FormData,
-): Promise<NarrationState> {
+): Promise<QuestionState> {
   const session = await auth();
   if (!session?.organizationId) {
     return { status: "refused", message: "Sessione scaduta: rientra e riprova." };
   }
 
   const slug = form.get("slug");
-  if (typeof slug !== "string") {
-    return { status: "refused", message: "Progetto non indicato." };
+  const question = form.get("question");
+
+  if (typeof slug !== "string" || typeof question !== "string") {
+    return { status: "refused", message: "Domanda non ricevuta." };
   }
 
   const organizationId = organizationIdSchema.parse(session.organizationId);
@@ -70,14 +65,20 @@ export async function narrateHealthAction(
       run.scrumAgentId === loaded.agent.id && run.startedAt.getTime() >= startOfDay.getTime(),
   ).length;
 
-  const outcome = await runSprintHealthNarration({
+  const outcome = await runProjectQuestion({
     organizationId,
     projectId,
     agent: loaded.agent,
+    question,
     options: { runsToday },
   });
 
-  return outcome.ok && outcome.narrative && outcome.origin
-    ? { status: "ok", narrative: outcome.narrative, origin: outcome.origin }
+  return outcome.ok && outcome.answer
+    ? {
+        status: "ok",
+        answer: outcome.answer,
+        sources: outcome.sources,
+        question: question.trim(),
+      }
     : { status: "refused", message: outcome.message };
 }

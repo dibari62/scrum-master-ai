@@ -17,4 +17,5 @@ export * from "./flow";
 export * from "./sprint";
 export * from "./health";
 export * from "./bottleneck";
+export * from "./daily";
 export * from "./catalog";

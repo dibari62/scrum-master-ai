@@ -46,29 +46,46 @@ function aRun(overrides: Record<string, unknown> = {}) {
 }
 
 describe("catalogo delle skill", () => {
-  it("dichiara le skill future senza renderle eseguibili", () => {
+  it("dichiara eseguibile ogni capacità che è stata costruita", () => {
     /*
      * Dichiarare una skill serve al catalogo; renderla eseguibile è un'altra
-     * decisione. `sprint-report` è passata da dichiarata a eseguibile in T4 e
-     * `sprint-health` con l'incremento della narrazione, quando sono state
-     * costruite: le altre restano intenzioni.
+     * decisione. Le sei sono passate da dichiarate a eseguibili una alla volta,
+     * man mano che venivano costruite: `sprint-report` in T4, `sprint-health` con
+     * la narrazione, poi collo di bottiglia, digest e domande sul progetto.
      */
     expect(isSkillAvailable("configuration-check")).toBe(true);
     expect(isSkillAvailable("sprint-report")).toBe(true);
     expect(isSkillAvailable("sprint-health")).toBe(true);
-
-    for (const key of ["daily-digest", "project-qa", "bottleneck-detection"] as const) {
-      expect(isSkillAvailable(key), `${key} non è ancora costruita`).toBe(false);
-    }
+    expect(isSkillAvailable("bottleneck-detection")).toBe(true);
+    expect(isSkillAvailable("daily-digest")).toBe(true);
+    expect(isSkillAvailable("project-qa")).toBe(true);
   });
 
-  it("eseguibile è un sottoinsieme proprio di dichiarata", () => {
-    // Se coincidessero, la distinzione fra ciò che il prodotto promette e ciò
-    // che sa fare sparirebbe, ed è esattamente la distinzione che serve.
+  it("dichiara eseguibile ogni capacità del catalogo", () => {
+    /*
+     * Il catalogo e ciò che il prodotto sa fare ora coincidono.
+     *
+     * Per buona parte della costruzione questo test verificava il contrario —
+     * che «eseguibile» fosse un sottoinsieme **proprio** di «dichiarata» — e
+     * quella era l'affermazione giusta finché c'erano capacità promesse e non
+     * costruite. Ora tutte e sei esistono, e pretendere una lacuna significherebbe
+     * chiedere al prodotto di restare incompleto per non far fallire un test.
+     *
+     * Ciò che resta difeso è il **meccanismo**: dichiarare una capacità e
+     * renderla eseguibile restano due decisioni separate, e la seconda passa da
+     * qui. Una settima capacità aggiunta all'enum senza essere costruita deve
+     * poter essere rifiutata prima del gateway.
+     */
     const eseguibili = skillKeySchema.options.filter(isSkillAvailable);
 
-    expect(eseguibili).toEqual(["configuration-check", "sprint-report", "sprint-health"]);
-    expect(eseguibili.length).toBeLessThan(skillKeySchema.options.length);
+    expect(eseguibili).toEqual(skillKeySchema.options);
+    expect(isSkillAvailable("project-qa")).toBe(true);
+  });
+
+  it("mantiene separate la dichiarazione e l'esecuzione", () => {
+    // Una chiave che il catalogo non conosce non è eseguibile per definizione:
+    // è la porta che impedisce a una capacità inventata di arrivare al gateway.
+    expect(isKnownSkillKey("skill-inventata")).toBe(false);
   });
 
   it("rifiuta in ingresso una chiave che non esiste", () => {

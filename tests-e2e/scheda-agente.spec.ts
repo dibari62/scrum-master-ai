@@ -159,6 +159,30 @@ test.describe("scheda dello Scrum Master AI: si capisce", () => {
     await expect(page.getByRole("heading", { name: "Resoconto di sprint" })).toBeVisible();
   });
 
+  test("si capisce a colpo d'occhio quali capacità sono accese", async ({ page }) => {
+    /*
+     * Il difetto segnalato dal Product Owner: «non trovo Salute dello sprint».
+     * C'era, era descritta correttamente, e il suo stato — accesa o spenta — si
+     * poteva dedurre solo leggendo il paragrafo fino in fondo e notando quale
+     * pulsante offrisse. Ora ogni scheda porta lo stato accanto al nome, dice
+     * dove la capacità si usa, e ha un'ancora a cui la dashboard può puntare.
+     *
+     * Non accende nulla: le capacità sono stato condiviso, e ciò che qui si
+     * verifica vale acceso o spento che sia l'interruttore.
+     */
+    await page.goto(`${BASE}#salute-dello-sprint`);
+
+    const card = page.locator("#salute-dello-sprint");
+    await expect(card).toBeVisible();
+
+    // Lo stato è una parola, non un colore: chi ascolta la pagina lo riceve.
+    await expect(card).toContainText(/Accesa|Spenta/);
+    await expect(card).toContainText("Dove si usa:");
+
+    const body = await page.locator("main").innerText();
+    expect(body, "manca il riepilogo di ciò che è acceso").toContain("Accese ora:");
+  });
+
   test("dichiara ciò che non sa ancora fare, invece di tacerlo", async ({ page }) => {
     // Nasconderle lascerebbe credere che il prodotto finisca qui; mostrarle
     // come pulsanti spenti lascerebbe credere che siano rotte.

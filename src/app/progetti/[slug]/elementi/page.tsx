@@ -7,10 +7,12 @@ import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import {
   organizationIdSchema,
   workItemStateSchema,
-  type WorkItemState,
 } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDuration, formatEstimate, formatNumber } from "@/lib/format";
+import { STATE_LABELS as SHARED_STATE_LABELS } from "@/lib/state-words";
+
+import { ProjectQuestion } from "./project-question";
 import { cn } from "@/lib/utils";
 
 import { loadWorkItems, type WorkItemFilter } from "./data";
@@ -27,14 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: `Elementi · ${slug} · Scrum Master AI` };
 }
 
-const STATE_LABELS: Readonly<Record<WorkItemState, string>> = {
-  todo: "Da fare",
-  in_progress: "In lavorazione",
-  in_review: "In revisione",
-  blocked: "Bloccato",
-  done: "Concluso",
-  cancelled: "Annullato",
-};
+const STATE_LABELS = SHARED_STATE_LABELS;
 
 /** Reads one query-string value, ignoring a repeated parameter. */
 function single(value: string | string[] | undefined): string | null {
@@ -128,6 +123,15 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
           {" · ordinati per cycle time decrescente"}
         </p>
       </header>
+
+      {/*
+       * La domanda sta dove stanno le fonti.
+       *
+       * La risposta cita elementi di questa pagina: metterla altrove
+       * costringerebbe a fidarsi dei titoli citati invece di poterli aprire
+       * subito sopra.
+       */}
+      <ProjectQuestion slug={project.slug} enabled={list.questionEnabled} />
 
       <div className="grid gap-2">
         <div className="flex flex-wrap gap-1.5">

@@ -43,6 +43,13 @@ export type WorkItemList = {
   readonly filter: WorkItemFilter;
   /** Items before filtering: the denominator of "n su m". */
   readonly totalCount: number;
+  /**
+   * Whether the agent may be asked a free question about this project.
+   *
+   * Read here so the form appears only when submitting it would work: a control
+   * that always refuses teaches a reader to ignore controls.
+   */
+  readonly questionEnabled: boolean;
 };
 
 export type WorkItemFilter = {
@@ -110,5 +117,14 @@ export async function loadWorkItems(
     return right - left;
   });
 
-  return { project, rows: sorted, sprints, filter, totalCount: rows.length };
+  const agentRows = await scope.reads.scrumAgentByProject(project.id);
+
+  return {
+    project,
+    rows: sorted,
+    sprints,
+    filter,
+    totalCount: rows.length,
+    questionEnabled: agentRows[0]?.enabledSkillKeys.includes("project-qa") ?? false,
+  };
 }

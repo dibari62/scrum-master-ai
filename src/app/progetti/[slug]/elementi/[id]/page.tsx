@@ -13,6 +13,7 @@ import {
 } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatEstimate, formatNumber } from "@/lib/format";
+import { STATE_LABELS as SHARED_STATE_LABELS } from "@/lib/state-words";
 
 import { presentDuration, presentPercent } from "../../../present";
 import { loadWorkItemDetail } from "./data";
@@ -29,14 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /** The Italian words for the canonical states (`docs/domain-glossary.md`). */
-const STATE_LABELS: Readonly<Record<WorkItemState, string>> = {
-  todo: "Da fare",
-  in_progress: "In lavorazione",
-  in_review: "In revisione",
-  blocked: "Bloccato",
-  done: "Concluso",
-  cancelled: "Annullato",
-};
+const STATE_LABELS = SHARED_STATE_LABELS;
 
 const KIND_LABELS: Readonly<Record<WorkItemKind, string>> = {
   story: "Storia",

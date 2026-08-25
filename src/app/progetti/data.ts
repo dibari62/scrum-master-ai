@@ -95,6 +95,8 @@ export type ProjectDashboard = {
    * ignore controls.
    */
   readonly healthNarrationEnabled: boolean;
+  /** Whether the agent may be asked to write up the previous day. */
+  readonly digestEnabled: boolean;
   readonly peopleCount: number;
   readonly asOf: Date;
 };
@@ -212,6 +214,7 @@ export async function loadProjectDashboard(
       verdict: healthVerdictSchema.parse(row.verdict),
     })),
     healthNarrationEnabled: agentRows[0]?.enabledSkillKeys.includes("sprint-health") ?? false,
+    digestEnabled: agentRows[0]?.enabledSkillKeys.includes("daily-digest") ?? false,
     peopleCount: peopleRows.length,
     asOf,
   };

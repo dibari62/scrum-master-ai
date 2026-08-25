@@ -110,7 +110,8 @@ export const SKILLS: Readonly<Record<SkillKey, SkillDescription>> = {
   },
   "daily-digest": {
     name: "Digest giornaliero",
-    produces: "cosa è cambiato ieri, cosa non si è mosso e cosa è fermo.",
+    produces:
+      "riassume la giornata precedente: cosa è stato concluso, cosa è tornato indietro e cosa non si è mosso. Non può tacere ciò che è fermo, ed è la parte che un elenco di progressi non mostrerebbe.",
   },
   "sprint-health": {
     name: "Salute dello sprint",
@@ -120,10 +121,11 @@ export const SKILLS: Readonly<Record<SkillKey, SkillDescription>> = {
   "bottleneck-detection": {
     name: "Collo di bottiglia",
     produces:
-      "quale fase del flusso trattiene più a lungo il lavoro. È già calcolato e visibile nella pagina «Flusso di lavoro»: come capacità dell'agente mancherebbe solo la narrazione.",
+      "spiega in quale fase il lavoro resta fermo più a lungo e quanto poco del tempo totale sia lavorazione vera. La fase la sceglie il codice, e solo fra le attese: una lettura che ne indicasse un'altra viene rifiutata.",
   },
   "project-qa": {
     name: "Domande sul progetto",
-    produces: "risposte a domande libere, con la citazione delle fonti usate.",
+    produces:
+      "risponde a domande in parole tue citando gli elementi su cui si basa, e dichiara di non sapere quando le fonti non bastano. È l'unica risposta senza numeri accanto: le citazioni sono ciò che la rende verificabile.",
   },
 };

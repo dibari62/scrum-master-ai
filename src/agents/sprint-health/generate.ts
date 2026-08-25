@@ -151,10 +151,20 @@ const NO_USAGE: HealthUsage = {
   durationMs: 0,
 };
 
+/**
+ * Who wrote the text.
+ *
+ * Shown to the reader, and not as a courtesy. Without it the interface printed
+ * «generato da un modello linguistico» above a paragraph the code had written —
+ * a claim that was false, and false in the direction that flatters the product.
+ */
+export type NarrationOrigin = "model" | "code";
+
 export type NarrateOutcome =
   | {
       readonly ok: true;
       readonly narrative: HealthNarrative;
+      readonly origin: NarrationOrigin;
       readonly usage: HealthUsage;
     }
   | {
@@ -163,6 +173,84 @@ export type NarrateOutcome =
       readonly message: string;
       readonly usage: HealthUsage;
     };
+
+/**
+ * The explanation the code can write on its own.
+ *
+ * **Why this exists, and why it is not a placeholder.** Without a vendor key the
+ * gateway answers with a canned string, and what reached the reader was a
+ * paragraph explaining that there was nothing to explain. Pressing a button to
+ * be told the button does not work is worse than not offering it.
+ *
+ * Two of the three things this skill promises do **not** need a model at all:
+ * naming the signals that are past their threshold, and saying how the verdict
+ * has moved. The code holds both. What it cannot do is join them into a reading
+ * — so it does not pretend to, and says who wrote it.
+ */
+export function composeCodeNarrative(snapshot: HealthSnapshot): HealthNarrative {
+  const breached = snapshot.signals.filter(
+    (signal) => signal.status === "critical" || signal.status === "watch",
+  );
+
+  const unmeasured = snapshot.signals.filter((signal) => signal.status === "not-evaluable");
+
+  const counted =
+    breached.length === 0
+      ? "Nessun segnale supera la propria soglia."
+      : breached.length === 1
+        ? "Un segnale supera la propria soglia."
+        : `${breached.length} segnali superano la propria soglia.`;
+
+  const missing =
+    unmeasured.length === 0
+      ? ""
+      : ` ${unmeasured.length === 1 ? "Un segnale non è valutabile" : `${unmeasured.length} segnali non sono valutabili`}: ` +
+        `l'assenza di un dato non è un risultato sereno, è l'assenza di un risultato.`;
+
+  const situation =
+    `A ${snapshot.elapsed} di sprint trascorso il giudizio è «${snapshot.verdictLabel}». ` +
+    `${counted} Il verdetto corrisponde sempre al segnale messo peggio, mai alla media: ` +
+    `una media lascerebbe che i segnali sereni coprano quello serio.${missing}`;
+
+  const observations = breached.slice(0, 4).map((signal) => {
+    const figures = [
+      signal.measured === null ? null : `misurato ${signal.measured}`,
+      signal.threshold === null ? null : `soglia ${signal.threshold}`,
+    ]
+      .filter((part) => part !== null)
+      .join(", ");
+
+    const severity =
+      signal.status === "critical" ? "è ben oltre la soglia" : "ha superato la soglia";
+
+    return {
+      signalId: signal.id,
+      observation: `${signal.title} ${severity}${figures ? ` (${figures})` : ""}.`,
+    };
+  });
+
+  /*
+   * L'andamento è un calcolo, non un'interpretazione.
+   *
+   * Confrontare il verdetto di oggi con l'ultimo conservato è aritmetica sui
+   * giudizi già presi: il codice lo sa fare, ed è proprio l'informazione che la
+   * dashboard oggi affida a una fila di pallini colorati da contare a occhio.
+   */
+  const previous = snapshot.history[snapshot.history.length - 1];
+
+  const trend =
+    previous === undefined
+      ? undefined
+      : previous.verdictLabel === snapshot.verdictLabel
+        ? `Il giudizio è «${snapshot.verdictLabel}» già dal controllo del ${previous.date}: ` +
+          `non è un peggioramento improvviso, è una situazione che dura.`
+        : `Al controllo del ${previous.date} il giudizio era «${previous.verdictLabel}», ` +
+          `oggi è «${snapshot.verdictLabel}».`;
+
+  return trend === undefined
+    ? { situation, observations }
+    : { situation, observations, trend };
+}
 
 export type NarrateInput = {
   readonly gateway: Gateway;
@@ -293,5 +381,5 @@ export async function narrateSprintHealth(input: NarrateInput): Promise<NarrateO
     };
   }
 
-  return { ok: true, narrative, usage };
+  return { ok: true, narrative, origin: "model", usage };
 }

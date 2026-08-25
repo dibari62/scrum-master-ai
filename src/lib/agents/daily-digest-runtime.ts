@@ -1,15 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  boardColumnSchema,
   effectiveTokenBudget,
-  healthVerdictSchema,
   projectSchema,
-  sprintScopeEventSchema,
-  sprintSchema,
   stateTransitionSchema,
   workItemSchema,
-  type HealthNarrative,
+  type DigestNarrative,
   type OrganizationId,
   type ProjectId,
   type ScrumAgent,
@@ -19,58 +15,68 @@ import { forOrganization, getDatabase } from "@/db";
 import { workItemEstimate } from "@/db/rows";
 import { skillRuns } from "@/db/schema";
 import {
-  SPRINT_HEALTH_BUDGET,
-  buildHealthSnapshot,
+  DAILY_DIGEST_BUDGET,
+  buildDigestSnapshot,
   composeCodeNarrative,
-  isNarratable,
-  narrateSprintHealth,
-  type HistoryPoint,
-  type NarrationOrigin,
-} from "@/agents/sprint-health";
-import { sprintHealth } from "@/metrics";
+  narrateDigest,
+} from "@/agents/daily-digest";
+import type { NarrationOrigin } from "@/agents/sprint-health";
+import { dailyActivity, summariseFlow, type Milliseconds } from "@/metrics";
 import { formatDate } from "@/lib/format";
-import { VERDICT_WORDS } from "@/lib/health-words";
 import { createGateway, selectedProvider, type Gateway } from "@/lib/llm";
 
 /**
- * Explaining the health of the running sprint, and writing down what it cost.
+ * Writing up a day of the project.
  *
- * The verdict is recomputed here rather than read from the last stored check,
- * and the difference matters: the stored checks are a *history*, taken once a
- * day, while the reader is asking about now. Narrating yesterday's verdict under
- * today's banner would put two different judgements on one screen.
- *
- * The narration itself is not stored (spec: «la persistenza del testo» is out of
- * scope). It describes a state that changes; kept, it would become a confident
- * description of a situation that is no longer true.
+ * **Where «yesterday» is decided.** Here, at the edge, and nowhere else: the
+ * metrics engine takes a window as a parameter because the boundary of a day
+ * depends on the reader's timezone (ADR-0002). This runtime turns a calendar
+ * date into that window, and everything below it stays reproducible.
  */
 
-export const SKILL_KEY = "sprint-health";
+export const SKILL_KEY = "daily-digest";
 
-export type HealthNarrationOutcome = {
+export type DigestOutcomeSummary = {
   readonly ok: boolean;
-  /** `null` when the attempt never became an execution. */
   readonly skillRunId: string | null;
-  readonly narrative: HealthNarrative | null;
-  /** Who wrote the text, so the interface never claims a model that was absent. */
+  readonly narrative: DigestNarrative | null;
   readonly origin: NarrationOrigin | null;
   readonly failureCause: SkillRunFailureCause | null;
   readonly message: string;
 };
 
-export type HealthNarrationOptions = {
+export type DigestOptions = {
   readonly gateway?: Gateway | undefined;
   readonly now?: (() => Date) | undefined;
   readonly runsToday?: number | undefined;
-  readonly stubResponse?: string | undefined;
 };
 
-export async function runSprintHealthNarration(input: {
+const DAY_MS = 86_400_000;
+
+/**
+ * The window the digest describes: the calendar day before the request.
+ *
+ * Computed in UTC, which is what the whole application stores (§7). It is an
+ * approximation for a team in another timezone, and it is stated rather than
+ * hidden: the day label travels with the text, so a reader can see which
+ * twenty-four hours were counted.
+ */
+export function previousDay(now: Date): { readonly from: Date; readonly to: Date } {
+  const midnight = new Date(now);
+  midnight.setUTCHours(0, 0, 0, 0);
+
+  const from = new Date(midnight.getTime() - DAY_MS);
+  const to = new Date(midnight.getTime() - 1);
+
+  return { from, to };
+}
+
+export async function runDailyDigest(input: {
   readonly organizationId: OrganizationId;
   readonly projectId: ProjectId;
   readonly agent: ScrumAgent;
-  readonly options?: HealthNarrationOptions;
-}): Promise<HealthNarrationOutcome> {
+  readonly options?: DigestOptions;
+}): Promise<DigestOutcomeSummary> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
   const gateway = options.gateway ?? createGateway();
@@ -111,7 +117,7 @@ export async function runSprintHealthNarration(input: {
   const refuse = async (
     failureCause: SkillRunFailureCause,
     message: string,
-  ): Promise<HealthNarrationOutcome> => {
+  ): Promise<DigestOutcomeSummary> => {
     await record({
       status: "failed",
       failureCause,
@@ -129,7 +135,7 @@ export async function runSprintHealthNarration(input: {
   if (input.agent.status === "suspended") {
     return refuse(
       "agent_suspended",
-      "Lo Scrum Master AI è sospeso: riattivalo per chiedere una spiegazione.",
+      "Lo Scrum Master AI è sospeso: riattivalo per chiedere il digest.",
     );
   }
 
@@ -140,7 +146,7 @@ export async function runSprintHealthNarration(input: {
       narrative: null,
       origin: null,
       failureCause: null,
-      message: "La salute dello sprint non è fra le skill abilitate su questo Scrum Master AI.",
+      message: "Il digest giornaliero non è fra le skill abilitate su questo Scrum Master AI.",
     };
   }
 
@@ -157,86 +163,54 @@ export async function runSprintHealthNarration(input: {
 
   const project = projectSchema.parse(projectRow);
 
-  const [sprintRows, itemRows, transitionRows, scopeRows, columnRows] = await Promise.all([
-    scope.reads.sprintsByProject(input.projectId),
+  const [itemRows, transitionRows] = await Promise.all([
     scope.reads.workItemsByProject(input.projectId),
     scope.reads.transitionsByProject(input.projectId),
-    scope.reads.scopeEventsByProject(input.projectId),
-    scope.reads.boardColumnsByProject(input.projectId),
   ]);
-
-  const sprints = sprintRows.map((row) => sprintSchema.parse(row));
-
-  /*
-   * «In corso» means open and containing this instant, the same definition the
-   * dashboard uses. The last sprint of a project abandoned months ago is over,
-   * and explaining its health would answer a question nobody asked.
-   */
-  const running = sprints.find(
-    (sprint) =>
-      sprint.completedAt === null &&
-      sprint.startsAt.getTime() <= startedAt.getTime() &&
-      sprint.endsAt.getTime() >= startedAt.getTime(),
-  );
-
-  if (!running) {
-    return refuse(
-      "invalid_output",
-      "Non c'è alcuno sprint in corso: la salute giudica ciò che è ancora aperto.",
-    );
-  }
 
   const items = itemRows.map((row) =>
     workItemSchema.parse({ ...row, estimate: workItemEstimate(row) }),
   );
+  const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
 
-  const health = sprintHealth({
-    sprint: running,
-    items,
-    transitions: transitionRows.map((row) => stateTransitionSchema.parse(row)),
-    scopeEvents: scopeRows.map((row) => sprintScopeEventSchema.parse(row)),
-    closedSprints: sprints.filter((sprint) => sprint.completedAt !== null),
-    columns: columnRows.map((row) => boardColumnSchema.parse(row)),
-    asOf: startedAt,
+  const window = previousDay(startedAt);
+
+  /*
+   * Cosa conta come «fermo» lo decide il progetto, non una costante.
+   *
+   * L'85° percentile del cycle time è quanto impiega di solito questo progetto:
+   * un elemento oltre quella soglia è fermo secondo le abitudini della squadra,
+   * non secondo un numero scelto da noi. Su una squadra che chiude in ore e una
+   * che chiude in settimane, una costante segnalerebbe tutto sulla prima e
+   * niente sulla seconda.
+   */
+  const flow = summariseFlow(items, transitions, startedAt);
+  const stalledAfterMs: Milliseconds | null = flow.cycleTime.p85.available
+    ? flow.cycleTime.p85.value
+    : null;
+
+  const activity = dailyActivity({
+    transitions,
+    from: window.from,
+    to: window.to,
+    stalledAfterMs,
   });
 
-  if (!health.available) {
+  if (!activity.available) {
     return refuse(
       "invalid_output",
-      "Le date dello sprint non permettono di dire quanto ne sia trascorso, " +
-        "quindi non c'è un giudizio da spiegare.",
+      "Questo progetto non ha ancora una storia degli stati: non c'è una giornata da riassumere.",
     );
   }
 
-  const historyRows = await scope.reads.healthChecksBySprint(running.id);
-  const history: readonly HistoryPoint[] = historyRows.map((row) => ({
-    date: formatDate(row.takenAt),
-    verdictLabel: VERDICT_WORDS[healthVerdictSchema.parse(row.verdict)].label,
-  }));
-
-  const snapshot = buildHealthSnapshot({
-    sprintName: running.name,
-    health: health.value,
-    history,
+  const snapshot = buildDigestSnapshot({
+    projectName: project.name,
+    dayLabel: formatDate(window.from),
+    activity: activity.value,
+    items,
   });
 
-  /*
-   * Senza un fornitore vero non si chiama nessuno, e non si finge.
-   *
-   * Il provider dimostrativo restituisce una frase preparata: passarla per una
-   * spiegazione significa far premere un pulsante per ricevere la notizia che il
-   * pulsante non funziona. Il codice invece una spiegazione ce l'ha — quali
-   * segnali sono oltre soglia e come si è mosso il verdetto sono fatti che
-   * conosce — e la scrive dichiarando di averla scritta lui.
-   */
   if (selectedProvider() === "fake") {
-    if (!isNarratable(snapshot)) {
-      return refuse(
-        "invalid_output",
-        "Il giudizio è «non valutabile»: non ci sono segnali misurati da spiegare.",
-      );
-    }
-
     await record({
       status: "succeeded",
       failureCause: null,
@@ -258,13 +232,11 @@ export async function runSprintHealthNarration(input: {
     };
   }
 
-  const outcome = await narrateSprintHealth({
+  const outcome = await narrateDigest({
     gateway,
     snapshot,
-    projectName: project.name,
     language: input.agent.language,
-    maxTokens: effectiveTokenBudget(input.agent.policy, SPRINT_HEALTH_BUDGET),
-    stubResponse: options.stubResponse,
+    maxTokens: effectiveTokenBudget(input.agent.policy, DAILY_DIGEST_BUDGET),
   });
 
   if (!outcome.ok) {
@@ -286,7 +258,7 @@ export async function runSprintHealthNarration(input: {
     ok: true,
     skillRunId: runId,
     narrative: outcome.narrative,
-    origin: outcome.origin,
+    origin: "model",
     failureCause: null,
     message: "",
   };

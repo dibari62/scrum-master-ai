@@ -1,40 +1,33 @@
 "use server";
 
-import { organizationIdSchema, projectIdSchema, type HealthNarrative } from "@/domain";
-import type { NarrationOrigin } from "@/agents/sprint-health";
+import { organizationIdSchema, projectIdSchema, type BottleneckNarrative } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { auth } from "@/lib/auth";
 import { loadAgent } from "@/lib/agents/scrum-agent";
-import { runSprintHealthNarration } from "@/lib/agents/sprint-health-runtime";
+import { runBottleneckNarration } from "@/lib/agents/bottleneck-runtime";
+import type { NarrationOrigin } from "@/agents/sprint-health";
 
 /**
- * Asking the Scrum Master AI to explain the verdict on screen.
+ * Asking the Scrum Master AI to explain where the work waits.
  *
- * **Why this returns its result instead of revalidating a page.** The narration
- * is not stored: it describes the state of this minute, and keeping it would
- * produce, within a day, a confident description of a situation that is no
- * longer true. So there is nothing for a page to reload — the text exists only
- * as the answer to this request, and travels back as one.
- *
- * A refusal comes back the same way, with its reason. «Non è stato possibile»
- * tells a reader nothing about whether to retry, to fix a configuration, or to
- * stop asking.
+ * Returns its result instead of revalidating: the text is not stored, because it
+ * describes a flow that the page above recomputes on every visit. Keeping it
+ * would produce a paragraph that argues with the table beside it.
  */
 
-export type NarrationState =
+export type FlowNarrationState =
   | { readonly status: "idle" }
   | {
       readonly status: "ok";
-      readonly narrative: HealthNarrative;
-      /** Chi ha scritto il testo: l'interfaccia non deve mai attribuirlo a un modello assente. */
+      readonly narrative: BottleneckNarrative;
       readonly origin: NarrationOrigin;
     }
   | { readonly status: "refused"; readonly message: string };
 
-export async function narrateHealthAction(
-  _previous: NarrationState,
+export async function narrateFlowAction(
+  _previous: FlowNarrationState,
   form: FormData,
-): Promise<NarrationState> {
+): Promise<FlowNarrationState> {
   const session = await auth();
   if (!session?.organizationId) {
     return { status: "refused", message: "Sessione scaduta: rientra e riprova." };
@@ -70,7 +63,7 @@ export async function narrateHealthAction(
       run.scrumAgentId === loaded.agent.id && run.startedAt.getTime() >= startOfDay.getTime(),
   ).length;
 
-  const outcome = await runSprintHealthNarration({
+  const outcome = await runBottleneckNarration({
     organizationId,
     projectId,
     agent: loaded.agent,
