@@ -57,6 +57,13 @@
       "when": 1787667704534,
       "tag": "0007_illegal_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787676087032,
+      "tag": "0008_motionless_queen_noir",
+      "breakpoints": true
     }
   ]
 }

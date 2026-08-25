@@ -73,6 +73,24 @@ export type SprintPlan = {
    */
   readonly reEstimatedItems: number;
   readonly reEstimateFactor: number;
+
+  /**
+   * The velocity the fictional team forecast for this sprint, in points.
+   *
+   * **Authored, not computed, and it has to be.** The book's Scrum Master
+   * writes the forecast into the statistics document at the *start* of the
+   * sprint; recomputing it now would re-decide it with data the plan never had.
+   * So the scenario states what was forecast, the same way it states how long
+   * reviews took.
+   *
+   * It cannot be computed here even in principle: `connectors` may only depend
+   * on `domain` (AGENTS.md §4), so the metrics engine is out of reach. That
+   * constraint pushes towards the right answer rather than away from it.
+   *
+   * The numbers below drift from what the team delivers, and increasingly so —
+   * a forecast that always lands makes the variance column pointless.
+   */
+  readonly forecastPoints: number;
 };
 
 /**
@@ -91,6 +109,15 @@ export type SprintPlan = {
  * on every run and cannot be tested (ADR-0002).
  */
 export const SPRINT_LENGTH_DAYS = 14;
+
+/**
+ * Working days in one of these sprints.
+ *
+ * Fourteen calendar days starting on a Monday contain exactly ten working ones.
+ * Stated as its own constant because it is the number capacity is measured in,
+ * and the whole point of the working calendar is that the two are not the same.
+ */
+export const WORKING_DAYS_PER_SPRINT = 10;
 
 /**
  * How far back the last sprint starts from the reference instant, before the
@@ -129,6 +156,8 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     reopenedItems: 0,
     reEstimatedItems: 0,
     reEstimateFactor: 1,
+    // Prima esperienza, nessuno storico: si punta un po' alto.
+    forecastPoints: 38,
   },
   {
     // Il perimetro cresce: arrivano richieste a sprint iniziato.
@@ -144,6 +173,7 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     // Due storie si rivelano più grosse di come sembravano.
     reEstimatedItems: 2,
     reEstimateFactor: 2,
+    forecastPoints: 42,
   },
   {
     // La revisione si ingolfa: il lavoro procede ma non si chiude.
@@ -158,6 +188,9 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     reopenedItems: 2,
     reEstimatedItems: 2,
     reEstimateFactor: 2,
+    // Il perimetro cresce e la revisione si ingolfa: la previsione resta
+    // ferma alle abitudini di prima, e lo scostamento comincia a farsi vedere.
+    forecastPoints: 48,
   },
   {
     // Il trascinato dei tre sprint precedenti presenta il conto.
@@ -172,6 +205,10 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     reopenedItems: 2,
     reEstimatedItems: 3,
     reEstimateFactor: 3,
+    // Sovraimpegno vero: il libro lo chiama «we overcommitted and only got
+    // half of the stuff done», ed è la situazione che rende utile la colonna
+    // dello scostamento.
+    forecastPoints: 55,
   },
 ];
 

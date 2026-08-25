@@ -41,6 +41,7 @@ import {
   projects,
   pullRequests,
   sprintScopeEvents,
+  sprintStatistics,
   sprints,
   stateTransitions,
   workItems,
@@ -244,6 +245,20 @@ async function main(): Promise<void> {
       // four nullable columns, which is precisely the situation a hand-written
       // mapper exists to keep honest.
       () => db.insert(estimateChanges).values(batch.estimateChanges.map(toEstimateChangeRow)),
+    ],
+    [
+      "statistiche di sprint",
+      batch.sprintStatistics.length,
+      /*
+       * Non compare fra le cancellazioni, e non è una dimenticanza.
+       *
+       * `sprint_statistics.sprint_id` cancella a cascata dagli sprint, che
+       * vengono già rimossi sopra. Aggiungerla all'elenco non compilerebbe
+       * nemmeno: quel ciclo filtra per `source_system`, e queste righe non ne
+       * hanno uno — sono un artefatto che la squadra scrive, non un dato
+       * ingerito da uno strumento.
+       */
+      () => db.insert(sprintStatistics).values([...batch.sprintStatistics]),
     ],
     [
       "variazioni di perimetro",

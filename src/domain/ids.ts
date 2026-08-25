@@ -39,6 +39,7 @@ export const scrumAgentIdSchema = identifier<"ScrumAgentId">();
 export const projectContextIdSchema = identifier<"ProjectContextId">();
 export const skillRunIdSchema = identifier<"SkillRunId">();
 export const sprintHealthCheckIdSchema = identifier<"SprintHealthCheckId">();
+export const sprintStatisticsIdSchema = identifier<"SprintStatisticsId">();
 
 export type OrganizationId = z.infer<typeof organizationIdSchema>;
 export type UserId = z.infer<typeof userIdSchema>;
@@ -60,3 +61,4 @@ export type ScrumAgentId = z.infer<typeof scrumAgentIdSchema>;
 export type ProjectContextId = z.infer<typeof projectContextIdSchema>;
 export type SkillRunId = z.infer<typeof skillRunIdSchema>;
 export type SprintHealthCheckId = z.infer<typeof sprintHealthCheckIdSchema>;
+export type SprintStatisticsId = z.infer<typeof sprintStatisticsIdSchema>;

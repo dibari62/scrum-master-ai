@@ -10,6 +10,7 @@ import {
   pullRequestSchema,
   sprintSchema,
   sprintScopeEventSchema,
+  sprintStatisticsSchema,
   stateTransitionSchema,
   workItemSchema,
   type Board,
@@ -23,6 +24,7 @@ import {
   type PullRequest,
   type Sprint,
   type SprintScopeEvent,
+  type SprintStatistics,
   type StateTransition,
   type WorkItem,
   type WorkItemKind,
@@ -40,6 +42,7 @@ import {
   SPRINT_LENGTH_DAYS,
   SPRINT_PLANS,
   TEAM,
+  WORKING_DAYS_PER_SPRINT,
   type SprintPlan,
 } from "./scenario";
 
@@ -165,6 +168,15 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
   const sprints: Sprint[] = [];
 
   /**
+   * The forecast the fictional Scrum Master wrote down at each sprint's start.
+   *
+   * Authored by the scenario, never derived: a forecast is a statement made at
+   * a moment, and computing one now would re-decide it with data the plan never
+   * had. See `src/domain/sprint-statistics.ts`.
+   */
+  const statistics: SprintStatistics[] = [];
+
+  /**
    * One entry per work item, keyed by identifier.
    *
    * A map rather than a list because an item carried into the next sprint is
@@ -197,6 +209,32 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
     });
     sprints.push(sprint);
 
+    statistics.push(
+      sprintStatisticsSchema.parse({
+        id: randomUUID(),
+        ...scope,
+        sprintId: sprint.id,
+        // Registrata all'inizio, come impone la checklist del capitolo 16.
+        recordedAt: startsAt,
+        forecastPoints: plan.forecastPoints,
+        /*
+         * «Meteo di ieri» anche per il primo sprint, che uno storico non ce
+         * l'ha.
+         *
+         * È una semplificazione dichiarata: il metodo giusto lì sarebbe il
+         * ripiego al 70%, che però richiede una capacità dichiarata, e le
+         * disponibilità non sono ancora nel modello. Meglio un metodo
+         * riconoscibile e uniforme che un secondo dato inventato per
+         * sostenerne uno.
+         */
+        method: "yesterdays-weather",
+        focusFactor: null,
+        teamSize: people.length,
+        workingDays: WORKING_DAYS_PER_SPRINT,
+        ...stamps(startsAt),
+      }),
+    );
+
     const results = generateSprintItems({
       scope,
       sprint,
@@ -226,6 +264,7 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       transitions: generated.flatMap((entry) => entry.transitions),
       estimateChanges: generated.flatMap((entry) => entry.estimateChanges),
       scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
+      sprintStatistics: statistics,
       comments: generated.flatMap((entry) => entry.comments),
       impediments: generated
         .map((entry) => entry.impediment)
@@ -326,6 +365,17 @@ function truncateAt(batch: CanonicalBatch, asOf: Date): CanonicalBatch {
 
     scopeEvents: batch.scopeEvents.filter(
       (event) => live.has(event.workItemId) && notAfter(event.occurredAt),
+    ),
+
+    /*
+     * Anche le previsioni si tagliano.
+     *
+     * Una previsione datata domani sarebbe una previsione che nessuno poteva
+     * ancora aver scritto — e a differenza di una transizione futura non
+     * salterebbe all'occhio, perché una previsione parla comunque del futuro.
+     */
+    sprintStatistics: batch.sprintStatistics.filter((entry) =>
+      notAfter(entry.recordedAt),
     ),
 
     comments: batch.comments.filter(

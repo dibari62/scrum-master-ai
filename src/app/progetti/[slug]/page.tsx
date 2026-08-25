@@ -23,6 +23,7 @@ import { available } from "@/metrics";
 import { loadProjectDashboard, type SprintMetrics } from "../data";
 import { HealthNarration } from "./health-narration";
 import { DailyDigest } from "./daily-digest";
+import { ForecastTable } from "./forecast-table";
 import {
   presentCount,
   presentDuration,
@@ -499,12 +500,30 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle className="text-base">Velocity</CardTitle>
             <CardDescription>
-              Somma delle stime del lavoro concluso alla chiusura dello sprint. Le unità
-              di stima non vengono mai sommate fra loro.
+              Somma delle stime del lavoro concluso alla chiusura dello sprint, prese come
+              erano quando ciascun elemento è entrato nello sprint: una stima corretta in
+              corsa non cambia la velocity di uno sprint già chiuso. Le unità di stima non
+              vengono mai sommate fra loro.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <BarChart bars={velocityBars} title="Velocity per sprint" unitLabel="punti" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Previsto contro effettivo</CardTitle>
+            <CardDescription>
+              La previsione viene scritta all&apos;inizio dello sprint e conservata così
+              com&apos;è: rifarla oggi non sarebbe ricordarla, sarebbe deciderla di nuovo con
+              dati che il piano non aveva. L&apos;effettivo, invece, si ricalcola ogni volta
+              dal motore — è stabile, e conservarne una copia creerebbe una seconda verità
+              che può discostarsi dalla prima.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ForecastTable sprints={sprints} />
           </CardContent>
         </Card>
 

@@ -18,3 +18,4 @@ export * from "./collaboration";
 export * from "./scrum-agent";
 export * from "./sprint-report";
 export * from "./sprint-health";
+export * from "./sprint-statistics";

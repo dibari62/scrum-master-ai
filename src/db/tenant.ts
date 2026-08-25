@@ -31,6 +31,7 @@ import {
   sprintHealthChecks,
   sprintReports,
   sprintScopeEvents,
+  sprintStatistics,
   sprints,
   stateTransitions,
   workItems,
@@ -264,6 +265,19 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           ),
         )
         .orderBy(estimateChanges.occurredAt),
+
+    /** The forecasts recorded for this project's sprints, one per sprint. */
+    sprintStatisticsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(sprintStatistics)
+        .where(
+          and(
+            eq(sprintStatistics.organizationId, organizationId),
+            eq(sprintStatistics.projectId, projectId),
+          ),
+        )
+        .orderBy(sprintStatistics.recordedAt),
 
     scopeEventsBySprint: (sprintId: SprintId) =>
       db

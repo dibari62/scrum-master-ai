@@ -85,7 +85,7 @@ Stato di una riga:
 | R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | ⬜ | ⬜ |
 | R2 | Soglie di accettazione: **must** / **should** / **may**. | rosso = must in 1.0, giallo = should, verde = rimandabile (pag. 97) | ⬜ | ⬜ |
 | R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | ⬜ | ⬜ |
-| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` | 🟡 |
+| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | 🟡 il confronto si vede, la revisione automatica del piano no |
 
 ## 5. Stima
 
@@ -131,7 +131,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Elementi non pianificati | 6 | 🟡 `scopeChange` li confonde con le aggiunte pianificate |
 | Checklist della demo | 9 | ⬜ |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ⬜ |
-| Statistiche di sprint | 16 | ⬜ |
+| Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; mancano i punti chiave della retrospettiva, che non esiste ancora |
 | Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ⬜ |
 
 ---

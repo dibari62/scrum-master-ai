@@ -262,6 +262,57 @@ describe("connettore seed — anomalie volute", () => {
     }
   });
 
+  it("registra una previsione per ogni sprint, all'inizio dello sprint", () => {
+    /*
+     * Nella finzione lo Scrum Master la previsione l'aveva scritta, com'è nella
+     * checklist del capitolo 16. Se il seed non la producesse, la schermata
+     * direbbe per sempre «nessuna previsione registrata» e la funzionalità non
+     * sarebbe dimostrabile.
+     */
+    expect(batch.sprintStatistics).toHaveLength(sprints.length);
+
+    for (const entry of batch.sprintStatistics) {
+      const sprint = sprints.find((s) => s.id === entry.sprintId);
+      expect(sprint, "una previsione senza il suo sprint").toBeDefined();
+
+      // Registrata all'inizio, non a cose fatte: una previsione scritta dopo
+      // non è una previsione.
+      expect(entry.recordedAt.getTime()).toBe((sprint as { startsAt: Date }).startsAt.getTime());
+    }
+  });
+
+  it("la previsione si discosta dall'effettivo, e sempre di più", () => {
+    /*
+     * Una previsione che azzecca sempre rende inutile la colonna dello
+     * scostamento, esattamente come un dataset senza ri-stime rendeva
+     * invisibile la regola sulla stima iniziale.
+     *
+     * Lo scarto cresce fra il primo sprint e l'ultimo concluso: è il
+     * sovraimpegno che il libro chiama «we overcommitted and only got half of
+     * the stuff done».
+     */
+    const closed = sprints.filter((sprint) => sprint.completedAt !== null);
+    const gapFor = (sprint: (typeof sprints)[number]): number => {
+      const forecast = batch.sprintStatistics.find((s) => s.sprintId === sprint.id);
+      const actual = velocity(
+        sprint,
+        [...batch.workItems],
+        [...batch.transitions],
+        [...batch.scopeEvents],
+        [...batch.estimateChanges],
+      );
+
+      if (!forecast || !actual.available || actual.value.points === null) return 0;
+      return forecast.forecastPoints - actual.value.points;
+    };
+
+    const first = closed[0];
+    const last = closed[closed.length - 1];
+    if (!first || !last) throw new Error("attesi sprint conclusi");
+
+    expect(gapFor(last)).toBeGreaterThan(gapFor(first));
+  });
+
   it("contiene lavoro trascinato da uno sprint al successivo", () => {
     // Lo stesso elemento che compare in due sprint: prima rimosso dall'uno,
     // poi aggiunto all'altro.

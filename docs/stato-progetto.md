@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1008 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1023 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -31,7 +31,7 @@ graph TB
 
     subgraph DB["🗄️ Database"]
         D1["Modello canonico Zod<br/>4 entità di tenancy"]
-        D2["Schema Drizzle<br/>20 tabelle create"]
+        D2["Schema Drizzle<br/>21 tabelle create"]
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
         D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
@@ -52,6 +52,7 @@ graph TB
         U10["Flusso di lavoro<br/>colonne, limiti e<br/>dove si accumula il tempo"]
         U11["Impedimenti<br/>ostacoli e durata"]
         U12["Salute dello sprint<br/>giudizio, motivo, numeri"]
+        U13["Previsto contro effettivo<br/>previsione, consegna,<br/>scostamento"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -62,7 +63,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -133,7 +134,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 19 tabelle popolate, migrazioni applicate: 51 elementi, 206 transizioni, 57 variazioni di stima, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
+| **Neon (Postgres)** | ✅ attivo | 20 tabelle popolate, migrazioni applicate: 51 elementi, 206 transizioni, 57 variazioni di stima, 4 previsioni di sprint, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
@@ -401,6 +402,42 @@ breve per la metrica che §8.2 vieta.
 mancano la tabella delle disponibilità, quella delle statistiche di sprint e la
 schermata. Un numero corretto che nessuno vede non è ancora una funzionalità.
 
+**Ora si vede.** La dashboard mette in fila previsto, effettivo e scostamento per
+ogni sprint, e sui dati sintetici racconta una storia sola:
+
+| Sprint | Previsto | Effettivo | Scostamento |
+|---|---|---|---|
+| 1 — Fondamenta del carrello | 38 | 31 | **−7** |
+| 2 — Metodi di pagamento | 42 | 32 | **−10** |
+| 3 — Indirizzi e spedizione | 48 | 37 | **−11** |
+| 4 — Conferma d'ordine | 55 | 42 | **−13** |
+
+La previsione cresce mentre la consegna resta indietro, e lo scarto si allarga.
+È il sovraimpegno che il libro chiama «we overcommitted and only got half of the
+stuff done» — e senza questa tabella nessuno dei numeri della dashboard lo
+avrebbe fatto notare.
+
+**La decisione che regge tutto: si conserva ciò che non si può recuperare, si
+ricalcola ciò che si può.** La previsione è conservata perché è *un'affermazione
+fatta a un istante*: rifarla oggi non sarebbe ricordarla, sarebbe deciderla di
+nuovo con dati che il piano non aveva — il meteo di ieri dà una risposta ad
+aprile e un'altra a giugno. La velocity effettiva invece è **stabile** da quando
+`EstimateChange` la ancora alle stime d'ingresso, quindi si ricalcola: tenerne
+una copia creerebbe una seconda verità, e il giorno in cui le due non
+coincidessero non ci sarebbe modo di sapere quale sbaglia.
+
+Nella tabella `sprint_statistics` **non esiste una colonna `actual_velocity`**, e
+un test del dominio esiste apposta per ricordare che aggiungerla sembrerà comodo.
+
+**Cosa resta fuori, e va detto.** Le disponibilità delle persone non sono ancora
+nel database, quindi il metodo `focus-factor` non è usabile su dati veri: il seed
+registra sempre «meteo di ieri». E la previsione non si può ancora registrare
+dall'interfaccia — con un vincolo che vale la pena fissare adesso: si registra
+**all'inizio**, e per uno sprint già chiuso non si registra affatto, perché
+sarebbe inventare un piano che la squadra non ha mai fatto.
+
+---
+
 **Le due figure che non si potevano leggere sono state ricostruite dal testo**, e
 marcate come **nostre, non del libro** (decisione del Product Owner). Per i sette
 segnali d'allarme della lavagna ogni voce porta la prova testuale che la sostiene
@@ -503,7 +540,8 @@ Cose note e volutamente rimandate, non sviste:
 | **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | Quattordici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
-| **La previsione si calcola ma nessuno la vede** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | capacità, focus factor, velocity stimata, velocity impegnata e scostamento esistono in `src/metrics`, testati sugli esempi del libro. Mancano la tabella delle disponibilità, quella delle statistiche di sprint e la schermata: finché non ci sono, il numero è corretto e invisibile |
+| **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |
+| La previsione non si può registrare dall'interfaccia | — | oggi le righe arrivano solo dal connettore. Serve un'azione «registra la previsione» sullo sprint aperto, con il vincolo che vale la pena scrivere ora: **si registra all'inizio, e per uno sprint già chiuso non si registra affatto** — sarebbe inventare un piano che il team non ha mai fatto |
 
 ---
 
