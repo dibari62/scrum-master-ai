@@ -56,8 +56,8 @@ export function MetricCard({
 
       <p
         className={cn(
-          "text-2xl font-semibold tabular-nums",
-          value === null && "text-muted-foreground",
+          "text-3xl font-semibold tracking-tight tabular-nums",
+          value === null && "text-muted-foreground text-2xl",
           value !== null && emphasis === "warning" && "text-destructive",
         )}
       >
@@ -70,14 +70,21 @@ export function MetricCard({
     </>
   );
 
+  // `ring` e non `border`, come le schede: sei riquadri con il bordo pieno
+  // formano una griglia che compete con i numeri che dovrebbero risaltare.
+  const shell = "bg-card ring-border/70 grid gap-1 rounded-xl p-4 ring-1";
+
   if (!href) {
-    return <div className="grid gap-1 rounded-lg border p-4">{body}</div>;
+    return <div className={shell}>{body}</div>;
   }
 
   return (
     <Link
       href={href}
-      className="hover:border-foreground/30 grid gap-1 rounded-lg border p-4 transition-colors"
+      className={cn(
+        shell,
+        "hover:ring-foreground/25 hover:bg-accent/50 transition-[background-color,box-shadow]",
+      )}
     >
       {body}
     </Link>

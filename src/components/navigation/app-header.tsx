@@ -32,7 +32,7 @@ export function AppHeader({ signOut }: { readonly signOut?: ReactNode }) {
        * distanza.
        */}
       <div
-        className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6"
+        className="app-shell flex items-center justify-between gap-4"
         style={{ height: "var(--app-header-height)" }}
       >
         <Link href="/progetti" className="text-sm font-semibold tracking-tight">

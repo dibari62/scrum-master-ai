@@ -2,7 +2,7 @@
 
 /* Design tokens consumed by shadcn/ui components (cssVariables: true). */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   /*
    * Altezza dell'intestazione fissa, dichiarata una volta sola.
@@ -13,23 +13,55 @@
    */
   --app-header-height: 3.5rem;
 
-  --background: oklch(1 0 0);
+  /*
+   * Altezza della barra delle sezioni di progetto, sotto l'intestazione.
+   *
+   * Stessa ragione: `scroll-padding-top` deve sommare le due, altrimenti un
+   * collegamento interno porta la sezione **sotto** la barra.
+   */
+  --project-tabs-height: 3rem;
+
+  /*
+   * Larghezza dell'area di contenuto, dichiarata qui e non in tredici pagine.
+   *
+   * Era ripetuta come `max-w-4xl` in ogni schermata, e la barra di navigazione
+   * la ripeteva a sua volta: bastava allargarne una perché il menù smettesse di
+   * allinearsi al contenuto che annuncia.
+   */
+  --app-content-width: 72rem;
+
+  --background: oklch(0.99 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+
+  /*
+   * Il colore del prodotto è il nero, ed è una scelta.
+   *
+   * Un indaco era stato provato e scartato dal Product Owner: «più
+   * professionale sul nero». Ha ragione per una ragione che vale la pena
+   * scrivere — questa applicazione è fatta di numeri e di grafici, e i pochi
+   * colori che restano devono poter **significare** qualcosa (rosso: oltre
+   * soglia, ambra: da tenere d'occhio). Una tinta di marca li metterebbe in
+   * concorrenza con i colori che portano informazione.
+   *
+   * Ciò che era sbagliato prima non era l'assenza di colore, era l'assenza di
+   * **gerarchia**: un pulsante primario disegnato come un bordo. Quello si
+   * risolve con contrasto e peso, non con la tinta.
+   */
+  --primary: oklch(0.18 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.968 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.96 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.916 0 0);
+  --input: oklch(0.916 0 0);
+  --ring: oklch(0.45 0 0);
 }
 
 .dark {
@@ -37,19 +69,19 @@
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.95 0 0);
+  --primary-foreground: oklch(0.18 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.3 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.65 0 0);
 }
 
 @theme inline {
@@ -95,11 +127,49 @@
    * `scroll-padding-top` dice al browser di lasciare quello spazio libero.
    */
   html {
-    scroll-padding-top: calc(var(--app-header-height) + 0.5rem);
+    scroll-padding-top: calc(
+      var(--app-header-height) + var(--project-tabs-height) + 0.5rem
+    );
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+}
+
+/*
+ * L'involucro di ogni schermata: larghezza massima e margini laterali.
+ *
+ * Una utility e non tredici copie di `mx-auto max-w-4xl px-6`. La barra delle
+ * sezioni deve incolonnarsi con il contenuto che annuncia, e finché i due
+ * numeri erano scritti separatamente bastava allargarne uno per disallineare
+ * il menù dalla pagina.
+ */
+@utility app-shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--app-content-width);
+  padding-inline: 1.5rem;
+}
+
+/*
+ * Scorrimento senza barra visibile.
+ *
+ * Solo per la barra delle sezioni, dove lo scorrimento è laterale e la voce
+ * tagliata a metà dice già che ce n'è dell'altra. Su un telefono vero la barra
+ * è invisibile finché non si scorre; su una finestra desktop stretta invece
+ * resta disegnata e taglia in due l'altezza della riga.
+ *
+ * Non si usa altrove: nascondere una barra di scorrimento **verticale**
+ * significherebbe nascondere che c'è altro contenuto, che è un modo di
+ * rendere irraggiungibile ciò che si è appena scritto.
+ */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
   }
 }

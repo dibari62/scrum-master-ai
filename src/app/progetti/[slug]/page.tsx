@@ -140,47 +140,38 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
   const elementi = `/progetti/${project.slug}/elementi`;
 
   return (
-    <main className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
-      <header className="grid gap-1">
+    <main className="app-shell grid gap-10 py-10">
+      <header className="grid gap-2">
         <Breadcrumb
           trail={[
             { label: "Progetti", href: "/progetti" },
             { label: project.name },
           ]}
         />
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h1>
-        <p className="text-muted-foreground text-sm">
-          {formatNumber(sprints.length)} sprint · {formatNumber(dashboard.peopleCount)}{" "}
-          persone · dati al {formatDate(dashboard.asOf)}
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <div className="grid gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              {project.name}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {formatNumber(sprints.length)} sprint ·{" "}
+              {formatNumber(dashboard.peopleCount)} persone · dati al{" "}
+              {formatDate(dashboard.asOf)}
+            </p>
+          </div>
 
-        {/*
-         * Le destinazioni come pulsanti, non come collegamenti in mezzo a
-         * una frase: erano annegate nella riga dei conteggi, dove nessuno le
-         * cercava, e su telefono finivano a capo staccate dal loro contesto.
-         *
-         * Sprint e persone stanno qui e non solo nell'indirizzo: una pagina
-         * raggiungibile solo scrivendo l'URL a mano è un vicolo cieco, ed è un
-         * difetto che questo progetto ha già consegnato una volta.
-         */}
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href={elementi}>Vedi gli elementi</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/progetti/${project.slug}/sprint`}>Vedi gli sprint</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/progetti/${project.slug}/persone`}>Vedi le persone</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/progetti/${project.slug}/flusso`}>Flusso di lavoro</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/progetti/${project.slug}/impedimenti`}>Impedimenti</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/progetti/${project.slug}/scrum-master`}>Scrum Master AI</Link>
+          {/*
+           * Una sola azione qui, e non sette.
+           *
+           * Le altre destinazioni sono nella barra delle sezioni, presente su
+           * ogni pagina del progetto: ripeterle qui le farebbe sembrare due
+           * elenchi diversi. Resta l'unica che *fa* qualcosa invece di portare
+           * altrove — chiedere allo Scrum Master AI di lavorare.
+           */}
+          <Button asChild size="sm">
+            <Link href={`/progetti/${project.slug}/scrum-master`}>
+              Apri lo Scrum Master AI
+            </Link>
           </Button>
         </div>
       </header>
@@ -277,24 +268,25 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
       </section>
 
       {/*
-       * Il giorno prima, sotto la salute di oggi.
+       * Digest e andamento affiancati: due letture brevi, non due sezioni.
        *
-       * La salute dice come sta andando lo sprint; il digest dice cosa è
-       * successo nelle ultime ventiquattro ore. Sono due orizzonti diversi, e
-       * questo è il più corto: sta sotto perché si legge dopo aver visto il
-       * quadro generale, non al posto suo.
+       * Impilati occupavano due terzi di schermata a testa per dire poche
+       * righe ciascuno, allungando la strada verso i grafici. Sono lo stesso
+       * genere di contenuto — un riquadro che riassume — e stanno bene sulla
+       * stessa riga.
        */}
-      <DailyDigest slug={slug} enabled={dashboard.digestEnabled} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DailyDigest slug={slug} enabled={dashboard.digestEnabled} />
 
-      {/*
-       * Da quanto dura, e non solo com'è adesso.
-       *
-       * È l'unica cosa in questa pagina che il calcolo su richiesta non può
-       * produrre: la salute si calcola quando qualcuno apre la pagina, quindi
-       * senza il controllo automatico il giudizio di ieri non è mai stato
-       * calcolato affatto.
-       */}
-      {dashboard.health === null ? null : (
+        {/*
+         * Da quanto dura, e non solo com'è adesso.
+         *
+         * È l'unica cosa in questa pagina che il calcolo su richiesta non può
+         * produrre: la salute si calcola quando qualcuno apre la pagina, quindi
+         * senza il controllo automatico il giudizio di ieri non è mai stato
+         * calcolato affatto.
+         */}
+        {dashboard.health === null ? null : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Come è cambiato negli ultimi giorni</CardTitle>
@@ -351,7 +343,8 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
-      )}
+        )}
+      </div>
 
       <section className="grid gap-3">
         <h2 className="text-lg font-medium">Il flusso, nel complesso</h2>
@@ -493,24 +486,18 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
         </section>
       ) : null}
 
-      <section className="grid gap-6">
+      <section className="grid gap-4">
         <h2 className="text-lg font-medium">Come sono andati gli sprint</h2>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Velocity</CardTitle>
-            <CardDescription>
-              Somma delle stime del lavoro concluso alla chiusura dello sprint, prese come
-              erano quando ciascun elemento è entrato nello sprint: una stima corretta in
-              corsa non cambia la velocity di uno sprint già chiuso. Le unità di stima non
-              vengono mai sommate fra loro.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BarChart bars={velocityBars} title="Velocity per sprint" unitLabel="punti" />
-          </CardContent>
-        </Card>
-
+        {/*
+         * Previsione a tutta larghezza, i tre grafici su due colonne.
+         *
+         * Non è simmetria: la tabella ha cinque colonne e stretta a metà
+         * schermo tornerebbe a scorrere in orizzontale, mentre i grafici a
+         * barre hanno un'altezza fissa e affiancati fanno risparmiare due
+         * schermate di scorrimento. Il difetto segnalato era proprio questo —
+         * per sapere cosa sa fare il prodotto bisognava scorrere.
+         */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Previsto contro effettivo</CardTitle>
@@ -527,31 +514,48 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Cycle time mediano</CardTitle>
-            <CardDescription>
-              Quanto passa fra l&apos;avvio e la chiusura di un elemento. Se cresce di
-              sprint in sprint, qualcosa nel flusso si sta ingolfando.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BarChart bars={cycleBars} title="Cycle time mediano per sprint" />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Velocity</CardTitle>
+              <CardDescription>
+                Somma delle stime del lavoro concluso alla chiusura dello sprint, prese
+                come erano quando ciascun elemento è entrato nello sprint: una stima
+                corretta in corsa non cambia la velocity di uno sprint già chiuso. Le
+                unità di stima non vengono mai sommate fra loro.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BarChart bars={velocityBars} title="Velocity per sprint" unitLabel="punti" />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Lavoro trascinato</CardTitle>
-            <CardDescription>
-              Elementi non conclusi alla chiusura. Una crescita costante indica una
-              squadra che si impegna su più di quanto riesca a completare.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BarChart bars={carryBars} title="Elementi trascinati per sprint" />
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Cycle time mediano</CardTitle>
+              <CardDescription>
+                Quanto passa fra l&apos;avvio e la chiusura di un elemento. Se cresce di
+                sprint in sprint, qualcosa nel flusso si sta ingolfando.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BarChart bars={cycleBars} title="Cycle time mediano per sprint" />
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Lavoro trascinato</CardTitle>
+              <CardDescription>
+                Elementi non conclusi alla chiusura. Una crescita costante indica una
+                squadra che si impegna su più di quanto riesca a completare.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BarChart bars={carryBars} title="Elementi trascinati per sprint" />
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <footer className="text-muted-foreground border-t pt-6 text-xs">

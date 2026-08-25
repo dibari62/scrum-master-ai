@@ -99,7 +99,7 @@ export default async function MetrichePage() {
   if (!session) redirect("/accedi");
 
   return (
-    <main className="mx-auto grid max-w-4xl gap-8 px-6 py-8">
+    <main className="app-shell grid gap-8 py-8">
       <div className="grid gap-3">
         <Breadcrumb trail={[{ label: "Progetti", href: "/progetti" }, { label: "Metriche" }]} />
 

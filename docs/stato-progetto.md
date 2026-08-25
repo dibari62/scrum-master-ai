@@ -53,6 +53,7 @@ graph TB
         U11["Impedimenti<br/>ostacoli e durata"]
         U12["Salute dello sprint<br/>giudizio, motivo, numeri"]
         U13["Previsto contro effettivo<br/>previsione, consegna,<br/>scostamento"]
+        U14["Menù di progetto<br/>sette sezioni,<br/>su ogni pagina"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -63,7 +64,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -71,6 +72,40 @@ dai test. Ogni numero della dashboard è **apribile** fino alla storia degli sta
 cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un registro
 delle esecuzioni. Le pagine sono verificate **a 375, 640, 768 e 1280 pixel**: nessun
 testo sotto i 10 pixel resi, nessuno sbordamento laterale.
+
+**Le sezioni di un progetto ora sono un menù, non una fila di pulsanti.** Era un
+difetto segnalato dal Product Owner: per scoprire cosa sapesse fare il prodotto
+bisognava **scorrere**. Tutte le destinazioni stavano in una riga di sette pulsanti
+identici, tre righe sotto il titolo e solo sulla dashboard — quindi da ogni altra
+pagina non c'era modo di attraversare, e sulla dashboard quella riga si leggeva come
+decorazione.
+
+Ora una barra di sezioni vive nel **layout**: compare su ogni pagina del progetto,
+dice **dove sei**, e aggiungere una sezione è una riga in un solo elenco. Su telefono
+scorre in orizzontale invece di andare a capo su tre righe — che spingerebbero il
+contenuto sotto la piega, cioè ricreerebbero il problema che risolve.
+
+**La dashboard è passata da circa sei schermate a quattro** su un monitor da 1440:
+previsione a tutta larghezza, grafici affiancati a due colonne, digest e andamento
+sulla stessa riga. Non è compattezza per sport — è la differenza fra vedere il quadro
+e ricostruirlo a memoria scorrendo.
+
+**E il prodotto ha una gerarchia.** La critica era giusta ma la prima risposta no:
+avevo introdotto un indaco di marca, e il Product Owner l'ha scartato — «sul nero
+è più professionale». Ha ragione per una ragione che vale la pena scrivere: questa
+applicazione è fatta di numeri, e i pochi colori che restano devono **significare**
+qualcosa — rosso oltre soglia, ambra da tenere d'occhio. Una tinta di marca
+competerebbe con i colori che portano informazione.
+
+Ciò che era sbagliato non era l'assenza di colore, era l'assenza di **peso**: un
+pulsante primario disegnato come un bordo. Si risolve con contrasto, non con la
+tinta. Ora il primario è nero pieno, le schede hanno un contorno sottile invece di
+un bordo a piena opacità — sei riquadri bordati formano una griglia che compete con
+i numeri — e i grafici sono neri, così l'unica barra rossa si vede da lontano.
+
+La larghezza del contenuto è dichiarata **una volta** in `--app-content-width`, come
+già l'altezza dell'intestazione: era ripetuta in tredici schermate, e bastava
+allargarne una perché il menù smettesse di incolonnarsi con ciò che annuncia.
 
 **Quella misura ora copre dodici pagine, non sei.** La scheda dello Scrum Master
 AI sbordava di 41 pixel su telefono mentre la suite era tutta verde, perché
@@ -536,6 +571,7 @@ Cose note e volutamente rimandate, non sviste:
 | Nessuna soglia della salute dello sprint è tarata su dati reali | [spec sprint-health](../specs/sprint-health/spec.md) Q2 | sono dichiarate, motivate e citate da un test. Restano provvisorie finché non le si vede lavorare su un progetto vero |
 | «Chiedi una spiegazione» non diceva di che cosa, e la capacità «Salute dello sprint» non si trovava | segnalazione del PO | **fatto**: il riquadro nomina il verdetto che spiegherà ed elenca cosa si riceve; la scheda dell'agente mostra acceso/spento accanto a ogni nome, dice dove si usa ogni capacità e ha un'ancora a cui la dashboard rimanda. Due difetti che nessun test rilevava: ogni valore era corretto, mancava il significato |
 | L'output generato non ha un modo per dire se è stato utile | `AGENTS.md` R1 | la provenienza è ora dichiarata a schermo (calcolato dal codice / scritto da un modello), ma non si può ancora correggere né valutare un testo generato. Serve una tabella e una scrittura: da fare quando i testi generati saranno più d'uno per schermata |
+| Nessun tema scuro raggiungibile | — | le variabili di `.dark` esistono e sono aggiornate, ma nulla applica quella classe: il tema segue solo il chiaro. Serve un interruttore, oppure `prefers-color-scheme`. Da fare quando qualcuno lo chiederà davvero, non prima |
 | **La velocity non leggeva la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | ~~manca la tabella e la generazione nel seed~~ **fatto**: `estimate_changes` esiste, il seed la popola con ri-stime volute, e la suite di conformità obbliga ogni connettore futuro a fare lo stesso. Sui dati veri le due letture divergono fino a 16 punti su uno sprint |
 | **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |

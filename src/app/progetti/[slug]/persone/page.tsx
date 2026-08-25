@@ -59,7 +59,7 @@ export default async function ProjectPeoplePage({ params }: PageProps) {
           : `${formatNumber(withEmail)} su ${formatNumber(people.length)} hanno un indirizzo email registrato nella fonte.`;
 
   return (
-    <main className="mx-auto grid max-w-4xl gap-6 px-6 py-12">
+    <main className="app-shell grid gap-6 py-10">
       <header className="grid gap-1">
         <Breadcrumb
           trail={[

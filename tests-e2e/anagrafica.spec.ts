@@ -38,7 +38,20 @@ test.describe("persone e sprint", () => {
   }) => {
     await page.goto(`/progetti/${PROJECT}`);
 
-    await page.getByRole("link", { name: "Vedi le persone" }).click();
+    /*
+     * Il collegamento si cerca nella **barra delle sezioni**, non fra i
+     * contenuti della pagina.
+     *
+     * Prima stava in una riga di sette pulsanti sulla sola dashboard; ora vive
+     * nel layout e compare su ogni pagina del progetto. La proprietà che questo
+     * test difende non è cambiata — «raggiungibile senza scrivere l'indirizzo»,
+     * che questo progetto ha già violato una volta — ma il posto in cui
+     * guardare sì, ed è giusto che il test lo dica.
+     */
+    await page
+      .getByRole("navigation", { name: "Sezioni del progetto" })
+      .getByRole("link", { name: "Persone" })
+      .click();
     await page.waitForURL("**/persone");
 
     await expect(page.getByRole("heading", { name: "Persone", level: 1 })).toBeVisible();
@@ -81,7 +94,10 @@ test.describe("persone e sprint", () => {
   test("dalla dashboard si raggiungono gli sprint, con i loro numeri", async ({ page }) => {
     await page.goto(`/progetti/${PROJECT}`);
 
-    await page.getByRole("link", { name: "Vedi gli sprint" }).click();
+    await page
+      .getByRole("navigation", { name: "Sezioni del progetto" })
+      .getByRole("link", { name: "Sprint" })
+      .click();
     await page.waitForURL("**/sprint");
 
     await expect(page.getByRole("heading", { name: "Sprint", level: 1 })).toBeVisible();
