@@ -45,7 +45,10 @@ test.describe("approfondimento dei numeri", () => {
     await card.click();
     await page.waitForURL("**/elementi**");
 
-    const listed = await page.locator("main ul li").count();
+    // L'elenco degli elementi è una tabella: le righe sono `tbody tr`. La
+    // proprietà verificata non cambia — il denominatore scritto sul riquadro
+    // deve corrispondere a quanti elementi apre.
+    const listed = await page.locator("main table tbody tr").count();
     expect(
       listed,
       "gli elementi elencati devono essere quelli contati dalla metrica",
@@ -56,7 +59,7 @@ test.describe("approfondimento dei numeri", () => {
     page,
   }) => {
     await page.goto(`/progetti/${PROJECT}/elementi?conclusi=1`);
-    await page.locator("main ul li a").first().click();
+    await page.locator("main table tbody tr a").first().click();
     await page.waitForURL("**/elementi/**");
 
     await expect(page.getByRole("heading", { name: "Storia degli stati" })).toBeVisible();
@@ -78,7 +81,7 @@ test.describe("approfondimento dei numeri", () => {
     page,
   }) => {
     await page.goto(`/progetti/${PROJECT}/elementi?stato=done`);
-    await page.locator("main ul li a").first().click();
+    await page.locator("main table tbody tr a").first().click();
     await page.waitForURL("**/elementi/**");
 
     const last = page

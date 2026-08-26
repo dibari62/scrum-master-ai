@@ -100,8 +100,20 @@ test.describe("resoconto di sprint", () => {
   test("il resoconto compare nel registro con il suo costo", async ({ page }) => {
     await page.goto(LOG);
 
+    /*
+     * Si cerca il nome leggibile, non la chiave tecnica.
+     *
+     * Il registro mostrava anche `sprint-report`, l'identificativo con cui la
+     * capacità è scritta nel codice, accanto al suo nome. Era la stessa cosa
+     * detta due volte, e la seconda in una lingua che non è di chi legge —
+     * proprio ciò che «non mostra identificativi di macchina al posto dei nomi»
+     * vieta altrove. La riga cercata è la stessa.
+     */
+    const row = page.locator("[data-run]").filter({ hasText: "Resoconto di sprint" }).first();
+    await expect(row).toBeVisible();
+
     // Il diario è l'unico posto in cui il prezzo del prodotto si vede.
-    await expect(page.getByText("sprint-report", { exact: false }).first()).toBeVisible();
+    await expect(row).toContainText(/USD|nessun costo/);
   });
 
   test("i resoconti hanno una schermata propria, raggiungibile dal menù", async ({

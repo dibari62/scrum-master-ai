@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
+import { DataTable } from "@/components/charts/data-table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
@@ -124,39 +125,95 @@ export default async function ProjectImpedimentsPage({ params }: PageProps) {
             Registro {resolvedCount > 0 ? "— dal più recente" : ""}
           </h2>
 
-          <ul className="grid gap-2">
-            {entries.map((entry) => (
-              <li key={entry.impediment.id} className="rounded-lg border p-3">
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <span className="text-sm font-medium">{entry.impediment.title}</span>
+          <DataTable
+            caption="Impedimenti registrati, con stato e durata"
+            rows={entries}
+            getKey={(entry) => entry.impediment.id}
+            minWidth="min-w-[40rem]"
+            columns={[
+              {
+                key: "titolo",
+                header: "Impedimento",
+                className: "min-w-[16rem]",
+                cell: (entry) => (
+                  <span className="font-medium break-words">
+                    {entry.impediment.title}
+                  </span>
+                ),
+              },
+              {
+                key: "stato",
+                header: "Stato",
+                cell: (entry) => (
                   <span
-                    className={`shrink-0 text-xs ${entry.open ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                    className={
+                      entry.open ? "text-destructive font-medium" : "text-muted-foreground"
+                    }
                   >
                     {entry.open ? "ancora aperto" : "risolto"}
                   </span>
-                </div>
+                ),
+              },
+              {
+                key: "sollevato",
+                header: "Sollevato",
+                align: "end",
+                cell: (entry) => formatDate(entry.impediment.raisedAt),
+              },
+              {
+                key: "risolto",
+                header: "Risolto",
+                align: "end",
+                cell: (entry) =>
+                  entry.impediment.resolvedAt === null ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    formatDate(entry.impediment.resolvedAt)
+                  ),
+              },
+              {
+                key: "durata",
+                header: "Durata",
+                align: "end",
+                cell: (entry) => formatDuration(entry.durationMs),
+              },
+            ]}
+          />
 
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Sollevato il {formatDate(entry.impediment.raisedAt)}
-                  {entry.impediment.resolvedAt === null
-                    ? ` · aperto da ${formatDuration(entry.durationMs)}`
-                    : ` · risolto il ${formatDate(entry.impediment.resolvedAt)} · durato ${formatDuration(entry.durationMs)}`}
-                </p>
+          {/*
+           * Descrizione e origine restano fuori dalla tabella.
+           *
+           * Sono testo lungo e spesso assente: in una colonna allungherebbero
+           * le righe in modo irregolare, e una tabella dove ogni riga ha
+           * un'altezza diversa ha smesso di essere una tabella. Stanno sotto,
+           * solo per gli impedimenti che ne hanno.
+           */}
+          {entries.some(
+            (entry) => entry.impediment.description !== null || entry.workItemTitle !== null,
+          ) ? (
+            <div className="grid gap-3 pt-2">
+              <h3 className="text-sm font-medium">Dettaglio, dove la fonte lo fornisce</h3>
 
-                {entry.impediment.description === null ? null : (
-                  <p className="mt-2 text-sm break-words">
-                    {entry.impediment.description}
-                  </p>
-                )}
-
-                {entry.workItemTitle === null ? null : (
-                  <p className="text-muted-foreground mt-1 text-xs break-words">
-                    Emerso su: {entry.workItemTitle}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+              {entries
+                .filter(
+                  (entry) =>
+                    entry.impediment.description !== null || entry.workItemTitle !== null,
+                )
+                .map((entry) => (
+                  <div key={entry.impediment.id} className="grid gap-0.5 text-sm">
+                    <span className="font-medium">{entry.impediment.title}</span>
+                    {entry.impediment.description === null ? null : (
+                      <p className="break-words">{entry.impediment.description}</p>
+                    )}
+                    {entry.workItemTitle === null ? null : (
+                      <p className="text-muted-foreground text-xs break-words">
+                        Emerso su: {entry.workItemTitle}
+                      </p>
+                    )}
+                  </div>
+                ))}
+            </div>
+          ) : null}
         </section>
       )}
 

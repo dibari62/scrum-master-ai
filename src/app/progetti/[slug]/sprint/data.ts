@@ -2,12 +2,15 @@ import {
   projectSchema,
   sprintSchema,
   sprintScopeEventSchema,
+  stateTransitionSchema,
+  workItemSchema,
   type OrganizationId,
   type Project,
   type Sprint,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
-import { sprintItemCount, type MetricResult } from "@/metrics";
+import { toEstimateChange, workItemEstimate } from "@/db/rows";
+import { burndown, sprintItemCount, type Burndown, type MetricResult } from "@/metrics";
 
 /**
  * The sprints of a project, each with the one figure that describes it.
@@ -40,6 +43,20 @@ export type SprintRow = {
   readonly status: SprintStatus;
   /** Items in the sprint at its closing instant, or as it stands now. */
   readonly itemCount: MetricResult<number>;
+
+  /**
+   * How the work burned down, day by day.
+   *
+   * **Why it is here and not only on the dashboard.** The dashboard draws one
+   * burndown, for the most recent sprint — which is right for a dashboard,
+   * because that is the only chart you can still act on. The consequence was
+   * that a *closed* sprint had no burndown anywhere: "come è andato lo sprint
+   * 2, giorno per giorno" was unanswerable, even though `burndown()` accepts
+   * any sprint and always could.
+   *
+   * This is the register of sprints, so it is where that question belongs.
+   */
+  readonly burndown: MetricResult<Burndown>;
 };
 
 export type ProjectSprints = {
@@ -75,19 +92,30 @@ export async function loadProjectSprints(
    * elemento e sprint dice dove l'elemento si trova adesso, e un elemento
    * trascinato in avanti farebbe rimpicciolire uno sprint già chiuso.
    */
-  const [sprintRows, scopeRows] = await Promise.all([
+  const [sprintRows, scopeRows, itemRows, transitionRows, estimateRows] = await Promise.all([
     scope.reads.sprintsByProject(project.id),
     scope.reads.scopeEventsByProject(project.id),
+    scope.reads.workItemsByProject(project.id),
+    scope.reads.transitionsByProject(project.id),
+    scope.reads.estimateChangesByProject(project.id),
   ]);
 
   const sprints = sprintRows.map((row) => sprintSchema.parse(row));
   const scopeEvents = scopeRows.map((row) => sprintScopeEventSchema.parse(row));
+  const items = itemRows.map((row) =>
+    workItemSchema.parse({ ...row, estimate: workItemEstimate(row) }),
+  );
+  const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
+  const estimateChanges = estimateRows.map((row) => toEstimateChange(row));
 
   const rows = sprints.map(
     (sprint): SprintRow => ({
       sprint,
       status: statusOf(sprint, asOf),
       itemCount: sprintItemCount(sprint, scopeEvents, asOf),
+      burndown: burndown(sprint, items, transitions, scopeEvents, asOf, {
+        estimateChanges,
+      }),
     }),
   );
 
