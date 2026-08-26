@@ -174,6 +174,27 @@ Il rifiuto è la ragione per cui lo script esiste: automatizzare un merge saltan
 la verifica industrializzerebbe l'errore che la regola R5 vieta, invece di
 eliminarlo.
 
+**Aveva un buco, ed è stato chiuso dopo che si è manifestato.** GitHub espone due
+cose diverse con nomi simili: i *check run* (i singoli controlli) e i *workflow
+run* (le esecuzioni della pipeline). Un workflow in coda **non ha ancora creato i
+suoi check run** — quindi una pull request con la sola spunta verde di Vercel e
+l'intera suite di test ancora ferma appariva identica a una che aveva passato
+tutto, e `pr-merge` avrebbe mergiato.
+
+È successo davvero, sulla PR #50. Ora la guardia legge entrambe le fonti e
+risponde così:
+
+```
+rifiuto: controlli ancora in corso — CI (queued)
+```
+
+E quando il dubbio è «perché la pipeline non parte», la domanda ha un comando
+suo, che distingue «non ancora partita» da «in coda» da «finita»:
+
+```powershell
+npm run gh -- runs dibari62 scrum-master-ai <ramo>
+```
+
 ### 4.3 I PDF in `book/`
 
 Materiale di lettura sul mondo Agile e Scrum. Escluso dal versionamento perché

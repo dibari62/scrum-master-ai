@@ -167,6 +167,43 @@ test.describe("backlog di prodotto", () => {
     await expect(page.locator("[data-band]").first()).toBeVisible();
   });
 
+  test("il piano di rilascio non supera mai la velocity osservata", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    const velocityText = await page.getByText(/Velocity stimata/).first().innerText();
+    const velocity = Number(/([\d.,]+) punti/.exec(velocityText)?.[1]?.replace(",", "."));
+    expect(velocity).toBeGreaterThan(0);
+
+    const sprints = page.locator("[data-planned-sprint]");
+    expect(await sprints.count()).toBeGreaterThan(0);
+
+    for (const row of await sprints.all()) {
+      const cells = await row.locator("td").allInnerTexts();
+      const points = Number(cells[cells.length - 1]?.trim().replace(",", "."));
+
+      /*
+       * «As many stories as possible **without exceeding**» (pag. 100).
+       *
+       * È l'unica proprietà che deve valere su qualunque dato, e vale la pena
+       * verificarla end-to-end oltre che nel motore: il giorno in cui la
+       * pagina mostrasse un piano calcolato altrove, questo test lo direbbe.
+       */
+      expect(points).toBeLessThanOrEqual(velocity);
+    }
+  });
+
+  test("la velocity del piano si osserva e dichiara da dove viene", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    /*
+     * Una proiezione vale quanto il numero che ci sta sotto, e chi legge deve
+     * poterlo controllare invece di fidarsi. Nessun campo da riempire: un
+     * numero digitato sarebbe una previsione travestita da misura.
+     */
+    await expect(page.getByText(/media dei punti conclusi/)).toBeVisible();
+    await expect(page.locator("#velocity")).toHaveCount(0);
+  });
+
   test("un elemento del backlog si apre e mostra la sua storia", async ({ page }) => {
     await page.goto(`/progetti/${PROJECT}/backlog`);
 

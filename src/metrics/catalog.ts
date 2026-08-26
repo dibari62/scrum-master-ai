@@ -1662,6 +1662,126 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/acceptance.test.ts",
   },
   {
+    id: "release-plan",
+    name: "Piano di rilascio",
+    question: "In quanti sprint si consegna il backlog, e cosa entra in ciascuno?",
+    formula:
+      "Il backlog ordinato viene percorso dall'alto, riempiendo uno sprint finché aggiungere l'elemento successivo supererebbe la velocity stimata; l'elemento che non entra apre lo sprint dopo.",
+    unit: "points",
+    excludes: [
+      "Gli elementi senza stima, riportati a parte: una storia da zero punti è gratis, una non stimata è ignota, e confonderle fa promettere lavoro che nessuno ha dimensionato.",
+      "Le stime in ore, che una velocity in punti non può tagliare.",
+      "Ogni riordino del backlog: l'ordine è la decisione del Product Owner, e riempire meglio uno sprint significherebbe cambiarla in silenzio.",
+    ],
+    unavailableWhen: "La velocity stimata non è un numero positivo.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "la posizione in backlog e la stima corrente con la sua unità",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "il backlog così come risulta ora",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi del backlog il piano è riuscito a collocare",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "L'esempio stampato nel libro, con velocity 45.",
+        outcome: "Gli stessi quattro sprint della tabella di pagina 100.",
+        verifiedBy: "riproduce gli sprint stampati a pagina 100",
+      },
+      {
+        situation: "Riordinare il backlog riempirebbe meglio uno sprint.",
+        outcome: "Non lo fa: l'ordine resta quello deciso.",
+        verifiedBy: "non riordina il backlog per riempire meglio uno sprint",
+      },
+      {
+        situation: "Una storia è più grande di uno sprint intero.",
+        outcome:
+          "Ottiene uno sprint suo, dichiarato in sfondamento: va spezzata prima di poter essere pianificata.",
+        verifiedBy:
+          "una storia più grande di uno sprint ottiene uno sprint suo, dichiarato in sfondamento",
+      },
+      {
+        situation: "Un elemento non è stimato.",
+        outcome: "Resta fuori dal piano, mai contato come zero.",
+        verifiedBy: "gli elementi non stimati restano fuori dal piano, non contati come zero",
+      },
+      {
+        situation: "La velocity stimata è zero o negativa.",
+        outcome: "Nessun piano, e tutto resta non pianificabile.",
+        verifiedBy: "una velocity non positiva non produce un piano, e lo dichiara",
+      },
+    ],
+    decision:
+      "«As many stories as possible without exceeding»: entrambe le metà contano. La prima vieta di spezzare una storia per farla entrare, la seconda vieta di riordinare per riempire meglio.",
+    sourceFile: "src/metrics/release-plan.ts",
+    sourceSymbol: "releasePlan",
+    testFile: "tests/metrics/release-plan.test.ts",
+  },
+  {
+    id: "range-forecast",
+    name: "Previsione a intervallo",
+    question: "Che cosa si consegna di sicuro, che cosa forse, e che cosa no?",
+    formula:
+      "Il piano di rilascio viene calcolato due volte, con la velocity minima e con la massima, e il backlog è diviso in tre: ciò che entra anche al minimo, ciò che entra solo al massimo, e ciò che resta fuori in ogni caso.",
+    unit: "points",
+    excludes: [
+      "Gli elementi non stimati, che finiscono fra ciò che non si può promettere.",
+    ],
+    unavailableWhen: "Il backlog non contiene elementi stimati in punti.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "la posizione in backlog e la stima corrente con la sua unità",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "il backlog così come risulta ora",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi del backlog rientrano in ciascuna delle tre liste",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "L'intervallo 30–50 dell'esempio del libro, su uno sprint.",
+        outcome: "Due storie certe, due incerte, il resto fuori.",
+        verifiedBy: "divide il backlog nelle tre liste del libro",
+      },
+      {
+        situation: "Gli estremi vengono passati invertiti.",
+        outcome: "Letti come «fra questi due», invece di rifiutare un'intenzione chiara.",
+        verifiedBy: "estremi invertiti significano «fra questi due», non un errore",
+      },
+      {
+        situation: "L'intervallo è un solo valore.",
+        outcome: "La lista incerta resta vuota: nessuna incertezza dichiarata, nessuna mostrata.",
+        verifiedBy: "con un intervallo di un solo valore «some» resta vuoto",
+      },
+      {
+        situation: "Un elemento non è stimato.",
+        outcome: "Finisce fra ciò che non si consegna: non si promette ciò che non si è misurato.",
+        verifiedBy: "ciò che non è stimato non può essere promesso",
+      },
+      {
+        situation: "Si sommano le tre liste.",
+        outcome: "Si riottiene il backlog: sono una partizione, senza sovrapposizioni né buchi.",
+        verifiedBy: "le tre liste sono una partizione: nessun elemento sta in due o in nessuna",
+      },
+    ],
+    decision:
+      "Due esecuzioni della stessa funzione invece di una formula a parte. La differenza fra il piano pessimista e quello ottimista **è** l'incertezza, e nominarla vale più che scegliere un numero solo e far finta.",
+    sourceFile: "src/metrics/release-plan.ts",
+    sourceSymbol: "rangeForecast",
+    testFile: "tests/metrics/release-plan.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

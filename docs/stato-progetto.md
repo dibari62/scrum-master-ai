@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1129 test<br/>Playwright · 150 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1147 test<br/>Playwright · 152 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -60,6 +60,7 @@ graph TB
         U18["Linee guida di sprint<br/>dimensione e numero<br/>delle storie"]
         U19["Backlog di prodotto<br/>ordinato, con<br/>«come si dimostra»"]
         U20["Soglie di accettazione<br/>quattro fasce di impegno<br/>con la loro conseguenza"]
+        U21["Piano di rilascio<br/>backlog tagliato in sprint<br/>sulla velocity osservata"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -70,7 +71,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -117,7 +118,58 @@ in silenzio.
 
 ---
 
-**Le soglie di accettazione: che cosa il backlog *promette*.** Il libro le
+**Il piano di rilascio, verificato sull'esempio stampato nel libro.** La regola
+sta in una frase: «Each sprint includes **as many stories as possible without
+exceeding** the estimated velocity of 45» (pag. 100). Entrambe le metà contano.
+
+*As many as possible* significa che la lista si percorre in ordine e non si
+riordina mai per riempire meglio uno sprint: l'ordine è la decisione del Product
+Owner, e migliorarlo vorrebbe dire cambiarla di nascosto. *Without exceeding*
+significa che una storia che non entra apre lo sprint successivo, invece di
+essere spezzata.
+
+Il test non usa dati inventati: usa la **tabella di pagina 100**, con i suoi
+tredici nomi di frutta e le stime stampate accanto. Il libro dichiara in quale
+sprint finisce ciascuna storia, quindi è la risposta pubblicata — se il motore
+non la riproduce, ha torto il motore.
+
+L'esempio ha anche un dettaglio che non avremmo pensato di inventare: **le
+ultime due righe non hanno stima**, perché il libro segue il proprio consiglio,
+«Time-estimate the *most important* items». Quelle storie restano fuori dal
+piano e vengono riportate a parte. Non valgono zero: una storia da zero punti è
+gratis, una non stimata è ignota, e confonderle è il modo in cui un piano finisce
+per promettere lavoro che nessuno ha dimensionato.
+
+Sui dati veri il piano taglia il backlog in quattro sprint da 31, 16, 33 e 21
+punti, con velocity **osservata** a 33,3 — lo sprint 2 si ferma a 16 perché il
+successivo da 20 sforerebbe.
+
+**La velocity non si chiede, si osserva.** È il «meteo di ieri» del libro: la
+media dei punti chiusi negli sprint conclusi, e la pagina dichiara da dove viene.
+Un campo da riempire sarebbe stato più facile e avrebbe prodotto una previsione
+travestita da misura — il piano racconterebbe la speranza di chi lo ha scritto
+invece della storia della squadra.
+
+**Un caso che il libro non copre, e che va deciso.** Una storia più grande di uno
+sprint intero non entra da nessuna parte. Saltarla farebbe sembrare la consegna
+più vicina di quanto sia; cercarle un posto all'infinito sarebbe un difetto. Le
+si dà uno sprint tutto suo, **dichiarato in sfondamento**, perché è la cosa vera:
+quella storia va spezzata prima di poter essere pianificata.
+
+C'è anche la variante a intervallo (pag. 101): stessa funzione eseguita due
+volte, con la velocity minima e con la massima. Ciò che entra in entrambe è
+**All**, ciò che entra solo nell'ottimista è **Some**, il resto è **None**. La
+differenza fra i due piani *è* l'incertezza, e nominarla vale più che scegliere
+un numero solo e far finta.
+
+> **Il test ha corretto me, di nuovo.** Avevo calcolato a mano che a velocity 50
+> entrasse una storia sola in più. Ne entrano due: dopo `orange` (41 punti) ci
+> sta ancora `guava` da 8, per 49. Il conto sbagliato era il mio, e senza un test
+> sull'esempio vero sarebbe finito in una pagina.
+
+---
+
+
 definisce «in terms of the contract» (pag. 97), ed è la parola che conta. Un
 backlog ordinato dice cosa viene prima; una soglia dice **dove passa la linea
 fra ciò che è dovuto e ciò che può aspettare**.
@@ -811,7 +863,8 @@ Cose note e volutamente rimandate, non sviste:
 | **La carta più piccola del mazzo sarebbe stata raddoppiata** | [mappa](scrum-dalle-trincee.md) E1-E2 | ~~le colonne delle stime sono `integer` e troncherebbero 0,5 a zero~~ **fatto**: le tre colonne sono `numeric(8,2)` dalla migrazione 0010. La supposizione sul troncamento era **sbagliata**, e verificarla contro il database vero è servito: Postgres arrotonda, e `0.5::integer` vale **1** — una storia da mezzo punto sarebbe diventata una da un punto. Insieme è arrivata la scala di stima: `estimationScale` sul contesto di progetto, dichiarata da una persona, con le deviazioni elencate fra gli elementi (5 su 44 sui dati veri) |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | **Non si può dire che un elemento serve al codice e non a una persona** | [mappa](scrum-dalle-trincee.md) G3 | il libro consiglia che le *tech story* occupino il 10–20% della capacità, e la linea guida **non è implementata** perché il modello canonico non ha il campo. `WorkItemKind` distingue storia, bug, task, epic e spike, e nessuno di questi è una storia tecnica: dedurla dal tipo produrrebbe un numero convincente e sbagliato. Serve una decisione — un tipo nuovo, oppure un'etichetta — e quindi un ADR |
-| Dodici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Dieci formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| La variante a intervallo del piano si calcola ma non si vede | [mappa](scrum-dalle-trincee.md) R3 | `rangeForecast` esiste, è testata sull'esempio del libro e nessuna schermata la mostra. Serve un intervallo di velocity dichiarato — «30–50» — e finché quello non c'è, mostrarla vorrebbe dire inventare i due estremi |
 | Il backlog non si riordina dall'interfaccia | — | l'ordine arriva dal connettore e la schermata lo mostra, ma non c'è modo di trascinare un elemento più in alto. È il gesto centrale del Product Owner, e va fatto insieme alle soglie di accettazione, che si appoggiano proprio a quest'ordine |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |

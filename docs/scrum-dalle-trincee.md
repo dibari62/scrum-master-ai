@@ -82,9 +82,9 @@ Stato di una riga:
 
 | # | Formula del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
-| R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | ⬜ | ⬜ |
+| R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | `src/metrics/release-plan.ts` → `releasePlan` | ✅ verificato **sull'esempio stampato** |
 | R2 | Soglie di accettazione: **must** / **should** / **may**. | «All items with importance >= 100 must be included in version 1.0» (pag. 97) | `src/domain/acceptance-threshold.ts` → `thresholdAtPosition`; `src/metrics/acceptance.ts` → `acceptanceCoverage` | ✅ **quattro** fasce, vedi nota |
-| R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | ⬜ | ⬜ |
+| R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | `src/metrics/release-plan.ts` → `rangeForecast` | ✅ |
 | R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | 🟡 il confronto si vede, la revisione automatica del piano no |
 
 > **R2 sembrava dipendere da un campo che il libro stesso abbandona, e non era così.**
