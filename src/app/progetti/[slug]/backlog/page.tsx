@@ -49,10 +49,16 @@ export default async function BacklogPage({ params }: PageProps) {
     organizationIdSchema.parse(session.organizationId),
     slug,
     mayConfigureAgent(session.role),
+    /*
+     * L'istante si decide qui e si passa in basso: `src/metrics` si rifiuta di
+     * leggere l'orologio perché i suoi risultati restino riproducibili.
+     */
+    new Date(),
   );
   if (!list) notFound();
 
-  const { project, items, total, unplacedCount, describedCount, thresholds, coverage } = list;
+  const { project, items, total, unplacedCount, describedCount, thresholds, coverage, plan } =
+    list;
 
   return (
     <main className="app-shell grid gap-6 py-10">
@@ -238,6 +244,83 @@ export default async function BacklogPage({ params }: PageProps) {
                   </p>
                 </form>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="grid gap-3 pt-6">
+              <div className="grid gap-1">
+                <h2 className="text-base font-semibold">Piano di rilascio</h2>
+                <p className="text-muted-foreground text-sm">
+                  Il backlog tagliato in sprint, prendendo storie in ordine finché
+                  aggiungerne un&apos;altra supererebbe la velocity stimata.
+                </p>
+              </div>
+
+              {plan === null ? (
+                <p className="text-muted-foreground text-sm">
+                  Nessun piano: serve almeno uno sprint chiuso con stime in punti da cui
+                  ricavare la velocity. <strong>Non viene chiesta a chi guarda</strong> —
+                  un numero digitato sarebbe una previsione travestita da misura.
+                </p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground text-sm tabular-nums">
+                    Velocity stimata <strong>{formatNumber(plan.velocity, 1)} punti</strong>
+                    {list.velocitySource === null ? "" : ` · ${list.velocitySource}`}
+                  </p>
+
+                  <DataTable
+                    caption="Come il backlog si distribuisce sugli sprint futuri"
+                    rows={plan.sprints}
+                    getKey={(sprint) => String(sprint.number)}
+                    rowAttribute="data-planned-sprint"
+                    minWidth="min-w-[38rem]"
+                    columns={[
+                      {
+                        key: "sprint",
+                        header: "Sprint",
+                        align: "end",
+                        cell: (sprint) => formatNumber(sprint.number),
+                      },
+                      {
+                        key: "contenuto",
+                        header: "Contiene",
+                        className: "min-w-[24rem]",
+                        cell: (sprint) =>
+                          sprint.items.map((entry) => entry.title).join(" · "),
+                      },
+                      {
+                        key: "punti",
+                        header: "Punti",
+                        align: "end",
+                        cell: (sprint) => (
+                          <span className={sprint.overflows ? "text-destructive" : undefined}>
+                            {formatNumber(sprint.points)}
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
+
+                  {plan.sprints.some((sprint) => sprint.overflows) ? (
+                    <p className="text-destructive text-xs">
+                      Uno sprint supera la velocity stimata perché contiene una storia più
+                      grande di uno sprint intero: <strong>va spezzata</strong> prima di
+                      poter essere pianificata.
+                    </p>
+                  ) : null}
+
+                  {plan.unplannable.length > 0 ? (
+                    <p className="text-muted-foreground text-xs">
+                      {formatNumber(plan.unplannable.length)} elementi restano fuori dal
+                      piano perché <strong>non sono stimati</strong>. Non valgono zero:
+                      valgono un numero che nessuno ha ancora scritto, e il libro dice di
+                      stimare i più importanti, non tutti.
+                    </p>
+                  ) : null}
+                </>
+              )}
             </CardContent>
           </Card>
 
