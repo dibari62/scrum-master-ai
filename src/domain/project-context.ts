@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { auditFields, displayNameSchema, projectScopedFields, timestampSchema } from "./common";
+import { DEFAULT_ESTIMATION_SCALE, estimationScaleSchema } from "./estimation-scale";
 import { projectContextIdSchema } from "./ids";
 import { dayOfWeekSchema } from "./working-calendar";
 
@@ -222,6 +223,7 @@ export const projectContextSchema = z.object({
   sprintLengthDays: sprintLengthDaysSchema,
   ceremonies: ceremonyScheduleSchema,
   definitionOfDone: definitionOfDoneSchema,
+  estimationScale: estimationScaleSchema,
   workingAgreement: workingAgreementSchema,
   stakeholders: stakeholdersSchema,
 
@@ -243,6 +245,7 @@ export const createProjectContextInputSchema = z.object({
   sprintLengthDays: sprintLengthDaysSchema.default(DEFAULT_SPRINT_LENGTH_DAYS),
   ceremonies: ceremonyScheduleSchema.default(UNSCHEDULED_CEREMONIES),
   definitionOfDone: definitionOfDoneSchema.default([]),
+  estimationScale: estimationScaleSchema.default(DEFAULT_ESTIMATION_SCALE),
   workingAgreement: workingAgreementSchema.default(null),
   stakeholders: stakeholdersSchema.default([]),
 });
@@ -262,6 +265,7 @@ export const updateProjectContextInputSchema = projectContextSchema
     sprintLengthDays: true,
     ceremonies: true,
     definitionOfDone: true,
+    estimationScale: true,
     workingAgreement: true,
     stakeholders: true,
   })

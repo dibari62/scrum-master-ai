@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1056 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1082 test<br/>Playwright · 132 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -56,6 +56,7 @@ graph TB
         U14["Menù di progetto<br/>otto sezioni,<br/>su ogni pagina"]
         U15["Retrospettive<br/>tre colonne, voti,<br/>seguito dei miglioramenti"]
         U16["Elenchi incolonnati<br/>tabelle con intestazione,<br/>numeri allineati a destra"]
+        U17["Scala di stima<br/>dichiarata dalla squadra,<br/>deviazioni segnalate"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -66,7 +67,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -113,7 +114,49 @@ in silenzio.
 
 ---
 
-**Gli elenchi sono diventati tabelle.** Segnalazione del Product Owner: le
+**La scala di stima non era dichiarata da nessuna parte, e il database ne
+avrebbe raddoppiato la carta più piccola.** Due cose distinte, scoperte
+insieme.
+
+La prima è la regola più citata del libro: «you can't cheat by combining a 5 and
+a 2 to make a 7. You have to choose either 5 or 8; **there is no 7**». I salti
+del mazzo sono il punto — impediscono a una squadra di dichiarare una precisione
+che non ha. Fino a ieri il portale accettava qualunque numero senza dire nulla.
+Ora un progetto **dichiara** la sua scala — planning poker, Fibonacci stretta, o
+nessuna — e le stime che non le appartengono vengono elencate con i due valori
+ammessi fra cui stanno, cioè esattamente il modo in cui il libro rifiuta un 7.
+
+Sui dati veri sono **5 su 44**: 4 fra 3 e 5, 6 fra 5 e 8, 16 fra 13 e 20, 24 fra
+20 e 40. Non sono un difetto dei dati di prova: nascono dalle ri-stime che lo
+scenario genera apposta, e sono il tipo di deviazione che nasce davvero quando
+qualcuno raddoppia una stima «a occhio» invece di ripescare una carta.
+
+**Segnala, non rifiuta**, e la ragione è una regola: le stime arrivano da una
+fonte esterna, e il contenuto ingerito è dato, mai istruzione (R3). Rifiutare
+l'importazione di una storia da 7 punti farebbe perdere la storia, non
+correggerebbe la stima. Il rifiuto ha senso solo dove un essere umano digita un
+numero nella *nostra* interfaccia — e per quel giorno `isOnScale` c'è già.
+
+La seconda cosa è più insidiosa, e vale la pena raccontarla per intero. La carta
+più piccola del mazzo è **½** («Our lowest value is 0.5», pag. 65). Le colonne
+delle stime erano `integer`. La supposizione ovvia è che un mezzo punto venisse
+*troncato* a zero; l'ho verificata contro il database vero, e la risposta è
+peggiore: Postgres **arrotonda**, e `0.5::integer` vale **1**. Una storia da
+mezzo punto sarebbe diventata una storia da un punto — il doppio — senza un
+errore da nessuna parte.
+
+Oggi nessuna stima ha una frazione, il che è precisamente il motivo per cui
+andava sistemato adesso: il guasto sarebbe arrivato senza sintomi, il giorno in
+cui qualcuno avesse giocato la carta ½. Le tre colonne sono ora `numeric(8,2)`.
+
+> **Una lezione di metodo.** Avevo scritto «lo tronca a 0» in un commento, per
+> analogia con altri linguaggi. Era falso. La differenza fra «vale 0» e «vale il
+> doppio» è enorme per chi un giorno dovrà capire un totale sbagliato, e nessuna
+> delle due si sarebbe potuta indovinare: si interroga il database e si guarda.
+
+---
+
+
 informazioni «sembrano tante entità separate». Erano due difetti distinti, e vale
 la pena tenerli separati.
 
@@ -242,7 +285,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 23 tabelle popolate, migrazioni applicate: 51 elementi, 210 transizioni, 57 variazioni di stima, 4 previsioni, 3 retrospettive con 6 azioni di miglioramento, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
+| **Neon (Postgres)** | ✅ attivo | 23 tabelle popolate, migrazioni applicate fino alla 0010: 51 elementi, 210 transizioni, 57 variazioni di stima, 4 previsioni, 3 retrospettive con 6 azioni di miglioramento, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
@@ -646,9 +689,9 @@ Cose note e volutamente rimandate, non sviste:
 | L'output generato non ha un modo per dire se è stato utile | `AGENTS.md` R1 | la provenienza è ora dichiarata a schermo (calcolato dal codice / scritto da un modello), ma non si può ancora correggere né valutare un testo generato. Serve una tabella e una scrittura: da fare quando i testi generati saranno più d'uno per schermata |
 | Nessun tema scuro raggiungibile | — | le variabili di `.dark` esistono e sono aggiornate, ma nulla applica quella classe: il tema segue solo il chiaro. Serve un interruttore, oppure `prefers-color-scheme`. Da fare quando qualcuno lo chiederà davvero, non prima |
 | **La velocity non leggeva la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | ~~manca la tabella e la generazione nel seed~~ **fatto**: `estimate_changes` esiste, il seed la popola con ri-stime volute, e la suite di conformità obbliga ogni connettore futuro a fare lo stesso. Sui dati veri le due letture divergono fino a 16 punti su uno sprint |
-| **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
+| **La carta più piccola del mazzo sarebbe stata raddoppiata** | [mappa](scrum-dalle-trincee.md) E1-E2 | ~~le colonne delle stime sono `integer` e troncherebbero 0,5 a zero~~ **fatto**: le tre colonne sono `numeric(8,2)` dalla migrazione 0010. La supposizione sul troncamento era **sbagliata**, e verificarla contro il database vero è servito: Postgres arrotonda, e `0.5::integer` vale **1** — una storia da mezzo punto sarebbe diventata una da un punto. Insieme è arrivata la scala di stima: `estimationScale` sul contesto di progetto, dichiarata da una persona, con le deviazioni elencate fra gli elementi (5 su 44 sui dati veri) |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
-| Quattordici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Tredici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |
 | **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |

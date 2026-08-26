@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
+  estimationScaleSchema,
   isKnownSkillKey,
   isSkillAvailable,
   organizationIdSchema,
@@ -179,6 +180,49 @@ export async function setSkillEnabledAction(form: FormData): Promise<void> {
    */
   revalidatePath(`/progetti/${slug}`, "layout");
   revalidatePath(`/progetti/${slug}/scrum-master`, "layout");
+}
+
+/**
+ * Declares the scale this team estimates on.
+ *
+ * The scale is a *decision* of the team, not an observation, which is why it
+ * lives on the project context and is written by a person rather than inferred
+ * from the estimates already in the database. Inferring it would turn "these
+ * are the numbers we happen to have used" into "this is the rule we follow",
+ * and the whole point of the rule is that it is chosen.
+ */
+export async function setEstimationScaleAction(form: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  if (typeof slug !== "string") redirect("/progetti");
+
+  // Parsed, not cast: the value arrives from a form, and a form is outside.
+  const scale = estimationScaleSchema.safeParse(form.get("estimationScale"));
+  if (!scale.success) redirect(`/progetti/${slug}/scrum-master/configurazione`);
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) redirect("/progetti");
+
+  // The check lives here as well as in the interface: a hidden control is not
+  // an authorisation.
+  if (!mayConfigureAgent(session.role)) redirect(`/progetti/${slug}/scrum-master`);
+
+  await scope.writes.setEstimationScale(projectIdSchema.parse(project.id), scale.data);
+
+  /*
+   * Anche gli elementi, non solo la scheda.
+   *
+   * È lì che le deviazioni si vedono: rivalidare la sola scheda lascerebbe chi
+   * cambia scala davanti a un elenco calcolato con quella precedente, che è
+   * indistinguibile da un comando che non ha funzionato.
+   */
+  revalidatePath(`/progetti/${slug}/scrum-master`, "layout");
+  revalidatePath(`/progetti/${slug}/elementi`, "layout");
 }
 
 /**

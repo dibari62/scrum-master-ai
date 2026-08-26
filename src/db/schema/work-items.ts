@@ -1,6 +1,6 @@
 import {
   index,
-  integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -73,8 +73,20 @@ export const workItems = pgTable(
      * Two columns rather than one number, because a team estimating in hours
      * and one estimating in points produce figures that must never be summed
      * together — and a bare number makes that mistake invisible.
+     *
+     * **`numeric`, not `integer`.** The smallest card in the planning poker
+     * deck is ½ (page 65: "Our lowest value is 0.5"), and an integer column
+     * does not truncate it — Postgres *rounds*, so `0.5` was stored as `1`. A
+     * half-point story silently became a one-point story: twice its size, with
+     * no error anywhere. Nothing in the current data set has a fraction, which
+     * is exactly why this had to be fixed before something did — the corruption
+     * would have arrived with no symptom.
+     *
+     * `mode: "number"` because every consumer is a metric that sums; the
+     * default `string` would push a parse into each of them, and one forgotten
+     * parse is a string concatenation that looks like a total.
      */
-    estimateValue: integer("estimate_value"),
+    estimateValue: numeric("estimate_value", { precision: 8, scale: 2, mode: "number" }),
     estimateUnit: text("estimate_unit"),
 
     /** `null` for an item still in the backlog. */
@@ -156,9 +168,9 @@ export const estimateChanges = pgTable(
      * two columns of each pair are always written together — a value without a
      * unit is the mistake `EstimateTotals` exists to prevent.
      */
-    fromValue: integer("from_value"),
+    fromValue: numeric("from_value", { precision: 8, scale: 2, mode: "number" }),
     fromUnit: text("from_unit"),
-    toValue: integer("to_value"),
+    toValue: numeric("to_value", { precision: 8, scale: 2, mode: "number" }),
     toUnit: text("to_unit"),
 
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),

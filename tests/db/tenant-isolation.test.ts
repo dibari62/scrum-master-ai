@@ -107,6 +107,8 @@ const WRITES: Record<TenantWriteName, (scope: TenantScope) => Query> = {
         findings: [],
       })
       .toSQL(),
+  setEstimationScale: (scope) =>
+    scope.writes.setEstimationScale(PROJECT_ID, "planning-poker").toSQL(),
 };
 
 const readNames = Object.keys(READS) as ReadonlyArray<TenantReadName>;

@@ -162,6 +162,7 @@ export async function createAgent(input: {
         sprintLengthDays: input.payload.context.sprintLengthDays,
         ceremonies: input.payload.context.ceremonies,
         definitionOfDone: [...input.payload.context.definitionOfDone],
+        estimationScale: input.payload.context.estimationScale,
         workingAgreement: input.payload.context.workingAgreement,
         stakeholders: [...input.payload.context.stakeholders],
         createdAt: now,
@@ -224,6 +225,19 @@ export function parseWizardForm(form: FormData): CreateScrumAgentInput | null {
   };
 
   const sprintLength = optional("sprintLengthDays");
+  const estimationScale = optional("estimationScale");
+
+  /*
+   * Solo i campi davvero presenti entrano nell'oggetto.
+   *
+   * Un campo assente deve restare assente, perché è lo schema a fornire il
+   * valore predefinito. Scriverlo anche qui creerebbe una seconda
+   * dichiarazione dello stesso valore, e delle due copie quella che si
+   * dimentica di aggiornare è sempre l'altra.
+   */
+  const context: Record<string, unknown> = {};
+  if (sprintLength !== undefined) context["sprintLengthDays"] = Number(sprintLength);
+  if (estimationScale !== undefined) context["estimationScale"] = estimationScale;
 
   const parsed = createScrumAgentInputSchema.safeParse({
     name: form.get("name"),
@@ -231,7 +245,7 @@ export function parseWizardForm(form: FormData): CreateScrumAgentInput | null {
     tone: optional("tone"),
     language: optional("language"),
     autonomyLevel: optional("autonomyLevel"),
-    context: sprintLength === undefined ? {} : { sprintLengthDays: Number(sprintLength) },
+    context,
   });
 
   return parsed.success ? parsed.data : null;

@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import type {
   CreateMembershipInput,
   CreateProjectInput,
+  EstimationScale,
   HealthFinding,
   HealthVerdict,
   OrganizationId,
@@ -650,6 +651,29 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
             updatedAt: new Date(),
           },
         })
+        .returning(),
+
+    /**
+     * Declares which scale this team estimates on.
+     *
+     * A single column on a single row, updated where it stands, for the same
+     * reason `setSkillEnabled` works that way: reading the context, changing
+     * one field and writing the whole card back would let a concurrent edit of
+     * the Definition of Done be overwritten by a copy read a moment earlier.
+     *
+     * The organization is part of the `where`, not of the caller's diligence
+     * (§8.4).
+     */
+    setEstimationScale: (projectId: ProjectId, scale: EstimationScale) =>
+      db
+        .update(projectContexts)
+        .set({ estimationScale: scale, updatedAt: new Date() })
+        .where(
+          and(
+            eq(projectContexts.organizationId, organizationId),
+            eq(projectContexts.projectId, projectId),
+          ),
+        )
         .returning(),
   } as const;
 

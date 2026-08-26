@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   agentPersonaSchema,
   agentToneSchema,
+  estimationScaleSchema,
+  ESTIMATION_SCALE_LABELS,
   selectableAutonomyLevelSchema,
   type AgentPersona,
   type AgentTone,
@@ -149,6 +151,34 @@ export function CreateAgentWizard({
             {sprintLengthSource === "osservata"
               ? "Proposta a partire dagli sprint già registrati: calcolata in codice, e modificabile."
               : "Valore predefinito: non ci sono ancora sprint da cui dedurla."}
+          </p>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="estimationScale">Scala di stima</Label>
+          <select
+            id="estimationScale"
+            name="estimationScale"
+            defaultValue="free"
+            className={SELECT_CLASS}
+          >
+            {estimationScaleSchema.options.map((scale) => (
+              <option key={scale} value={scale}>
+                {ESTIMATION_SCALE_LABELS[scale]}
+              </option>
+            ))}
+          </select>
+          {/*
+           * Predefinita «nessuna».
+           *
+           * Dichiarare una scala al posto della squadra riempirebbe la pagina
+           * degli elementi di segnalazioni su una regola che nessuno ha
+           * adottato — e la prima reazione a un avviso ingiusto è imparare a
+           * ignorare gli avvisi.
+           */}
+          <p className="text-muted-foreground text-xs">
+            Con una scala dichiarata, il portale <strong>segnala</strong> le stime che non le
+            appartengono. Non le corregge e non le rifiuta: arrivano da una fonte esterna.
           </p>
         </div>
 
