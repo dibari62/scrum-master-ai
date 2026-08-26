@@ -22,6 +22,7 @@ import { readFileSync } from "node:fs";
  *
  * Usage:
  *   node scripts/github.mjs pr-open     <owner> <repo> <head> <base> <title> [bodyFile]
+ *   node scripts/github.mjs pr-title    <owner> <repo> <number> <title>
  *   node scripts/github.mjs pr-status   <owner> <repo> <number>
  *   node scripts/github.mjs pr-merge    <owner> <repo> <number>
  *   node scripts/github.mjs ci-log      <owner> <repo> <number>
@@ -34,6 +35,7 @@ import { readFileSync } from "node:fs";
 
 const USAGE = `uso:
   node scripts/github.mjs pr-open     <owner> <repo> <head> <base> <titolo> [fileCorpo]
+  node scripts/github.mjs pr-title    <owner> <repo> <numero> <titolo>
   node scripts/github.mjs pr-status   <owner> <repo> <numero>
   node scripts/github.mjs pr-merge    <owner> <repo> <numero>
   node scripts/github.mjs ci-log      <owner> <repo> <numero>
@@ -121,6 +123,18 @@ async function prOpen(client, [owner, repo, head, base, title, bodyFile]) {
   });
 
   console.log(`PR #${payload.number} aperta: ${payload.html_url}`);
+}
+
+async function prTitle(client, [owner, repo, number, title]) {
+  if (!owner || !repo || !number || !title) throw new Error(USAGE);
+
+  const payload = await client.json(`/repos/${owner}/${repo}/pulls/${number}`, {
+    method: "PATCH",
+    headers: { ...client.headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+
+  console.log(`PR #${payload.number} rititolata: ${payload.title}`);
 }
 
 async function prStatus(client, [owner, repo, number]) {
@@ -264,6 +278,7 @@ async function ping(_client, [url]) {
 
 const COMMANDS = {
   "pr-open": prOpen,
+  "pr-title": prTitle,
   "pr-status": prStatus,
   "pr-merge": prMerge,
   "ci-log": ciLog,
