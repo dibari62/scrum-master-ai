@@ -4,10 +4,13 @@ import type {
   Comment,
   EstimateChange,
   Impediment,
+  ImprovementAction,
   OrganizationId,
   Person,
   ProjectId,
   PullRequest,
+  Retrospective,
+  RetrospectiveNote,
   SourceSystem,
   Sprint,
   SprintScopeEvent,
@@ -64,6 +67,17 @@ export type CanonicalBatch = {
    * `src/domain/sprint-statistics.ts`.
    */
   readonly sprintStatistics: readonly SprintStatistics[];
+
+  /**
+   * The retrospectives held, their notes and the improvements they decided.
+   *
+   * Empty for a connector reading a tool that has no such artefact — which is
+   * most of them. Like a forecast, a retrospective is something a team *writes*,
+   * not something a board can be asked for.
+   */
+  readonly retrospectives: readonly Retrospective[];
+  readonly retrospectiveNotes: readonly RetrospectiveNote[];
+  readonly improvementActions: readonly ImprovementAction[];
   readonly comments: readonly Comment[];
   readonly impediments: readonly Impediment[];
   readonly pullRequests: readonly PullRequest[];
@@ -79,6 +93,9 @@ export const EMPTY_BATCH: CanonicalBatch = {
   estimateChanges: [],
   scopeEvents: [],
   sprintStatistics: [],
+  retrospectives: [],
+  retrospectiveNotes: [],
+  improvementActions: [],
   comments: [],
   impediments: [],
   pullRequests: [],

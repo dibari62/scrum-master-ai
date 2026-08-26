@@ -23,6 +23,7 @@ export * from "./estimate-change";
 export * from "./working-calendar";
 export * from "./sprint";
 export * from "./sprint-statistics";
+export * from "./retrospective";
 export * from "./availability";
 export * from "./collaboration";
 

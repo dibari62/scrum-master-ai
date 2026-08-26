@@ -16,6 +16,7 @@ export * from "./estimates";
 export * from "./flow";
 export * from "./sprint";
 export * from "./planning";
+export * from "./retrospective";
 export * from "./health";
 export * from "./bottleneck";
 export * from "./daily";

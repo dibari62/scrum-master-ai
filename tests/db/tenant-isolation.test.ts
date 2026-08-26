@@ -59,6 +59,12 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
     scope.reads.estimateChangesByProject(PROJECT_ID).toSQL(),
   sprintStatisticsByProject: (scope) =>
     scope.reads.sprintStatisticsByProject(PROJECT_ID).toSQL(),
+  retrospectivesByProject: (scope) =>
+    scope.reads.retrospectivesByProject(PROJECT_ID).toSQL(),
+  retrospectiveNotesByProject: (scope) =>
+    scope.reads.retrospectiveNotesByProject(PROJECT_ID).toSQL(),
+  improvementActionsByProject: (scope) =>
+    scope.reads.improvementActionsByProject(PROJECT_ID).toSQL(),
   scopeEventsBySprint: (scope) => scope.reads.scopeEventsBySprint(SPRINT_ID).toSQL(),
   scopeEventsByProject: (scope) => scope.reads.scopeEventsByProject(PROJECT_ID).toSQL(),
   peopleByProject: (scope) => scope.reads.peopleByProject(PROJECT_ID).toSQL(),

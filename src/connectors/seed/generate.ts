@@ -11,6 +11,9 @@ import {
   sprintSchema,
   sprintScopeEventSchema,
   sprintStatisticsSchema,
+  improvementActionSchema,
+  retrospectiveNoteSchema,
+  retrospectiveSchema,
   stateTransitionSchema,
   workItemSchema,
   type Board,
@@ -18,10 +21,13 @@ import {
   type Comment,
   type EstimateChange,
   type Impediment,
+  type ImprovementAction,
   type OrganizationId,
   type Person,
   type ProjectId,
   type PullRequest,
+  type Retrospective,
+  type RetrospectiveNote,
   type Sprint,
   type SprintScopeEvent,
   type SprintStatistics,
@@ -177,6 +183,16 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
   const statistics: SprintStatistics[] = [];
 
   /**
+   * Le retrospettive, le loro note e i miglioramenti decisi.
+   *
+   * Come le previsioni: scritte dallo scenario, non dedotte. Sono ciò che le
+   * persone hanno detto, e nessun calcolo può ricostruirlo dai numeri.
+   */
+  const retrospectives: Retrospective[] = [];
+  const retrospectiveNotes: RetrospectiveNote[] = [];
+  const improvementActions: ImprovementAction[] = [];
+
+  /**
    * One entry per work item, keyed by identifier.
    *
    * A map rather than a list because an item carried into the next sprint is
@@ -235,6 +251,68 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       }),
     );
 
+    /*
+     * La retrospettiva si tiene alla fine dello sprint, non all'inizio.
+     *
+     * Sull'ultimo sprint — ancora aperto — non se ne tiene affatto: una
+     * retrospettiva su uno sprint in corso guarderebbe indietro a qualcosa che
+     * non è ancora successo. È il taglio giusto, e rende visibile a schermo
+     * anche il caso «sprint senza retrospettiva», che su dati reali è comune.
+     */
+    if (sprint.completedAt !== null) {
+      const heldAt = atHour(endsAt, 16);
+
+      const retrospective = retrospectiveSchema.parse({
+        id: randomUUID(),
+        ...scope,
+        sprintId: sprint.id,
+        heldAt,
+        participantCount: people.length,
+        ...stamps(heldAt),
+      });
+      retrospectives.push(retrospective);
+
+      const columns = [
+        ["good", plan.retrospective.good],
+        ["could-have-done-better", plan.retrospective.couldHaveDoneBetter],
+        ["improvement", plan.retrospective.improvements.map((entry) => entry.title)],
+      ] as const;
+
+      for (const [column, texts] of columns) {
+        for (const text of texts) {
+          retrospectiveNotes.push(
+            retrospectiveNoteSchema.parse({
+              id: randomUUID(),
+              ...scope,
+              retrospectiveId: retrospective.id,
+              column,
+              text,
+              ...stamps(heldAt),
+            }),
+          );
+        }
+      }
+
+      for (const entry of plan.retrospective.improvements) {
+        improvementActions.push(
+          improvementActionSchema.parse({
+            id: randomUUID(),
+            ...scope,
+            retrospectiveId: retrospective.id,
+            title: entry.title,
+            detail: null,
+            votes: entry.votes,
+            status: entry.status,
+            resolvedAt:
+              entry.resolvedAfterDays === null
+                ? null
+                : addDays(heldAt, entry.resolvedAfterDays),
+            ...stamps(heldAt),
+          }),
+        );
+      }
+    }
+
     const results = generateSprintItems({
       scope,
       sprint,
@@ -265,6 +343,9 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
       estimateChanges: generated.flatMap((entry) => entry.estimateChanges),
       scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
       sprintStatistics: statistics,
+      retrospectives,
+      retrospectiveNotes,
+      improvementActions,
       comments: generated.flatMap((entry) => entry.comments),
       impediments: generated
         .map((entry) => entry.impediment)
@@ -333,12 +414,17 @@ function truncateAt(batch: CanonicalBatch, asOf: Date): CanonicalBatch {
     }
   }
 
+  /** The retrospectives that had already been held by the cut. */
+  const liveRetrospectives = batch.retrospectives.filter((entry) =>
+    notAfter(entry.heldAt),
+  );
+  const liveRetrospectiveIds = new Set(liveRetrospectives.map((entry) => entry.id));
+
   return {
     people: batch.people,
     boards: batch.boards,
     boardColumns: batch.boardColumns,
     sprints: batch.sprints,
-
     workItems: workItems.map((item) => {
       const reached = stateAtCutoff.get(item.id);
 
@@ -377,6 +463,31 @@ function truncateAt(batch: CanonicalBatch, asOf: Date): CanonicalBatch {
     sprintStatistics: batch.sprintStatistics.filter((entry) =>
       notAfter(entry.recordedAt),
     ),
+
+    /*
+     * E le retrospettive.
+     *
+     * Una retrospettiva datata domani sarebbe una riunione che non si è ancora
+     * tenuta, con dentro le opinioni di chi non l'ha ancora espressa. Le note e
+     * i miglioramenti seguono la loro retrospettiva: senza il filtro
+     * resterebbero orfani, che è peggio che assenti.
+     */
+    retrospectives: liveRetrospectives,
+
+    retrospectiveNotes: batch.retrospectiveNotes.filter((note) =>
+      liveRetrospectiveIds.has(note.retrospectiveId),
+    ),
+
+    improvementActions: batch.improvementActions
+      .filter((action) => liveRetrospectiveIds.has(action.retrospectiveId))
+      .map((action) =>
+        // Deciso prima, chiuso dopo: all'istante del taglio è ancora aperto.
+        // Lo stesso trattamento che riceve un impedimento risolto oltre il
+        // taglio, e per la stessa ragione.
+        action.resolvedAt !== null && !notAfter(action.resolvedAt)
+          ? improvementActionSchema.parse({ ...action, resolvedAt: null, status: "open" })
+          : action,
+      ),
 
     comments: batch.comments.filter(
       (comment) => live.has(comment.workItemId) && notAfter(comment.postedAt),

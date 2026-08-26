@@ -45,6 +45,7 @@ const ENTITY_LABELS: Readonly<Record<MetricInputEntity, string>> = {
   EstimateChange: "Variazione di stima",
   WorkingCalendar: "Calendario lavorativo",
   TeamMemberAvailability: "Disponibilità di una persona",
+  ImprovementAction: "Azione di miglioramento",
   Sprint: "Sprint",
   SprintScopeEvent: "Movimento di perimetro",
 };

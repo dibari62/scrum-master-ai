@@ -91,6 +91,35 @@ export type SprintPlan = {
    * a forecast that always lands makes the variance column pointless.
    */
   readonly forecastPoints: number;
+
+  /**
+   * Cosa è emerso dalla retrospettiva di questo sprint.
+   *
+   * Scritto qui e non generato a caso: sono le stesse anomalie che il resto
+   * dello scenario produce nei numeri — la revisione che si ingolfa, il
+   * perimetro che cresce, il sovraimpegno — dette a parole da chi c'era.
+   *
+   * È ciò che rende dimostrabile il collegamento che la cerimonia esiste per
+   * creare: la retrospettiva parla di quello che le metriche mostrano, invece
+   * di essere un blocco di testo scollegato accanto a un grafico.
+   */
+  readonly retrospective: {
+    readonly good: readonly string[];
+    readonly couldHaveDoneBetter: readonly string[];
+    /**
+     * I miglioramenti decisi, con i voti ricevuti e come sono finiti.
+     *
+     * `resolvedAfterDays` è `null` per quelli ancora aperti: sono la ragione
+     * per cui esiste la metrica di seguito, e uno che resta aperto per tre
+     * sprint è il caso che vale la pena vedere.
+     */
+    readonly improvements: readonly {
+      readonly title: string;
+      readonly votes: number;
+      readonly status: "open" | "done" | "dropped";
+      readonly resolvedAfterDays: number | null;
+    }[];
+  };
 };
 
 /**
@@ -158,6 +187,29 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     reEstimateFactor: 1,
     // Prima esperienza, nessuno storico: si punta un po' alto.
     forecastPoints: 38,
+    retrospective: {
+      good: [
+        "Il carrello è stato consegnato senza sorprese all'ultimo giorno.",
+        "Le storie erano abbastanza piccole da chiudersi in un paio di giorni.",
+      ],
+      couldHaveDoneBetter: [
+        "Abbiamo scoperto tardi che l'ambiente di prova non era allineato.",
+      ],
+      improvements: [
+        {
+          title: "Allineare l'ambiente di prova prima della pianificazione",
+          votes: 7,
+          status: "done",
+          resolvedAfterDays: 9,
+        },
+        {
+          title: "Scrivere il «come si dimostra» su ogni storia",
+          votes: 4,
+          status: "dropped",
+          resolvedAfterDays: 12,
+        },
+      ],
+    },
   },
   {
     // Il perimetro cresce: arrivano richieste a sprint iniziato.
@@ -174,6 +226,29 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     reEstimatedItems: 2,
     reEstimateFactor: 2,
     forecastPoints: 42,
+    retrospective: {
+      good: [
+        "I pagamenti con carta sono passati al primo giro di revisione.",
+      ],
+      couldHaveDoneBetter: [
+        "Sono arrivate quattro richieste a sprint iniziato e le abbiamo prese tutte.",
+        "Due storie si sono rivelate il doppio di come le avevamo stimate.",
+      ],
+      improvements: [
+        {
+          title: "Far passare dal Product Owner ogni aggiunta a sprint iniziato",
+          votes: 9,
+          status: "done",
+          resolvedAfterDays: 15,
+        },
+        {
+          title: "Spezzare le storie sopra gli otto punti prima di prenderle",
+          votes: 5,
+          status: "open",
+          resolvedAfterDays: null,
+        },
+      ],
+    },
   },
   {
     // La revisione si ingolfa: il lavoro procede ma non si chiude.
@@ -191,6 +266,27 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     // Il perimetro cresce e la revisione si ingolfa: la previsione resta
     // ferma alle abitudini di prima, e lo scostamento comincia a farsi vedere.
     forecastPoints: 48,
+    retrospective: {
+      good: ["Nessuno si è fermato per mancanza di lavoro da fare."],
+      couldHaveDoneBetter: [
+        "Il lavoro si accumula in revisione: si finisce di scrivere e poi si aspetta.",
+        "Abbiamo trascinato più elementi dello sprint precedente.",
+      ],
+      improvements: [
+        {
+          title: "Guardare la colonna «in revisione» all'inizio di ogni daily",
+          votes: 11,
+          status: "open",
+          resolvedAfterDays: null,
+        },
+        {
+          title: "Un limite di lavoro in corso concordato per la revisione",
+          votes: 6,
+          status: "open",
+          resolvedAfterDays: null,
+        },
+      ],
+    },
   },
   {
     // Il trascinato dei tre sprint precedenti presenta il conto.
@@ -209,6 +305,27 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     // half of the stuff done», ed è la situazione che rende utile la colonna
     // dello scostamento.
     forecastPoints: 55,
+    retrospective: {
+      good: ["Il lavoro trascinato è stato affrontato invece di rimandarlo ancora."],
+      couldHaveDoneBetter: [
+        "Ci siamo impegnati su più di quanto la squadra riesca a chiudere.",
+        "La revisione resta il punto in cui il lavoro si ferma.",
+      ],
+      improvements: [
+        {
+          title: "Prendere solo i punti chiusi nell'ultimo sprint, non di più",
+          votes: 12,
+          status: "open",
+          resolvedAfterDays: null,
+        },
+        {
+          title: "Chi apre una revisione ne chiude una",
+          votes: 8,
+          status: "open",
+          resolvedAfterDays: null,
+        },
+      ],
+    },
   },
 ];
 

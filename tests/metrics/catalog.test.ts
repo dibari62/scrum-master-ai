@@ -66,6 +66,8 @@ const NOT_METRICS: Readonly<Record<string, string>> = {
   YESTERDAYS_WEATHER_SPRINTS: "costante dichiarata dal libro",
   DEFAULT_FOCUS_FACTOR: "costante dichiarata dal libro",
   yesterdaysWeather: "primitiva dietro la velocity stimata, documentata come tale",
+  // Ordinamento, non misura: mette in cima ciò che ha ricevuto più voti.
+  improvementsByPriority: "ordina i miglioramenti per voti, non misura nulla",
   hasNoEstimates: "predicato di comodo",
   membershipAt: "composizione dello sprint a un istante",
 };

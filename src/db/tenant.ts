@@ -20,12 +20,15 @@ import {
   comments,
   estimateChanges,
   impediments,
+  improvementActions,
   memberships,
   organizations,
   people,
   projectContexts,
   projects,
   pullRequests,
+  retrospectiveNotes,
+  retrospectives,
   scrumAgents,
   skillRuns,
   sprintHealthChecks,
@@ -278,6 +281,50 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
           ),
         )
         .orderBy(sprintStatistics.recordedAt),
+
+    /** The retrospectives held on this project, oldest first. */
+    retrospectivesByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(retrospectives)
+        .where(
+          and(
+            eq(retrospectives.organizationId, organizationId),
+            eq(retrospectives.projectId, projectId),
+          ),
+        )
+        .orderBy(retrospectives.heldAt),
+
+    /** Every note of this project's retrospectives. */
+    retrospectiveNotesByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(retrospectiveNotes)
+        .where(
+          and(
+            eq(retrospectiveNotes.organizationId, organizationId),
+            eq(retrospectiveNotes.projectId, projectId),
+          ),
+        ),
+
+    /**
+     * Every improvement this project has decided, whatever its state.
+     *
+     * Read whole rather than per retrospective: the question that matters is
+     * «cosa è ancora aperto», and it spans meetings by definition — an
+     * improvement decided three sprints ago and never closed is exactly the one
+     * worth surfacing.
+     */
+    improvementActionsByProject: (projectId: ProjectId) =>
+      db
+        .select()
+        .from(improvementActions)
+        .where(
+          and(
+            eq(improvementActions.organizationId, organizationId),
+            eq(improvementActions.projectId, projectId),
+          ),
+        ),
 
     scopeEventsBySprint: (sprintId: SprintId) =>
       db
