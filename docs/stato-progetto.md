@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1082 test<br/>Playwright · 132 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1096 test<br/>Playwright · 141 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -57,6 +57,7 @@ graph TB
         U15["Retrospettive<br/>tre colonne, voti,<br/>seguito dei miglioramenti"]
         U16["Elenchi incolonnati<br/>tabelle con intestazione,<br/>numeri allineati a destra"]
         U17["Scala di stima<br/>dichiarata dalla squadra,<br/>deviazioni segnalate"]
+        U18["Linee guida di sprint<br/>dimensione e numero<br/>delle storie"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -67,7 +68,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -114,10 +115,33 @@ in silenzio.
 
 ---
 
-**La scala di stima non era dichiarata da nessuna parte, e il database ne
+**Gli avvisi del libro, che restano avvisi.** «We normally strive for stories
+weighted two to eight man-days» e da 5 a 15 storie per sprint (pag. 43). Ogni
+sprint ora dichiara dove esce da quegli intervalli, **con il motivo accanto**:
+un avviso senza la sua causa probabile è solo un cartello rosso.
+
+Sui quattro sprint sintetici parlano tutti: gli sprint 1 e 2 hanno quattro
+storie — «di solito significa storie troppo grandi» — mentre 3 e 4 hanno una
+storia oltre gli 8 punti e due sotto i 2.
+
+Non sono divieti, e il registro linguistico è parte della funzione: uno sprint
+con quattro storie non è *invalido*, è da guardare due volte. Un test end-to-end
+verifica che la parola «errore» non compaia mai lì accanto — perché il giorno in
+cui comparisse, una squadra imparerebbe a spezzare le storie per far tornare il
+conteggio, che è esattamente il comportamento che la soglia dovrebbe scoraggiare.
+
+**La terza linea guida non c'è, e non è una dimenticanza.** «10-20% of our time
+is spent on tech stories» (pag. 47) non è implementabile: il modello canonico
+non sa dire che un elemento serve al codice invece che a una persona. Dedurla
+dal tipo sarebbe sbagliato — un `task` in Scrum è un pezzo di una storia, non
+una storia tecnica — e una linea guida calcolata sull'insieme sbagliato è
+**peggio** di una assente, perché sembra una risposta.
+
+---
+
+
 avrebbe raddoppiato la carta più piccola.** Due cose distinte, scoperte
 insieme.
-
 La prima è la regola più citata del libro: «you can't cheat by combining a 5 and
 a 2 to make a 7. You have to choose either 5 or 8; **there is no 7**». I salti
 del mazzo sono il punto — impediscono a una squadra di dichiarare una precisione
@@ -691,6 +715,7 @@ Cose note e volutamente rimandate, non sviste:
 | **La velocity non leggeva la storia delle stime** | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md), [mappa](scrum-dalle-trincee.md) V1 | ~~manca la tabella e la generazione nel seed~~ **fatto**: `estimate_changes` esiste, il seed la popola con ri-stime volute, e la suite di conformità obbliga ogni connettore futuro a fare lo stesso. Sui dati veri le due letture divergono fino a 16 punti su uno sprint |
 | **La carta più piccola del mazzo sarebbe stata raddoppiata** | [mappa](scrum-dalle-trincee.md) E1-E2 | ~~le colonne delle stime sono `integer` e troncherebbero 0,5 a zero~~ **fatto**: le tre colonne sono `numeric(8,2)` dalla migrazione 0010. La supposizione sul troncamento era **sbagliata**, e verificarla contro il database vero è servito: Postgres arrotonda, e `0.5::integer` vale **1** — una storia da mezzo punto sarebbe diventata una da un punto. Insieme è arrivata la scala di stima: `estimationScale` sul contesto di progetto, dichiarata da una persona, con le deviazioni elencate fra gli elementi (5 su 44 sui dati veri) |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
+| **Non si può dire che un elemento serve al codice e non a una persona** | [mappa](scrum-dalle-trincee.md) G3 | il libro consiglia che le *tech story* occupino il 10–20% della capacità, e la linea guida **non è implementata** perché il modello canonico non ha il campo. `WorkItemKind` distingue storia, bug, task, epic e spike, e nessuno di questi è una storia tecnica: dedurla dal tipo produrrebbe un numero convincente e sbagliato. Serve una decisione — un tipo nuovo, oppure un'etichetta — e quindi un ADR |
 | Tredici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |

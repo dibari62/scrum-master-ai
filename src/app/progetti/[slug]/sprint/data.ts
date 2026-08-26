@@ -10,7 +10,15 @@ import {
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { toEstimateChange, workItemEstimate } from "@/db/rows";
-import { burndown, sprintItemCount, type Burndown, type MetricResult } from "@/metrics";
+import {
+  burndown,
+  membershipAt,
+  planningGuidelines,
+  sprintItemCount,
+  type Burndown,
+  type MetricResult,
+  type PlanningGuidelines,
+} from "@/metrics";
 
 /**
  * The sprints of a project, each with the one figure that describes it.
@@ -57,6 +65,15 @@ export type SprintRow = {
    * This is the register of sprints, so it is where that question belongs.
    */
   readonly burndown: MetricResult<Burndown>;
+
+  /**
+   * The book's numeric guidelines for this sprint's contents.
+   *
+   * Per sprint and not per project, because "5 to 15 stories" is a statement
+   * about one iteration: totalling four sprints would produce a number the
+   * guideline was never about.
+   */
+  readonly guidelines: PlanningGuidelines;
 };
 
 export type ProjectSprints = {
@@ -108,16 +125,29 @@ export async function loadProjectSprints(
   const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
   const estimateChanges = estimateRows.map((row) => toEstimateChange(row));
 
-  const rows = sprints.map(
-    (sprint): SprintRow => ({
+  const rows = sprints.map((sprint): SprintRow => {
+    /*
+     * La composizione allora, non quella di adesso.
+     *
+     * Per uno sprint chiuso si guarda l'istante di chiusura: il legame fra
+     * elemento e sprint dice dove l'elemento sta *oggi*, e un elemento
+     * trascinato in avanti farebbe sparire una storia da uno sprint concluso
+     * settimane fa.
+     */
+    const instant = sprint.completedAt ?? asOf;
+    const membership = membershipAt(scopeEvents, sprint, instant);
+    const sprintItems = items.filter((item) => membership.has(item.id));
+
+    return {
       sprint,
       status: statusOf(sprint, asOf),
       itemCount: sprintItemCount(sprint, scopeEvents, asOf),
       burndown: burndown(sprint, items, transitions, scopeEvents, asOf, {
         estimateChanges,
       }),
-    }),
-  );
+      guidelines: planningGuidelines(sprintItems),
+    };
+  });
 
   /*
    * Il più recente per primo.

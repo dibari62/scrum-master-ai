@@ -186,6 +186,7 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
                     `/progetti/${project.slug}/elementi/${deviation.itemId}`
                   }
                   minWidth="min-w-[34rem]"
+                  rowAttribute="data-off-scale"
                   columns={[
                     {
                       key: "elemento",
@@ -243,6 +244,16 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
           rows={rows}
           getKey={(row) => row.item.id}
           getHref={(row) => `/progetti/${project.slug}/elementi/${row.item.id}`}
+          /*
+           * L'elenco degli elementi si sa nominare.
+           *
+           * Da quando su questa pagina può comparire anche la tabella delle
+           * stime fuori scala, «le righe di una tabella dentro main» non
+           * identifica più una cosa sola: contarle tutte insieme sommerebbe due
+           * elenchi diversi, che è esattamente l'errore che un test sul
+           * denominatore esiste per impedire.
+           */
+          rowAttribute="data-item"
           columns={[
             {
               key: "titolo",

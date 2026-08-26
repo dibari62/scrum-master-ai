@@ -8,6 +8,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatNumber } from "@/lib/format";
+import {
+  MAX_STORIES_PER_SPRINT,
+  MAX_STORY_POINTS,
+  MIN_STORIES_PER_SPRINT,
+  MIN_STORY_POINTS,
+} from "@/metrics";
 import { cn } from "@/lib/utils";
 
 import { unavailableReason } from "../../present";
@@ -67,8 +73,53 @@ function countText(row: SprintRow): string {
   return `${formatNumber(count)} ${noun} ${COUNT_MOMENT[row.status]}`;
 }
 
-export default async function ProjectSprintsPage({ params }: PageProps) {
-  const session = await auth();
+/**
+ * The guidelines this sprint misses, each with the reason the book gives.
+ *
+ * An empty list is the normal case and draws nothing: a panel that says "tutto
+ * a posto" on every sprint trains the eye to skip the whole area, including the
+ * day it has something to say.
+ */
+function guidelineNotes(row: SprintRow): readonly string[] {
+  const notes: string[] = [];
+  const { guidelines } = row;
+
+  // «1 storie» è il genere di dettaglio che fa sembrare generato un testo che
+  // invece è stato scritto. Costa una riga.
+  const stories = (count: number): string =>
+    `${formatNumber(count)} ${count === 1 ? "storia" : "storie"}`;
+
+  if (guidelines.storyCountDirection === "below") {
+    notes.push(
+      `${stories(guidelines.storyCount)}: sotto le ${formatNumber(MIN_STORIES_PER_SPRINT)} che il libro consiglia — di solito significa storie troppo grandi.`,
+    );
+  }
+
+  if (guidelines.storyCountDirection === "above") {
+    notes.push(
+      `${stories(guidelines.storyCount)}: sopra le ${formatNumber(MAX_STORIES_PER_SPRINT)} che il libro consiglia — di solito significa che la squadra ha preso troppo.`,
+    );
+  }
+
+  const above = guidelines.storySize.filter((one) => one.direction === "above");
+  const below = guidelines.storySize.filter((one) => one.direction === "below");
+
+  if (above.length > 0) {
+    notes.push(
+      `${stories(above.length)} sopra ${formatNumber(MAX_STORY_POINTS)} punti — oltre quella soglia una stima è più un'ipotesi che una misura.`,
+    );
+  }
+
+  if (below.length > 0) {
+    notes.push(
+      `${stories(below.length)} sotto ${formatNumber(MIN_STORY_POINTS)} punti — seguirle come storie costa più che farle.`,
+    );
+  }
+
+  return notes;
+}
+
+export default async function ProjectSprintsPage({ params }: PageProps) {  const session = await auth();
   if (!session) redirect("/accedi");
   if (!session.organizationId) redirect("/organizzazione");
 
@@ -174,6 +225,23 @@ export default async function ProjectSprintsPage({ params }: PageProps) {
               </p>
 
               <p className="text-sm tabular-nums">{countText(row)}</p>
+
+              {/*
+               * Gli avvisi del libro, che sono avvisi e non divieti.
+               *
+               * «We normally strive for stories weighted two to eight man-days»
+               * e «da 5 a 15 storie per sprint» (pag. 43). Uno sprint fuori da
+               * quegli intervalli non è invalido: è da guardare due volte, e
+               * il motivo tipico è scritto accanto perché un avviso senza la
+               * sua causa probabile è solo un cartello rosso.
+               */}
+              {guidelineNotes(row).length > 0 ? (
+                <ul className="text-muted-foreground grid gap-1 text-xs">
+                  {guidelineNotes(row).map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              ) : null}
 
               {/*
                * Il burndown di *questo* sprint, anche se è già chiuso.
