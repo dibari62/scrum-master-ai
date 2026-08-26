@@ -132,9 +132,9 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 |---|---|---|
 | ID | `id` | ✅ |
 | Name | `title` | ✅ |
-| Importance | ⬜ | l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementeremo `backlogOrder`, non un numero. |
+| Importance | `backlogOrder` | l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementato come **ordine**, non come punteggio |
 | Initial estimate | ✅ | `EstimateChange` conserva la storia; `estimate` resta la corrente |
-| How to demo | ⬜ | «essentially a simple test spec» |
+| How to demo | `howToDemo` | ✅ «essentially a simple test spec»; il seed lo riempie per la **testa** del backlog, come il libro |
 | Notes | `description` | 🟡 |
 
 ## 8. Cerimonie e operatività

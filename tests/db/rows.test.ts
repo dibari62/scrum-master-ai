@@ -40,6 +40,8 @@ function anItem(estimate: { value: number; unit: "points" | "hours" } | null) {
     description: null,
     state: "done",
     estimate,
+    backlogOrder: null,
+    howToDemo: null,
     sprintId: null,
     assigneeId: null,
     parentId: null,

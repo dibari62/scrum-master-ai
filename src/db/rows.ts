@@ -78,6 +78,8 @@ export function toWorkItemRow(item: WorkItem): WorkItemRow {
     state: item.state,
     estimateValue: item.estimate?.value ?? null,
     estimateUnit: item.estimate?.unit ?? null,
+    backlogOrder: item.backlogOrder,
+    howToDemo: item.howToDemo,
     sprintId: item.sprintId,
     assigneeId: item.assigneeId,
     parentId: item.parentId,

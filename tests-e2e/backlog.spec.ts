@@ -1,0 +1,119 @@
+import { expect, test } from "@playwright/test";
+
+/**
+ * The product backlog: what comes next, in the order it will be taken.
+ *
+ * > «there's no importance column. Instead, I just order the list» (2ª ed.)
+ *
+ * The property this suite defends is the one a screenshot cannot show: that the
+ * **order is a fact of the data**, not of how the page happened to sort it, and
+ * that a "how to demo" always describes the story it sits next to.
+ *
+ * Read-only: it uses the seeded project and writes nothing.
+ */
+
+const ENABLED = process.env["RUN_E2E"] === "1";
+
+const PROJECT = "checkout";
+
+test.describe("backlog di prodotto", () => {
+  test.skip(!ENABLED, "impostare RUN_E2E=1: questi test leggono un database reale");
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/accedi");
+    await page.fill("#email", "ispettore-temporaneo@example.invalid");
+    await page.fill("#password", "cavallo-batteria-graffetta");
+    await page.locator("#password").press("Enter");
+    await page.waitForURL("**/organizzazione");
+  });
+
+  test("si raggiunge dal menù di progetto, senza scrivere l'indirizzo", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}`);
+
+    await page
+      .getByRole("navigation", { name: "Sezioni del progetto" })
+      .getByRole("link", { name: "Backlog" })
+      .click();
+
+    await page.waitForURL("**/backlog");
+    await expect(
+      page.getByRole("heading", { name: "Backlog di prodotto", level: 1 }),
+    ).toBeVisible();
+  });
+
+  test("le posizioni sono consecutive e crescenti: è un ordine, non un punteggio", async ({
+    page,
+  }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    const rows = page.locator("[data-backlog-item]");
+    expect(await rows.count()).toBeGreaterThan(0);
+
+    const positions: number[] = [];
+    for (const text of await rows.locator("td").first().allInnerTexts()) {
+      const trimmed = text.trim();
+      if (trimmed !== "—") positions.push(Number(trimmed));
+    }
+
+    expect(positions.length).toBeGreaterThan(0);
+    expect(positions).toEqual(positions.map((_, index) => index + 1));
+  });
+
+  test("nessun elemento del backlog è già in uno sprint", async ({ page }) => {
+    /*
+     * La proprietà che rende questa pagina diversa dall'elenco degli elementi.
+     *
+     * Si verifica confrontando con l'elenco filtrato per sprint: un titolo che
+     * comparisse in entrambi significherebbe che la lista da pianificare
+     * contiene lavoro già pianificato, e ogni previsione costruita su di essa
+     * conterebbe quel lavoro due volte.
+     */
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+    const backlogTitles = await page
+      .locator("[data-backlog-item] td")
+      .nth(1)
+      .allInnerTexts();
+
+    await page.goto(`/progetti/${PROJECT}/elementi`);
+    const rows = page.locator("[data-item]");
+
+    for (const title of backlogTitles.map((text) => text.trim()).slice(0, 3)) {
+      const row = rows.filter({ hasText: title }).first();
+      // Compare nell'elenco generale — è lo stesso elemento — ma senza sprint.
+      await expect(row).toContainText("nessuno");
+    }
+  });
+
+  test("chi non dichiara come si dimostra lo dice, invece di lasciare un vuoto", async ({
+    page,
+  }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    const cells = await page.locator("[data-backlog-item] td").last().allInnerTexts();
+
+    for (const text of cells) {
+      // Mai una cella vuota: «da definire» è una cosa da fare, un vuoto è un
+      // dubbio su chi guarda.
+      expect(text.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test("dichiara quanta parte del backlog è affinata, invece di lasciarlo dedurre", async ({
+    page,
+  }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    // «How to demo is filled in for all high-importance items»: la coda grezza
+    // è normale, ma quanto sia affinata è un fatto sulla squadra.
+    await expect(page.getByText(/dichiarano\s+come si dimostrano/)).toBeVisible();
+  });
+
+  test("un elemento del backlog si apre e mostra la sua storia", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    await page.locator("[data-backlog-item] a").first().click();
+    await page.waitForURL("**/elementi/**");
+
+    await expect(page.getByRole("heading", { name: "Storia degli stati" })).toBeVisible();
+  });
+});

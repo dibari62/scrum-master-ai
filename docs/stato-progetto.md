@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1096 test<br/>Playwright · 141 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1112 test<br/>Playwright · 147 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -58,6 +58,7 @@ graph TB
         U16["Elenchi incolonnati<br/>tabelle con intestazione,<br/>numeri allineati a destra"]
         U17["Scala di stima<br/>dichiarata dalla squadra,<br/>deviazioni segnalate"]
         U18["Linee guida di sprint<br/>dimensione e numero<br/>delle storie"]
+        U19["Backlog di prodotto<br/>ordinato, con<br/>«come si dimostra»"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -68,7 +69,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -115,7 +116,51 @@ in silenzio.
 
 ---
 
-**Gli avvisi del libro, che restano avvisi.** «We normally strive for stories
+**Il backlog di prodotto non esisteva, e il glossario diceva il contrario.** La
+riga «`Backlog` — insieme **ordinato** di work item non ancora in uno sprint»
+c'è dal primo giorno. Ma nessun elemento stava fuori da uno sprint, e nessuna
+colonna conservava un ordine: quella parola era vera come intenzione e falsa
+come fatto. È la classe di lacuna peggiore, perché la si legge come una cosa
+fatta.
+
+Ora ci sono due campi, che il libro elenca fra i sei usati «sprint after
+sprint»: `backlogOrder` e `howToDemo`.
+
+L'ordine è **una posizione, non un punteggio**. Il libro usava una colonna
+*Importance* numerica e l'autore la ritratta nella seconda edizione: «there's no
+importance column. Instead, I just order the list». La differenza non è
+cosmetica: un punteggio invita a farci aritmetica sopra («questa vale il doppio
+di quella») e due elementi da 100 lasciano senza risposta la sola domanda che
+serve a pianificare — quale viene prima.
+
+Il «come si dimostra» è, con le parole del libro, «essentially a simple test
+spec». Il seed lo riempie per i primi cinque elementi e lascia grezzo il resto,
+perché è ciò che il libro fa: «How to demo is filled in for all
+**high-importance** items». Un backlog in cui tutto è ugualmente specificato
+sarebbe una dimostrazione più ordinata e meno onesta.
+
+C'è una schermata nuova, **Backlog**, che mostra la lista nell'ordine in cui
+verrà presa e dichiara quanta parte è affinata: 5 su 12, non «tutto a posto».
+
+**Due errori miei, entrambi trovati da qualcosa che esisteva già.**
+
+Il primo: avevo datato il backlog *dopo* l'ultimo sprint, ragionando che fosse
+«ciò che resta da fare». La troncatura al presente lo ha cancellato per intero,
+perché era datato nel futuro. Aveva ragione lei: un backlog è fatto di cose
+**scritte a suo tempo e non ancora prese in carico**, non di cose che
+accadranno.
+
+Il secondo si vedeva a schermo e nessun test lo prendeva. Titoli e testi della
+demo erano due liste parallele appaiate per posizione, e nel browser si leggeva
+«Prova di carico sul modulo di pagamento» accompagnato da «aggiungi due
+articoli, chiudi il browser, rientra». Uno spec di demo che descrive un'altra
+storia è **peggio** di uno assente: assente si vede, sbagliato si crede. Ora
+titolo e testo nascono nella stessa voce, e un test verifica che la coppia
+arrivi intatta fino al modello canonico.
+
+---
+
+
 weighted two to eight man-days» e da 5 a 15 storie per sprint (pag. 43). Ogni
 sprint ora dichiara dove esce da quegli intervalli, **con il motivo accanto**:
 un avviso senza la sua causa probabile è solo un cartello rosso.
@@ -309,7 +354,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 23 tabelle popolate, migrazioni applicate fino alla 0010: 51 elementi, 210 transizioni, 57 variazioni di stima, 4 previsioni, 3 retrospettive con 6 azioni di miglioramento, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
+| **Neon (Postgres)** | ✅ attivo | 23 tabelle popolate, migrazioni applicate fino alla 0011: 63 elementi (51 negli sprint e **12 nel backlog di prodotto**), 222 transizioni, 69 variazioni di stima, 4 previsioni, 3 retrospettive con 6 azioni di miglioramento, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
@@ -717,6 +762,7 @@ Cose note e volutamente rimandate, non sviste:
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | **Non si può dire che un elemento serve al codice e non a una persona** | [mappa](scrum-dalle-trincee.md) G3 | il libro consiglia che le *tech story* occupino il 10–20% della capacità, e la linea guida **non è implementata** perché il modello canonico non ha il campo. `WorkItemKind` distingue storia, bug, task, epic e spike, e nessuno di questi è una storia tecnica: dedurla dal tipo produrrebbe un numero convincente e sbagliato. Serve una decisione — un tipo nuovo, oppure un'etichetta — e quindi un ADR |
 | Tredici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Il backlog non si riordina dall'interfaccia | — | l'ordine arriva dal connettore e la schermata lo mostra, ma non c'è modo di trascinare un elemento più in alto. È il gesto centrale del Product Owner, e va fatto insieme alle soglie di accettazione, che si appoggiano proprio a quest'ordine |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |
 | **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |
