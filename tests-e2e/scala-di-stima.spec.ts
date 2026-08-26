@@ -13,6 +13,10 @@ import { expect, test } from "@playwright/test";
  * The suite **puts the scale back** when it finishes. It writes to the shared
  * seeded project, and a test that leaves a project configured differently from
  * how it found it makes the next failure impossible to read.
+ *
+ * "As found" is `planning-poker`, not `free`: the demonstration project is
+ * meant to show what a declared scale does, and a suite that quietly switched
+ * the feature off would leave the public site showing nothing at all.
  */
 
 const ENABLED = process.env["RUN_E2E"] === "1";
@@ -20,6 +24,9 @@ const ENABLED = process.env["RUN_E2E"] === "1";
 const PROJECT = "checkout";
 const CONFIG = `/progetti/${PROJECT}/scrum-master/configurazione`;
 const ITEMS = `/progetti/${PROJECT}/elementi`;
+
+/** The state the demonstration project is expected to sit in between runs. */
+const DEMO_SCALE = "planning-poker";
 
 async function declareScale(
   page: import("@playwright/test").Page,
@@ -43,8 +50,9 @@ test.describe("scala di stima", () => {
   });
 
   test.afterEach(async ({ page }) => {
-    // Si rimette com'era: il progetto è condiviso con le altre suite.
-    await declareScale(page, "free");
+    // Si rimette com'era: il progetto è condiviso con le altre suite, ed è
+    // anche quello che il sito pubblico mostra.
+    await declareScale(page, DEMO_SCALE);
   });
 
   test("senza scala dichiarata gli elementi non parlano di scala", async ({ page }) => {
@@ -57,7 +65,7 @@ test.describe("scala di stima", () => {
   test("dichiarata una scala, le deviazioni compaiono con i valori ammessi vicini", async ({
     page,
   }) => {
-    await declareScale(page, "planning-poker");
+    await declareScale(page, DEMO_SCALE);
     await page.goto(ITEMS);
 
     await expect(
