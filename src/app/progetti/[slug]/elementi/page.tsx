@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { DataTable } from "@/components/charts/data-table";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import {
   organizationIdSchema,
@@ -167,42 +168,66 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
           </CardContent>
         </Card>
       ) : (
-        <ul className="grid gap-2">
-          {rows.map((row) => (
-            <li key={row.item.id}>
-              <Link
-                href={`/progetti/${project.slug}/elementi/${row.item.id}`}
-                className="hover:border-foreground/30 block rounded-lg border p-3 transition-colors"
-              >
-                {/*
-                 * Il titolo va a capo, la durata resta su una riga sua.
-                 *
-                 * Affiancati con `justify-between`, un titolo lungo su schermo
-                 * stretto spingeva la durata fuori vista o la schiacciava
-                 * contro il bordo. Il tempo è il motivo per cui si apre questo
-                 * elenco: è l'ultima cosa che può cedere.
-                 */}
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <span className="text-sm font-medium">{row.item.title}</span>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                    {row.cycleTime.available
-                      ? formatDuration(row.cycleTime.value)
-                      : "non concluso"}
-                  </span>
-                </div>
-
-                <p className="text-muted-foreground mt-1 text-xs">
-                  {STATE_LABELS[row.item.state]}
-                  {row.sprintName ? ` · ${row.sprintName}` : ""}
-                  {row.item.estimate
-                    ? ` · ${formatEstimate(row.item.estimate.value, row.item.estimate.unit)}`
-                    : " · senza stima"}
-                  {` · ${formatNumber(row.transitionCount)} transizioni`}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          caption="Elementi del progetto, con stato, sprint, stima e cycle time"
+          rows={rows}
+          getKey={(row) => row.item.id}
+          getHref={(row) => `/progetti/${project.slug}/elementi/${row.item.id}`}
+          columns={[
+            {
+              key: "titolo",
+              header: "Elemento",
+              className: "min-w-[18rem]",
+              cell: (row) => <span className="font-medium">{row.item.title}</span>,
+            },
+            {
+              key: "stato",
+              header: "Stato",
+              className: "min-w-[8rem]",
+              cell: (row) => STATE_LABELS[row.item.state],
+            },
+            {
+              key: "sprint",
+              header: "Sprint",
+              className: "min-w-[10rem]",
+              cell: (row) => (
+                <span className={row.sprintName ? undefined : "text-muted-foreground"}>
+                  {row.sprintName ?? "nessuno"}
+                </span>
+              ),
+            },
+            {
+              key: "stima",
+              header: "Stima",
+              align: "end",
+              cell: (row) =>
+                row.item.estimate ? (
+                  formatEstimate(row.item.estimate.value, row.item.estimate.unit)
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                ),
+            },
+            {
+              key: "cycle",
+              header: "Cycle time",
+              align: "end",
+              cell: (row) =>
+                row.cycleTime.available ? (
+                  formatDuration(row.cycleTime.value)
+                ) : (
+                  // «Non concluso» e non un trattino: qui l'assenza ha una
+                  // ragione precisa, e dirla vale più che lasciarla indovinare.
+                  <span className="text-muted-foreground">non concluso</span>
+                ),
+            },
+            {
+              key: "transizioni",
+              header: "Transizioni",
+              align: "end",
+              cell: (row) => formatNumber(row.transitionCount),
+            },
+          ]}
+        />
       )}
     </main>
   );

@@ -61,7 +61,8 @@ test.describe("persone e sprint", () => {
     await expect(page.getByText(/persone compaiono nei dati di questo progetto/)).toBeVisible();
 
     // Le persone del modello canonico ci sono davvero, non è una pagina vuota.
-    await expect(page.locator("main ul li")).not.toHaveCount(0);
+    // L'anagrafica è una tabella: le righe sono `tbody tr`, non voci di elenco.
+    await expect(page.locator("main table tbody tr")).not.toHaveCount(0);
   });
 
   test("l'elenco delle persone non mostra numeri per persona", async ({ page }) => {
@@ -75,7 +76,11 @@ test.describe("persone e sprint", () => {
 
     // E deve non averli. Un conteggio di elementi accanto a un nome è
     // esattamente la metrica di performance individuale vietata da §8.2.
-    const roster = page.locator("main section ul li");
+    //
+    // Il selettore è cambiato con l'impaginazione — l'anagrafica è diventata
+    // una tabella — ma la proprietà difesa è identica: nessuna riga può portare
+    // una cifra accanto a un nome.
+    const roster = page.locator("main table tbody tr");
     const rows = await roster.count();
     expect(rows).toBeGreaterThan(0);
 

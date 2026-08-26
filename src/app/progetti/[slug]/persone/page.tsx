@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { DataTable } from "@/components/charts/data-table";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { organizationIdSchema, type SourceSystem } from "@/domain";
@@ -181,27 +182,38 @@ export default async function ProjectPeoplePage({ params }: PageProps) {
         <section className="grid gap-3">
           <h2 className="text-lg font-medium">Anagrafica</h2>
 
-          <ul className="grid gap-2">
-            {people.map((person) => (
-              <li key={person.id} className="rounded-lg border p-3">
-                {/*
-                 * Nome e provenienza su due righe su telefono, affiancate da
-                 * schermo piccolo in su: un nome lungo accanto all'origine, a
-                 * 375 pixel, spinge la seconda fuori dal bordo.
-                 */}
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <span className="text-sm font-medium">{person.displayName}</span>
-                  <span className="text-muted-foreground shrink-0 text-xs">
-                    {SOURCE_LABELS[person.source]}
-                  </span>
-                </div>
-
-                <p className="text-muted-foreground mt-1 text-xs break-words">
-                  {person.email ?? "nessun indirizzo email nella fonte"}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            caption="Persone che compaiono nei dati del progetto"
+            rows={people}
+            getKey={(person) => person.id}
+            minWidth="min-w-[30rem]"
+            columns={[
+              {
+                key: "nome",
+                header: "Nome",
+                className: "min-w-[12rem]",
+                cell: (person) => (
+                  <span className="font-medium">{person.displayName}</span>
+                ),
+              },
+              {
+                key: "email",
+                header: "Email",
+                className: "min-w-[14rem]",
+                cell: (person) =>
+                  person.email ?? (
+                    <span className="text-muted-foreground">
+                      nessun indirizzo nella fonte
+                    </span>
+                  ),
+              },
+              {
+                key: "origine",
+                header: "Origine",
+                cell: (person) => SOURCE_LABELS[person.source],
+              },
+            ]}
+          />
 
           {/*
            * Ciò che manca va detto, non lasciato indovinare (R6).

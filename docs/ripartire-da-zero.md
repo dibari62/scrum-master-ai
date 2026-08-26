@@ -154,6 +154,21 @@ npm run gh -- pr-merge  dibari62 scrum-master-ai <numero>
 npm run gh -- ci-log    dibari62 scrum-master-ai <numero>
 ```
 
+**Un titolo con spazi non sopravvive a `npm run --`.** Fra PowerShell e lo
+script ci sono tre interpreti — PowerShell, `cmd`, `npm` — e ognuno si mangia un
+livello di virgolette: un titolo scritto fra apici arriva allo script troncato,
+o ridotto a una virgoletta sola. È successo davvero, e la PR è nata con il nome
+del file al posto del titolo. Quando un argomento contiene spazi, si salta `npm`
+e si chiama direttamente `node`, che riceve gli argomenti da PowerShell senza
+passaggi intermedi:
+
+```powershell
+& node scripts/github.mjs pr-title dibari62 scrum-master-ai <numero> 'Titolo con spazi'
+```
+
+`pr-title` serve proprio a rimediare a un titolo sbagliato senza chiudere e
+riaprire la pull request.
+
 `pr-merge` **rifiuta** di procedere se i controlli sono rossi o ancora in corso.
 Il rifiuto è la ragione per cui lo script esiste: automatizzare un merge saltando
 la verifica industrializzerebbe l'errore che la regola R5 vieta, invece di

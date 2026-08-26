@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { DataTable } from "@/components/charts/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { isKnownSkillKey, type SkillRunFailureCause } from "@/domain";
@@ -95,47 +96,89 @@ export default async function DiarioPage({ params }: PageProps) {
         </Card>
       ) : (
         <>
-          <ul className="grid gap-2">
-            {runs.slice(0, RUNS_SHOWN).map((run) => (
-              <li key={run.id} className="rounded-lg border p-3" data-run>
-                {/*
-                 * L'esito va a capo, la durata resta leggibile: una causa di
-                 * fallimento lunga («Il fornitore ha applicato un limite di
-                 * frequenza») su schermo stretto spingeva la durata contro il
-                 * bordo.
-                 */}
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <span className="text-sm font-medium">
+          <DataTable
+            caption="Esecuzioni registrate, con esito, fornitore, token e costo"
+            rows={runs.slice(0, RUNS_SHOWN)}
+            getKey={(run) => run.id}
+            minWidth="min-w-[46rem]"
+            rowAttribute="data-run"
+            columns={[
+              {
+                key: "capacita",
+                header: "Capacità",
+                className: "min-w-[11rem]",
+                cell: (run) => (
+                  <span className="font-medium">
                     {isKnownSkillKey(run.skillKey) ? SKILLS[run.skillKey].name : run.skillKey}
-                    {" · "}
+                  </span>
+                ),
+              },
+              {
+                key: "esito",
+                header: "Esito",
+                className: "min-w-[10rem]",
+                cell: (run) => (
+                  <span
+                    className={
+                      run.status === "succeeded" ? undefined : "text-destructive font-medium"
+                    }
+                  >
                     {run.status === "succeeded" ? "riuscita" : "fallita"}
                     {run.failureCause ? ` — ${FAILURE_LABELS[run.failureCause]}` : ""}
                   </span>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                    {formatDuration(run.durationMs)}
-                  </span>
-                </div>
-
-                <p className="text-muted-foreground mt-1 text-xs">
-                  {/*
-                   * L'ora, non solo la data.
-                   *
-                   * Otto verifiche dello stesso giorno, con lo stesso fornitore
-                   * e lo stesso numero di token, rendevano otto righe
-                   * identiche: il registro sembrava mostrare lo stesso dato
-                   * ripetuto invece di otto esecuzioni distinte.
-                   */}
-                  {run.skillKey} · {formatShortDateTime(run.startedAt)} ·{" "}
-                  {run.provider === "fake"
-                    ? "fornitore fittizio, nessuna chiamata reale"
-                    : (run.provider ?? "nessun fornitore")}
-                  {run.model && run.provider !== "fake" ? ` (${run.model})` : ""} ·{" "}
-                  {formatNumber(run.inputTokens + run.outputTokens)} token ·{" "}
-                  {formatCostUsd(run.estimatedCostUsd)}
-                </p>
-              </li>
-            ))}
-          </ul>
+                ),
+              },
+              {
+                key: "quando",
+                header: "Quando",
+                align: "end",
+                className: "min-w-[9rem]",
+                /*
+                 * L'ora, non solo la data.
+                 *
+                 * Otto verifiche dello stesso giorno, con lo stesso fornitore e
+                 * lo stesso numero di token, rendevano otto righe identiche: il
+                 * registro sembrava mostrare lo stesso dato ripetuto invece di
+                 * otto esecuzioni distinte.
+                 */
+                cell: (run) => formatShortDateTime(run.startedAt),
+              },
+              {
+                key: "fornitore",
+                header: "Fornitore",
+                className: "min-w-[10rem]",
+                cell: (run) =>
+                  run.provider === "fake" ? (
+                    <span className="text-muted-foreground">
+                      fittizio, nessuna chiamata
+                    </span>
+                  ) : (
+                    <>
+                      {run.provider ?? "—"}
+                      {run.model ? ` (${run.model})` : ""}
+                    </>
+                  ),
+              },
+              {
+                key: "durata",
+                header: "Durata",
+                align: "end",
+                cell: (run) => formatDuration(run.durationMs),
+              },
+              {
+                key: "token",
+                header: "Token",
+                align: "end",
+                cell: (run) => formatNumber(run.inputTokens + run.outputTokens),
+              },
+              {
+                key: "costo",
+                header: "Costo",
+                align: "end",
+                cell: (run) => formatCostUsd(run.estimatedCostUsd),
+              },
+            ]}
+          />
 
           {runs.length > RUNS_SHOWN ? (
             // Ciò che non si vede va detto, non fatto sparire.

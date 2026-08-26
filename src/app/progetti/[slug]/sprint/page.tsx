@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { BurndownChart } from "@/components/charts/burndown-chart";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { organizationIdSchema } from "@/domain";
@@ -173,6 +174,33 @@ export default async function ProjectSprintsPage({ params }: PageProps) {
               </p>
 
               <p className="text-sm tabular-nums">{countText(row)}</p>
+
+              {/*
+               * Il burndown di *questo* sprint, anche se è già chiuso.
+               *
+               * La dashboard ne disegna uno solo, per lo sprint più recente:
+               * giusto lì, perché è l'unico grafico su cui si può ancora
+               * intervenire. La conseguenza però era che uno sprint concluso
+               * non aveva un burndown da nessuna parte — «come è andato lo
+               * sprint 2, giorno per giorno» non aveva risposta, benché il
+               * motore sapesse calcolarla da sempre.
+               */}
+              {row.burndown.available ? (
+                <BurndownChart
+                  title={`Burndown — ${row.sprint.name}`}
+                  unitLabel="punti"
+                  points={row.burndown.value.points.map((point) => ({
+                    at: point.at,
+                    remaining: point.remaining.points ?? 0,
+                  }))}
+                  committed={row.burndown.value.points[0]?.ideal ?? 0}
+                  totalDays={row.burndown.value.totalWorkingDays}
+                />
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Burndown non disponibile: nessun dato di perimetro per questo sprint.
+                </p>
+              )}
 
               <p className="text-sm">
                 <Link

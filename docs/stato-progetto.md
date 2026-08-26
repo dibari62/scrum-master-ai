@@ -48,13 +48,14 @@ graph TB
         U7["Elementi e storia<br/>degli stati"]
         U6["Scrum Master AI<br/>creazione e registro"]
         U8["Catalogo metriche<br/>come si calcola ogni numero"]
-        U9["Persone · Sprint<br/>anagrafica e registro"]
+        U9["Persone · Sprint<br/>anagrafica, registro e<br/>burndown di ogni sprint"]
         U10["Flusso di lavoro<br/>colonne, limiti e<br/>dove si accumula il tempo"]
         U11["Impedimenti<br/>ostacoli e durata"]
         U12["Salute dello sprint<br/>giudizio, motivo, numeri"]
         U13["Previsto contro effettivo<br/>previsione, consegna,<br/>scostamento"]
         U14["Menù di progetto<br/>otto sezioni,<br/>su ogni pagina"]
         U15["Retrospettive<br/>tre colonne, voti,<br/>seguito dei miglioramenti"]
+        U16["Elenchi incolonnati<br/>tabelle con intestazione,<br/>numeri allineati a destra"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -65,7 +66,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -112,7 +113,40 @@ in silenzio.
 
 ---
 
-**Le sezioni di un progetto ora sono un menù, non una fila di pulsanti.** Era un
+**Gli elenchi sono diventati tabelle.** Segnalazione del Product Owner: le
+informazioni «sembrano tante entità separate». Erano due difetti distinti, e vale
+la pena tenerli separati.
+
+Il **riquadro**: un bordo attorno a ogni riga richiama l'attenzione sul confine
+fra un record e l'altro, che è la cosa meno interessante di un elenco. Righe
+divise da una linea sottile si leggono come una tabella; righe dentro scatole si
+leggono come una pila.
+
+La **frase**: i valori erano scritti in linea, separati da puntini — «In
+lavorazione · Sprint 3 · 5 punti · 12 transizioni». Così **niente si incolonna**:
+lo stato della quarta riga sta sotto il nome dello sprint della terza, e
+confrontare due record significa leggerli entrambi. Una colonna lo fa fare
+all'occhio, ed è esattamente il motivo per cui le tabelle sono state inventate.
+
+I numeri vanno a destra con cifre a larghezza fissa: così condividono la
+posizione decimale e si può cercare il più grande senza leggerne nessuno.
+
+Rifatte così: elementi, persone, impedimenti e il diario tecnico. Il testo lungo
+resta **fuori** dalla tabella — la descrizione di un impedimento in una colonna
+allungherebbe le righe in modo irregolare, e una tabella dove ogni riga ha
+un'altezza diversa ha smesso di essere una tabella.
+
+**E il burndown non era più solo dell'ultimo sprint.** La domanda era: è corretto
+che compaia solo lì? Sulla dashboard sì — è l'unico grafico su cui si può ancora
+intervenire, e quattro burndown impilati sarebbero una cronologia, non un
+cruscotto. Ma la conseguenza era che uno sprint **chiuso** non aveva un burndown
+da nessuna parte: «come è andato lo sprint 2, giorno per giorno» non aveva
+risposta, benché il motore sapesse calcolarla da sempre. Ora ogni sprint ha il
+suo, nella pagina che è il registro degli sprint.
+
+---
+
+**Le sezioni di un progetto sono un menù, non una fila di pulsanti.** Era un
 difetto segnalato dal Product Owner: per scoprire cosa sapesse fare il prodotto
 bisognava **scorrere**. Tutte le destinazioni stavano in una riga di sette pulsanti
 identici, tre righe sotto il titolo e solo sulla dashboard — quindi da ogni altra
