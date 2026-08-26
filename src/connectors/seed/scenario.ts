@@ -430,3 +430,73 @@ export const ITEM_TITLES: readonly string[] = [
   "Segnalazione di indirizzo incompleto",
 ];
 
+/**
+ * How each groomed backlog item gets demonstrated.
+ *
+ * **Title and demo text are written as one thing.** The first attempt kept two
+ * parallel lists — titles drawn from `ITEM_TITLES`, demo texts matched by
+ * position — and the result was visible in the browser within a minute: «Prova
+ * di carico sul modulo di pagamento» carrying «aggiungi due articoli, chiudi il
+ * browser, rientra». A demo spec that describes another story is worse than an
+ * absent one, and pairing by position guarantees that outcome the moment either
+ * list moves.
+ *
+ * The tail carries `null`: the book grooms the top of the list and leaves the
+ * rest rough — «Items are clarified. **How to demo is filled in for all
+ * high-importance** items» (pag. 25) — and a backlog where everything is
+ * equally specified would be a tidier demonstration and a less honest one.
+ *
+ * The estimates go up as the list goes down, which is what actually happens on
+ * a groomed backlog: the next stories have been split, the far ones are still
+ * blocks.
+ */
+export const BACKLOG_ITEMS: readonly {
+  readonly title: string;
+  readonly howToDemo: string | null;
+  readonly points: number;
+  readonly kind: "story" | "bug";
+}[] = [
+  {
+    title: "Carrello conservato fra due sessioni",
+    howToDemo:
+      "Aggiungi due articoli, chiudi il browser, rientra: il carrello contiene ancora i due articoli.",
+    points: 3,
+    kind: "story",
+  },
+  {
+    title: "Articolo esaurito segnalato nel riepilogo",
+    howToDemo:
+      "Vai al riepilogo con un articolo esaurito: l'articolo è segnalato e il pulsante di pagamento resta disabilitato.",
+    points: 2,
+    kind: "story",
+  },
+  {
+    title: "Motivo del rifiuto mostrato al pagamento",
+    howToDemo:
+      "Paga con una carta rifiutata: compare il motivo del rifiuto e il carrello resta intatto.",
+    points: 5,
+    kind: "story",
+  },
+  {
+    title: "Rifiuto degli ordini verso paesi fuori copertura",
+    howToDemo:
+      "Ordina da un paese non servito: il checkout si ferma prima del pagamento e spiega perché.",
+    points: 3,
+    kind: "story",
+  },
+  {
+    title: "Email di conferma con numero d'ordine",
+    howToDemo:
+      "Concludi un ordine: entro un minuto arriva l'email di conferma con il numero d'ordine.",
+    points: 5,
+    kind: "story",
+  },
+  { title: "Ordine ricorrente con cadenza mensile", howToDemo: null, points: 13, kind: "story" },
+  { title: "Regalo con messaggio e destinatario diverso", howToDemo: null, points: 8, kind: "story" },
+  { title: "Verifica dell'età per prodotti soggetti a limite", howToDemo: null, points: 8, kind: "story" },
+  { title: "Addebito duplicato rilevato in riconciliazione", howToDemo: null, points: 20, kind: "bug" },
+  { title: "Quadratura fra ordini e incassi giornalieri", howToDemo: null, points: 13, kind: "story" },
+  { title: "Scelta della fascia oraria di consegna", howToDemo: null, points: 8, kind: "story" },
+  { title: "Punto di ritiro suggerito per codice postale", howToDemo: null, points: 13, kind: "story" },
+];
+

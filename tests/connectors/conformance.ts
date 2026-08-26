@@ -165,6 +165,71 @@ export function runConnectorConformance(options: ConformanceOptions): void {
     }
   });
 
+  it("il backlog di prodotto esiste ed è ordinato senza buchi", async () => {
+    /*
+     * Il glossario dice «insieme **ordinato** di work item non ancora in uno
+     * sprint» dal primo giorno. Finché nessun elemento stava fuori da uno
+     * sprint, quella parola era vera come intenzione e falsa come fatto.
+     *
+     * Le posizioni devono essere consecutive da zero: un backlog che salta da 3
+     * a 7 non è sbagliato di per sé, ma su dati *generati* un salto significa
+     * che qualcosa è andato perduto fra la generazione e la lettura.
+     */
+    const batch = await fetchBatch();
+
+    const backlog = batch.workItems
+      .filter((entry) => entry.sprintId === null && entry.state !== "done")
+      .sort((a, b) => (a.backlogOrder ?? 0) - (b.backlogOrder ?? 0));
+
+    expect(backlog.length, "nessun elemento fuori da uno sprint").toBeGreaterThan(0);
+
+    expect(backlog.map((entry) => entry.backlogOrder)).toEqual(
+      backlog.map((_, index) => index),
+    );
+  });
+
+  it("nessun elemento già in uno sprint occupa una posizione in backlog", async () => {
+    // `null` non è «ultimo»: entrando in uno sprint l'elemento esce dalla lista
+    // da pianificare, e lasciargli una posizione lo rimetterebbe in coda a un
+    // piano di rilascio che non deve più contenerlo.
+    const batch = await fetchBatch();
+
+    for (const entry of batch.workItems) {
+      if (entry.sprintId === null) continue;
+
+      expect(entry.backlogOrder, `${entry.sourceId} è in uno sprint e ha una posizione`).toBeNull();
+    }
+  });
+
+  it("la testa del backlog dichiara come si dimostra, la coda no", async () => {
+    /*
+     * > «Items are clarified. **How to demo is filled in for all
+     * > high-importance** items» (pag. 25)
+     *
+     * Il libro affina la cima della lista e lascia grezza la coda. Un backlog
+     * in cui tutto è ugualmente specificato sarebbe una dimostrazione più
+     * ordinata e meno onesta — e nasconderebbe proprio il segnale per cui la
+     * Definition of Ready esiste.
+     */
+    const batch = await fetchBatch();
+
+    const backlog = batch.workItems
+      .filter((entry) => entry.sprintId === null && entry.backlogOrder !== null)
+      .sort((a, b) => (a.backlogOrder ?? 0) - (b.backlogOrder ?? 0));
+
+    const described = backlog.filter((entry) => entry.howToDemo !== null);
+
+    expect(described.length, "nessun elemento dichiara come si dimostra").toBeGreaterThan(0);
+    expect(described.length, "tutto il backlog è affinato: non è realistico").toBeLessThan(
+      backlog.length,
+    );
+
+    // E sono i primi, non sparsi: è la cima della lista a essere affinata.
+    expect(backlog.slice(0, described.length).every((entry) => entry.howToDemo !== null)).toBe(
+      true,
+    );
+  });
+
   it("la stima corrente coincide con l'ultima variazione", async () => {
     // Se le due fonti divergono, una delle due mente e non c'è modo di sapere
     // quale — lo stesso argomento applicato allo stato qui sopra.

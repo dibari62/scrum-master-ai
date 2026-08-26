@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { seedConnector, generateSeedBatch } from "@/connectors/seed";
-import { ITEM_TITLES } from "@/connectors/seed/scenario";
+import { BACKLOG_ITEMS, ITEM_TITLES } from "@/connectors/seed/scenario";
 import { isMidSprintAddition, organizationIdSchema, projectIdSchema } from "@/domain";
 import { velocity } from "@/metrics";
 
@@ -348,10 +348,59 @@ describe("connettore seed — anomalie volute", () => {
     ).toEqual([]);
   });
 
-  it("ha più titoli disponibili di quanti elementi generi", () => {
-    // La condizione che rende vero il test precedente. Detta a parte perché,
-    // quando fallirà, dirà *perché*: la lista è diventata troppo corta.
-    expect(ITEM_TITLES.length).toBeGreaterThanOrEqual(batch.workItems.length);
+  it("ha più titoli disponibili di quanti elementi ne consumino", () => {
+    /*
+     * La condizione che rende vero il test precedente. Detta a parte perché,
+     * quando fallirà, dirà *perché*: la lista è diventata troppo corta.
+     *
+     * Il confronto è con gli elementi **degli sprint**, non con tutti: il
+     * backlog di prodotto ha una lista propria, `BACKLOG_ITEMS`, in cui titolo
+     * e testo della demo sono scritti insieme.
+     */
+    const fromTitles = batch.workItems.filter((item) => item.sprintId !== null);
+
+    expect(ITEM_TITLES.length).toBeGreaterThanOrEqual(fromTitles.length);
+  });
+
+  it("titolo e «come si dimostra» descrivono lo stesso elemento", () => {
+    /*
+     * Il difetto che questo test esiste per impedire è già successo.
+     *
+     * La prima versione teneva due liste parallele — i titoli presi da
+     * `ITEM_TITLES`, i testi della demo appaiati per posizione — e nel browser
+     * si leggeva «Prova di carico sul modulo di pagamento» accompagnato da
+     * «aggiungi due articoli, chiudi il browser, rientra».
+     *
+     * Uno spec di demo che descrive un'altra storia è **peggio** di uno
+     * assente: assente si vede, sbagliato si crede. Ora titolo e testo nascono
+     * nella stessa voce di `BACKLOG_ITEMS`, e questo test verifica che la
+     * coppia arrivi intatta fino al modello canonico.
+     */
+    const expected = new Map(
+      BACKLOG_ITEMS.map((entry) => [entry.title, entry.howToDemo] as const),
+    );
+
+    for (const item of batch.workItems) {
+      if (item.howToDemo === null) continue;
+
+      expect(
+        item.howToDemo,
+        `«${item.title}» porta il testo di un altro elemento`,
+      ).toBe(expected.get(item.title));
+    }
+  });
+
+  it("i titoli del backlog non si sovrappongono a quelli degli sprint", () => {
+    // È la condizione che rende impossibile il duplicato: due liste che si
+    // toccano lo produrrebbero senza che nessuna delle due sia sbagliata.
+    const sprintTitles = new Set(ITEM_TITLES);
+    const collisions = BACKLOG_ITEMS.map((entry) => entry.title).filter((title) =>
+      sprintTitles.has(title),
+    );
+
+    expect(collisions, `titoli presenti in entrambe le liste: ${collisions.join(", ")}`).toEqual(
+      [],
+    );
   });
 });
 

@@ -89,6 +89,8 @@ export function item(
     state: WorkItemState;
     estimate: { value: number; unit: "points" | "hours" } | null;
     sprintId: string | null;
+    backlogOrder: number | null;
+    howToDemo: string | null;
   }> = {},
 ): WorkItem {
   return workItemSchema.parse({
@@ -100,6 +102,14 @@ export function item(
     description: null,
     state: overrides.state ?? "todo",
     estimate: overrides.estimate === undefined ? { value: 3, unit: "points" } : overrides.estimate,
+    /*
+     * Predefinito «non collocato».
+     *
+     * Un ordine inventato qui renderebbe verdi dei test sul backlog senza che
+     * nessuno abbia collocato nulla: chi vuole un ordine lo dice.
+     */
+    backlogOrder: overrides.backlogOrder ?? null,
+    howToDemo: overrides.howToDemo ?? null,
     sprintId: overrides.sprintId ?? null,
     assigneeId: null,
     sourceCreatedAt: overrides.sourceCreatedAt ?? "2026-04-06T08:00:00.000Z",

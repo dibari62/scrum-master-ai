@@ -42,6 +42,7 @@ import type { CanonicalBatch } from "../contract";
 import { addDays, addWorkingHours, atHour, nextWorkingDay } from "./calendar";
 import { createRandom, type Random } from "./random";
 import {
+  BACKLOG_ITEMS,
   BOARD_COLUMNS,
   firstSprintStart,
   ITEM_TITLES,
@@ -332,15 +333,38 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
 
   const generated = [...itemsById.values()];
 
+  /*
+   * Il backlog di prodotto: ciò che non è ancora entrato in uno sprint.
+   *
+   * Prima non esisteva. Ogni elemento generato apparteneva a uno sprint, il che
+   * rendeva la definizione del glossario — «insieme **ordinato** di work item
+   * non ancora in uno sprint» — vera come intenzione e falsa come fatto.
+   *
+   * **Nasce presto, non tardi.** Il primo tentativo lo datava dopo l'ultimo
+   * sprint, con l'idea che fosse «ciò che resta da fare»; la troncatura lo ha
+   * cancellato per intero, perché era datato nel futuro rispetto all'istante di
+   * lettura. Aveva ragione lei: un backlog è fatto di cose **scritte a suo
+   * tempo e non ancora prese in carico**, non di cose che accadranno. Gli
+   * elementi partono qualche giorno dopo l'inizio del progetto e si distanziano
+   * di due giorni l'uno dall'altro, restando comodamente prima di `asOf`.
+   */
+  const backlog = buildProductBacklog({
+    scope,
+    createdAt: addDays(firstStart, 3),
+  });
+
   return truncateAt(
     {
       people,
       boards: [board],
       boardColumns,
       sprints,
-      workItems: generated.map((entry) => entry.item),
-      transitions: generated.flatMap((entry) => entry.transitions),
-      estimateChanges: generated.flatMap((entry) => entry.estimateChanges),
+      workItems: [...generated.map((entry) => entry.item), ...backlog.items],
+      transitions: [...generated.flatMap((entry) => entry.transitions), ...backlog.transitions],
+      estimateChanges: [
+        ...generated.flatMap((entry) => entry.estimateChanges),
+        ...backlog.estimateChanges,
+      ],
       scopeEvents: generated.flatMap((entry) => entry.scopeEvents),
       sprintStatistics: statistics,
       retrospectives,
@@ -359,8 +383,108 @@ export function generateSeedBatch(options: GenerateOptions): CanonicalBatch {
 }
 
 /**
- * Removes everything that has not happened yet.
+ * The product backlog: what has not entered a sprint yet, in the order the
+ * fictional Product Owner put it.
  *
+ * Each item carries the two things the book asks for and nothing more: a
+ * position (never a score — the author retracts the `Importance` column) and,
+ * for the groomed head of the list only, a "how to demo".
+ *
+ * It still emits **one transition and one estimate change** per item, because
+ * the conformance suite requires that every reported state derives from a
+ * history. A backlog item's history is short, not absent: it was created, and
+ * it was sized.
+ */
+function buildProductBacklog(input: {
+  readonly scope: Scoped;
+  readonly createdAt: Date;
+}): {
+  readonly items: readonly WorkItem[];
+  readonly transitions: readonly StateTransition[];
+  readonly estimateChanges: readonly EstimateChange[];
+} {
+  const items: WorkItem[] = [];
+  const transitions: StateTransition[] = [];
+  const estimateChanges: EstimateChange[] = [];
+
+  for (const [position, entry] of BACKLOG_ITEMS.entries()) {
+    const itemId = randomUUID();
+    const sourceId = `item-backlog-${position + 1}`;
+
+    /*
+     * Due giorni di distanza fra un elemento e il successivo.
+     *
+     * Serve a rendere l'ordinamento **osservabile**: se tutti nascessero nello
+     * stesso istante, un test che ordina per data non distinguerebbe un
+     * comparatore corretto da uno che restituisce sempre zero. Due giorni per
+     * dodici elementi coprono meno di un mese, quindi l'ultimo resta prima
+     * dell'istante di lettura anche sullo scenario più corto.
+     */
+    const createdAt = addDays(input.createdAt, position * 2);
+
+    const estimate = { value: entry.points, unit: "points" as const };
+
+    items.push(
+      workItemSchema.parse({
+        id: itemId,
+        ...input.scope,
+        ...SOURCE,
+        sourceId,
+        kind: entry.kind,
+        title: entry.title,
+        description: null,
+        state: "todo",
+        estimate,
+        backlogOrder: position,
+        howToDemo: entry.howToDemo,
+        // Non è in nessuno sprint: è esattamente ciò che lo rende backlog.
+        sprintId: null,
+        assigneeId: null,
+        sourceCreatedAt: createdAt,
+        parentId: null,
+        createdAt,
+        updatedAt: createdAt,
+      }),
+    );
+
+    transitions.push(
+      stateTransitionSchema.parse({
+        id: randomUUID(),
+        ...input.scope,
+        ...SOURCE,
+        sourceId: `transition-${sourceId}-1`,
+        workItemId: itemId,
+        fromState: null,
+        toState: "todo",
+        occurredAt: createdAt,
+        actorId: null,
+        createdAt,
+        updatedAt: createdAt,
+      }),
+    );
+
+    estimateChanges.push(
+      estimateChangeSchema.parse({
+        id: randomUUID(),
+        ...input.scope,
+        ...SOURCE,
+        sourceId: `estimate-${sourceId}-1`,
+        workItemId: itemId,
+        fromEstimate: null,
+        toEstimate: estimate,
+        occurredAt: createdAt,
+        actorId: null,
+        createdAt,
+        updatedAt: createdAt,
+      }),
+    );
+  }
+
+  return { items, transitions, estimateChanges };
+}
+
+/**
+ * Removes everything that has not happened yet.
  * **Why this exists at all.** The scenario is written as four whole sprints, but
  * the last one is deliberately still running, so its story runs past the instant
  * the data is read at. Left alone, the data set would contain transitions dated
@@ -700,6 +824,15 @@ function buildItem(input: BuildItemInput): GeneratedItem {
     // Lo stato *corrente*: dopo la ri-stima, cioè il numero più grande. È
     // esattamente ciò che velocity non deve usare.
     estimate: finalEstimate,
+    /*
+     * Un elemento già in uno sprint non ha una posizione in backlog.
+     *
+     * `null` non è «ultimo»: è uscito dalla lista da pianificare nel momento in
+     * cui è entrato in uno sprint, e dargli una posizione lo rimetterebbe in
+     * coda a un piano di rilascio che non deve più contenerlo.
+     */
+    backlogOrder: null,
+    howToDemo: null,
     sprintId: sprint.id,
     assigneeId: assignee.id,
     sourceCreatedAt: createdAt,

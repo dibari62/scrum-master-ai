@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   numeric,
   pgEnum,
   pgTable,
@@ -88,6 +89,20 @@ export const workItems = pgTable(
      */
     estimateValue: numeric("estimate_value", { precision: 8, scale: 2, mode: "number" }),
     estimateUnit: text("estimate_unit"),
+
+    /**
+     * Position in the product backlog, and how the item gets demonstrated.
+     *
+     * `backlog_order` is an order and not a score — the book's `Importance`
+     * column, which the author retracts in the second edition. No unique
+     * constraint on purpose: swapping two adjacent items would need a temporary
+     * value to get past it, and `compareBacklogOrder` already breaks ties
+     * deterministically.
+     *
+     * `how_to_demo` is **untrusted content** (§8.1) like every ingested text.
+     */
+    backlogOrder: integer("backlog_order"),
+    howToDemo: text("how_to_demo"),
 
     /** `null` for an item still in the backlog. */
     sprintId: uuid("sprint_id").references(() => sprints.id, { onDelete: "set null" }),

@@ -128,6 +128,43 @@ export const workItemSchema = z.object({
 
   estimate: estimateSchema.nullable(),
 
+  /**
+   * Position in the product backlog: **an order, not a score**.
+   *
+   * The book used a numeric `Importance` column and the author retracts it in
+   * the second edition — «there's no importance column. Instead, I just order
+   * the list». The retraction matters because the two are not the same thing: a
+   * score invites arithmetic ("this is twice as important"), and two items
+   * scored 100 leave the question of which comes first unanswered. An order
+   * answers exactly one question, which is the only one planning needs.
+   *
+   * `null` means "not placed", which is different from "last": a source that
+   * exposes no ranking gives us nothing to place items by, and inventing a
+   * position would look like a decision the Product Owner never made.
+   *
+   * **Not unique**, deliberately. Enforcing uniqueness would make swapping two
+   * adjacent items impossible without a temporary value, and the guarantee is
+   * not worth that: `compareBacklogOrder` breaks ties deterministically, so a
+   * duplicate degrades the list instead of corrupting it.
+   */
+  backlogOrder: z.number().int().nonnegative().nullable(),
+
+  /**
+   * How this item will be shown at the sprint demo.
+   *
+   * > «How to demo — a high-level description of how this story will be
+   * > demonstrated at the sprint demo. This is **essentially a simple test
+   * > spec**. Do this, then do that, then this should happen.» (pag. 7)
+   *
+   * One of the six fields the book says it used sprint after sprint, and the
+   * one that does the most work: it is the closest thing to an acceptance
+   * criterion that fits on a card.
+   *
+   * **Untrusted content** (§8.1), like every ingested text: it is data, and it
+   * is delimited if it ever reaches a model.
+   */
+  howToDemo: descriptionSchema,
+
   /** `null` for an item still in the backlog. */
   sprintId: sprintIdSchema.nullable(),
 
@@ -157,3 +194,51 @@ export const workItemSchema = z.object({
 });
 
 export type WorkItem = z.infer<typeof workItemSchema>;
+
+/**
+ * Orders two items the way the Product Owner placed them.
+ *
+ * Three rules, in order, and each exists for a reason:
+ *
+ * 1. **A placed item comes before an unplaced one.** `null` is "not ranked
+ *    yet", and an unranked item at the top of a release plan would be a
+ *    commitment nobody made.
+ * 2. **Lower `backlogOrder` first** — it is a position, so 1 precedes 2.
+ * 3. **Ties break on arrival, then on identifier.** Duplicates are possible by
+ *    design (see the field), and a comparator that left them unordered would
+ *    make the same backlog produce two different release plans on two runs.
+ *    A plan that changes when nothing changed cannot be trusted.
+ */
+export function compareBacklogOrder(a: WorkItem, b: WorkItem): number {
+  if (a.backlogOrder !== b.backlogOrder) {
+    if (a.backlogOrder === null) return 1;
+    if (b.backlogOrder === null) return -1;
+    return a.backlogOrder - b.backlogOrder;
+  }
+
+  const arrival = a.sourceCreatedAt.getTime() - b.sourceCreatedAt.getTime();
+  if (arrival !== 0) return arrival;
+
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * The product backlog: what is **not yet in a sprint and not yet done**, in the
+ * order the Product Owner put it.
+ *
+ * The glossary has said "insieme **ordinato** di work item non ancora in uno
+ * sprint" since the first day, and until now nothing stored the order — the
+ * word was true as an intention and false as a fact. This is the function that
+ * makes it true.
+ *
+ * `done` items are excluded even when they never belonged to a sprint: the
+ * backlog is what remains to be planned, and something already delivered would
+ * inflate every release forecast built on it.
+ *
+ * Returns a new array; the input is not modified.
+ */
+export function productBacklog(items: readonly WorkItem[]): readonly WorkItem[] {
+  return items
+    .filter((item) => item.sprintId === null && item.state !== "done")
+    .sort(compareBacklogOrder);
+}

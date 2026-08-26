@@ -31,6 +31,8 @@ const WORK_ITEM = {
   description: null,
   state: "in_progress",
   estimate: { value: 5, unit: "points" },
+  backlogOrder: null,
+  howToDemo: null,
   sprintId: null,
   assigneeId: null,
   sourceCreatedAt: "2026-03-01T08:00:00.000Z",

@@ -26,6 +26,7 @@ export default async function ProjectLayout({
     // `exact` solo qui: ogni altra sezione sta "sotto" la panoramica, e senza
     // la distinzione risulterebbero accese due voci su ogni pagina.
     { label: "Panoramica", href: base, exact: true },
+    { label: "Backlog", href: `${base}/backlog` },
     { label: "Elementi", href: `${base}/elementi` },
     { label: "Sprint", href: `${base}/sprint` },
     { label: "Flusso", href: `${base}/flusso` },
