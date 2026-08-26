@@ -83,9 +83,18 @@ Stato di una riga:
 | # | Formula del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
 | R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | ⬜ | ⬜ |
-| R2 | Soglie di accettazione: **must** / **should** / **may**. | rosso = must in 1.0, giallo = should, verde = rimandabile (pag. 97) | ⬜ | ⬜ |
+| R2 | Soglie di accettazione: **must** / **should** / **may**. | «All items with importance >= 100 must be included in version 1.0» (pag. 97) | ⬜ | ⬜ **dipende da `backlogOrder`** — vedi nota |
 | R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | ⬜ | ⬜ |
 | R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | 🟡 il confronto si vede, la revisione automatica del piano no |
+
+> **R2 sembra dipendere da un campo che il libro stesso abbandona, e non è così.**
+> La regola d'esempio è scritta in termini di *importance* numerica — «items with
+> importance >= 100» — e l'autore, nella 2ª edizione, ritratta proprio quella colonna:
+> «there's no importance column. Instead, I just order the list» (§7 qui sotto).
+> Sembra un vicolo cieco, ma poche righe dopo lo chiude lui: «and you can, of course,
+> do this analysis **without having numeric importance ratings! Just order the list**».
+> Quindi R2 si implementa sull'**ordine** del backlog, non su un punteggio — il che
+> rende `backlogOrder` (§7) un **prerequisito** di R2, non una voce indipendente.
 
 ## 5. Stima
 
@@ -141,7 +150,36 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Checklist della demo | 9 | ⬜ |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
 | Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; i punti chiave della retrospettiva non vi confluiscono ancora |
-| Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ⬜ |
+| Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ⬜ **è l'ossatura**, vedi sotto |
+
+> **La checklist del capitolo 16 non è una voce fra le altre: ne nomina quattro.**
+> Trascritta dal testo (pag. 163), dice letteralmente di creare la *sprint info page*,
+> di aggiornare le *statistiche di sprint* con velocity stimata e dimensione della
+> squadra, di aggiungervi a fine sprint «the actual velocity **and key points from the
+> retrospective**», e di avvisare della demo «**a day or two before**». Sono quattro
+> voci del nostro elenco di cose da fare che il libro tratta come **un solo flusso**.
+>
+> | Momento | Voce del libro | Il portale può spuntarla da solo? |
+> |---|---|---|
+> | Inizio | Creare la sprint info page | sì, se la generiamo |
+> | Inizio | Link alla pagina dalla bacheca | no — vive su un wiki esterno |
+> | Inizio | Stamparla e appenderla al muro | **no**, e va detto invece di fingere |
+> | Inizio | Email a tutti con obiettivo e link | solo se il portale manda email |
+> | Inizio | Aggiornare le statistiche: velocity stimata, dimensione squadra, durata | ✅ già fatto (`sprint_statistics`) |
+> | Ogni giorno | Daily scrum inizia e finisce in orario | no — nessun dato lo dice |
+> | Ogni giorno | Storie aggiunte/tolte per tenere il ritmo | sì, dagli eventi di perimetro |
+> | Ogni giorno | Il Product Owner è informato dei cambi | no — è una conversazione |
+> | Ogni giorno | Backlog e burndown aggiornati | sì: si vede se ci sono transizioni recenti |
+> | Ogni giorno | Impedimenti risolti o segnalati | sì, dagli impedimenti aperti e dalla loro durata |
+> | Fine | Fare una demo aperta | no |
+> | Fine | Avvisare della demo un giorno o due prima | sì, come promemoria calcolato dalle date |
+> | Fine | Retrospettiva con squadra e Product Owner | ✅ già fatto |
+> | Fine | Statistiche: velocity effettiva e punti chiave della retrospettiva | 🟡 la velocity sì, i punti chiave sono debito registrato |
+>
+> Metà delle voci **non è automatizzabile**, ed è una proprietà del lavoro dello Scrum
+> Master, non un limite del portale. Una checklist che spuntasse da sola «daily scrum in
+> orario» starebbe mentendo. Vanno mostrate lo stesso, marcate come umane: il libro
+> chiude proprio dicendo di allenare la squadra a farle senza lo Scrum Master.
 
 ---
 
