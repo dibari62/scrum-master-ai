@@ -102,9 +102,18 @@ Sono **avvisi**, non vincoli: il libro le chiama *guideline*.
 
 | # | Guideline | Citazione | Stato |
 |---|---|---|---|
-| G1 | Storie da **2 a 8** punti. Velocity tipica di un team: 40–60. | «We normally strive for stories weighted two to eight man-days» (pag. 43) | ⬜ |
-| G2 | Da **5 a 15** storie per sprint. Meno di 5: storie troppo grandi. Più di 15: il team ha preso troppo. | pag. 43 | ⬜ |
-| G3 | Tech story: **10–20 %** della capacità. | «10-20% of our time is spent on tech stories» (pag. 47) | ⬜ |
+| G1 | Storie da **2 a 8** punti. Velocity tipica di un team: 40–60. | «We normally strive for stories weighted two to eight man-days» (pag. 43) | ✅ `planningGuidelines` |
+| G2 | Da **5 a 15** storie per sprint. Meno di 5: storie troppo grandi. Più di 15: il team ha preso troppo. | pag. 43 | ✅ `planningGuidelines` |
+| G3 | Tech story: **10–20 %** della capacità. | «10-20% of our time is spent on tech stories» (pag. 47) | ⛔ **non implementabile**: manca il campo |
+
+> **Perché G3 non c'è, e non è una dimenticanza.** Il modello canonico non sa dire che
+> un elemento serve al codice invece che a una persona: `WorkItemKind` distingue storia,
+> bug, task, epic e spike, e nessuno di questi è una *tech story*. Dedurla dal tipo
+> sarebbe sbagliato — un `task` in Scrum è un pezzo di una storia, non una storia
+> tecnica — e una linea guida calcolata sull'insieme sbagliato è peggio di una assente,
+> perché sembra una risposta. Serve un campo, e quindi una decisione: è la prossima
+> voce del debito.
+
 
 ## 7. Il product backlog
 

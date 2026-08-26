@@ -83,7 +83,7 @@ test.describe("scala di stima", () => {
     const summary = page.getByText(/non stanno sulla scala dichiarata/);
     await expect(summary).toBeVisible();
 
-    const rows = page.locator("main table").first().locator("tbody tr");
+    const rows = page.locator("[data-off-scale]");
     expect(await rows.count()).toBeGreaterThan(0);
 
     for (const text of await rows.allInnerTexts()) {
@@ -107,7 +107,7 @@ test.describe("scala di stima", () => {
     await declareScale(page, "planning-poker");
     await page.goto(ITEMS);
 
-    const first = page.locator("main table").first().locator("tbody tr").first();
+    const first = page.locator("[data-off-scale]").first();
     const title = (await first.locator("td").first().innerText()).trim();
 
     /*
@@ -121,9 +121,7 @@ test.describe("scala di stima", () => {
     const offScaleValue = (await first.locator("td").nth(1).innerText()).trim();
 
     const generalRow = page
-      .locator("main table")
-      .last()
-      .locator("tbody tr")
+      .locator("[data-item]")
       .filter({ hasText: title })
       .first();
 

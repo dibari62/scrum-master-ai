@@ -8,6 +8,7 @@ import {
   type EstimateChange,
   type StateTransition,
   type WorkItem,
+  type WorkItemKind,
   type WorkItemState,
 } from "@/domain";
 
@@ -84,6 +85,7 @@ export function item(
     id: string;
     title: string;
     sourceCreatedAt: string;
+    kind: WorkItemKind;
     state: WorkItemState;
     estimate: { value: number; unit: "points" | "hours" } | null;
     sprintId: string | null;
@@ -93,7 +95,7 @@ export function item(
     id: overrides.id ?? WORK_ITEM_ID,
     ...SCOPE,
     sourceId: `i-${overrides.id ?? WORK_ITEM_ID}`,
-    kind: "story",
+    kind: overrides.kind ?? "story",
     title: overrides.title ?? "Elemento di prova",
     description: null,
     state: overrides.state ?? "todo",

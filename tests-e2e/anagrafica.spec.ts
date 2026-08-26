@@ -107,7 +107,7 @@ test.describe("persone e sprint", () => {
 
     await expect(page.getByRole("heading", { name: "Sprint", level: 1 })).toBeVisible();
 
-    const first = page.locator("main ul li").first();
+    const first = page.locator("main > ul > li").first();
     const text = await first.innerText();
 
     // Ogni sprint dichiara quanti elementi conteneva, oppure dice che non lo

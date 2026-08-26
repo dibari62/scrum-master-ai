@@ -14,6 +14,7 @@ export * from "./result";
 export * from "./history";
 export * from "./estimates";
 export * from "./estimation";
+export * from "./guidelines";
 export * from "./flow";
 export * from "./sprint";
 export * from "./planning";

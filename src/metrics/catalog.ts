@@ -1540,6 +1540,68 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/estimation.test.ts",
   },
   {
+    id: "planning-guidelines",
+    name: "Linee guida di pianificazione",
+    question: "Le storie di questo sprint hanno la dimensione e il numero che il libro consiglia?",
+    formula:
+      "Storie con stima in punti fuori dall'intervallo 2–8, e numero di storie dello sprint fuori dall'intervallo 5–15.",
+    unit: "count",
+    excludes: [
+      "Gli elementi che non sono storie: un bug o uno spike non hanno la dimensione di cui il libro parla.",
+      "Le storie senza stima, che non hanno una dimensione da confrontare — ma restano nel conteggio delle storie.",
+      "Le stime in ore: «da due a otto» è detto di punti, e due ore è un'affermazione su un'altra grandezza.",
+      "La quota di tech story (10–20%): il modello canonico non sa dire che un elemento serve al codice invece che a una persona, e dedurlo dal tipo sarebbe sbagliato.",
+    ],
+    unavailableWhen: "Lo sprint non contiene alcuna storia.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "il tipo, il titolo e la stima corrente con la sua unità",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "il contenuto dello sprint così come risulta ora",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quante storie hanno una stima in punti da confrontare",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Una storia vale 13 punti.",
+        outcome: "Segnalata sopra il limite, con la direzione dichiarata.",
+        verifiedBy: "una storia da 13 punti supera il limite, e lo dice da che parte",
+      },
+      {
+        situation: "Una storia vale esattamente 2 o esattamente 8 punti.",
+        outcome: "Dentro: gli estremi dell'intervallo sono inclusi.",
+        verifiedBy: "gli estremi 2 e 8 sono dentro, non fuori",
+      },
+      {
+        situation: "Lo sprint contiene quattro storie.",
+        outcome: "Sotto il minimo di cinque: di solito significa storie troppo grandi.",
+        verifiedBy: "quattro storie stanno sotto il minimo",
+      },
+      {
+        situation: "Lo sprint non contiene alcuna storia.",
+        outcome:
+          "Nessuna direzione, invece di «troppe poche»: un piano che manca è un problema diverso.",
+        verifiedBy: "uno sprint vuoto non è «troppe poche storie»",
+      },
+      {
+        situation: "Un bug è stimato 21 punti.",
+        outcome: "Ignorato: la linea guida parla di storie.",
+        verifiedBy: "un bug fuori misura non è una storia e non viene giudicato",
+      },
+    ],
+    decision:
+      "Sono avvisi, non blocchi. Il libro le chiama guideline e mai regole: uno sprint con quattro storie non è invalido, è da guardare due volte. Trasformarle in un divieto insegnerebbe a una squadra a spezzare le storie per far tornare il conteggio.",
+    sourceFile: "src/metrics/guidelines.ts",
+    sourceSymbol: "planningGuidelines",
+    testFile: "tests/metrics/guidelines.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",
