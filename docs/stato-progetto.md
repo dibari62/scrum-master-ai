@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1023 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1056 test<br/>Playwright · 96 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -31,7 +31,7 @@ graph TB
 
     subgraph DB["🗄️ Database"]
         D1["Modello canonico Zod<br/>4 entità di tenancy"]
-        D2["Schema Drizzle<br/>21 tabelle create"]
+        D2["Schema Drizzle<br/>24 tabelle create"]
         D3["Isolamento fra aziende<br/>verificato su Postgres vero"]
         D4["Entità Scrum<br/>Sprint · WorkItem · Transizioni"]
         D5["ScrumAgent · Contesto<br/>Registro esecuzioni"]
@@ -53,7 +53,8 @@ graph TB
         U11["Impedimenti<br/>ostacoli e durata"]
         U12["Salute dello sprint<br/>giudizio, motivo, numeri"]
         U13["Previsto contro effettivo<br/>previsione, consegna,<br/>scostamento"]
-        U14["Menù di progetto<br/>sette sezioni,<br/>su ogni pagina"]
+        U14["Menù di progetto<br/>otto sezioni,<br/>su ogni pagina"]
+        U15["Retrospettive<br/>tre colonne, voti,<br/>seguito dei miglioramenti"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -64,7 +65,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -72,6 +73,44 @@ dai test. Ogni numero della dashboard è **apribile** fino alla storia degli sta
 cui è calcolato, e un progetto può avere il proprio Scrum Master AI con un registro
 delle esecuzioni. Le pagine sono verificate **a 375, 640, 768 e 1280 pixel**: nessun
 testo sotto i 10 pixel resi, nessuno sbordamento laterale.
+
+**Tutte e cinque le cerimonie Scrum ora lasciano un segno.** La retrospettiva era
+l'ultima a non produrre niente: si poteva metterla in calendario, e poi il
+prodotto non sapeva dire se avesse cambiato qualcosa. Ora ci sono le tre colonne
+del libro — cosa rifaremmo uguale, cosa faremmo diversamente, cosa proviamo a
+migliorare — il voto, e soprattutto **il seguito**.
+
+Il seguito è il punto. «Focus on just a few improvements per sprint» è un
+consiglio che significa qualcosa solo se qualcuno poi controlla che quei pochi
+siano avvenuti; una schermata che elencasse soltanto ciò che è stato detto
+sarebbe un modo più curato di dimenticare. Sui dati sintetici: **3 aperti su 6,
+il 40 % di quelli considerati portato a termine, e il più vecchio aperto da 23,6
+giorni** contro i 12 che di solito bastano.
+
+Tre decisioni dichiarate, tutte discendenti da §8.2:
+
+- **Nessun autore su una nota.** Il formato del libro è un muro di Post-it
+  anonimi; attaccarci un nome trasformerebbe «cosa poteva andare meglio» nel
+  registro di chi si è lamentato — il modo più rapido per far smettere una
+  squadra di dire qualcosa — e metterebbe un conteggio per persona a una query
+  di distanza.
+- **I voti sono totali, e si mostrano solo da tre partecipanti in su.** Con due
+  persone nella stanza un totale dice quasi esattamente come ha votato ciascuna:
+  l'aggregato smette di essere un aggregato.
+- **Niente umore, niente clima, nessun punteggio.** La retrospettiva è
+  esattamente il punto in cui un prodotto ben intenzionato comincerebbe a
+  inferire stati d'animo. Si conserva ciò che le persone hanno **detto**.
+
+E **«lasciato cadere» è un esito legittimo**, non un fallimento: il libro ammette
+di decidere di non agire, quindi quei miglioramenti escono dal denominatore.
+Offrire solo «fatto» o «non fatto» insegnerebbe a chiudere per finta.
+
+Uno sprint ancora aperto non ha retrospettiva — guarderebbe indietro a qualcosa
+che non è ancora successo — e gli sprint **chiusi senza** vengono elencati invece
+che taciuti: è un fatto sulla squadra, e ometterlo lascerebbe sparire l'abitudine
+in silenzio.
+
+---
 
 **Le sezioni di un progetto ora sono un menù, non una fila di pulsanti.** Era un
 difetto segnalato dal Product Owner: per scoprire cosa sapesse fare il prodotto
@@ -169,7 +208,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | Ambiente | Stato | Dettaglio |
 |---|---|---|
 | **Locale** | ✅ funzionante | `npm run dev`, giro completo provato in Chrome |
-| **Neon (Postgres)** | ✅ attivo | 20 tabelle popolate, migrazioni applicate: 51 elementi, 206 transizioni, 57 variazioni di stima, 4 previsioni di sprint, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
+| **Neon (Postgres)** | ✅ attivo | 23 tabelle popolate, migrazioni applicate: 51 elementi, 210 transizioni, 57 variazioni di stima, 4 previsioni, 3 retrospettive con 6 azioni di miglioramento, 5 colonne di bacheca e 6 impedimenti sintetici, con l'ultimo sprint **in corso**. `npm run db:duplicates` non trova duplicati inattesi |
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
@@ -576,6 +615,8 @@ Cose note e volutamente rimandate, non sviste:
 | **Una stima di mezza giornata verrebbe troncata a zero** | [mappa](scrum-dalle-trincee.md) E2 | il dominio ammette 0,5 — che il libro indica come stima minima di un task — ma le colonne `estimate_value`, `from_value` e `to_value` sono `integer`. Oggi non capita, perché il seed genera solo interi. Va sistemato **insieme** alla scala di stima, migrando le tre colonne in una volta: farlo ora lascerebbe due tabelle che rappresentano la stessa cosa in due modi |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | Quattordici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready, scala di stima. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
+| Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |
 | **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |
 | La previsione non si può registrare dall'interfaccia | — | oggi le righe arrivano solo dal connettore. Serve un'azione «registra la previsione» sullo sprint aperto, con il vincolo che vale la pena scrivere ora: **si registra all'inizio, e per uno sprint già chiuso non si registra affatto** — sarebbe inventare un piano che il team non ha mai fatto |
 

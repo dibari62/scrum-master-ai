@@ -130,8 +130,8 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |
 | Elementi non pianificati | 6 | 🟡 `scopeChange` li confonde con le aggiunte pianificate |
 | Checklist della demo | 9 | ⬜ |
-| Retrospettiva a tre colonne, voto, azioni | 10 | ⬜ |
-| Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; mancano i punti chiave della retrospettiva, che non esiste ancora |
+| Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
+| Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; i punti chiave della retrospettiva non vi confluiscono ancora |
 | Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ⬜ |
 
 ---

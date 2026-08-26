@@ -1478,4 +1478,110 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     sourceSymbol: "forecastVariance",
     testFile: "tests/metrics/planning.test.ts",
   },
+  {
+    id: "improvement-follow-up",
+    name: "Seguito dei miglioramenti",
+    question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",
+    formula:
+      "Conteggio dei miglioramenti per stato, quota di quelli portati a termine sui considerati, e tempo trascorso da quando è stato deciso il più vecchio ancora aperto.",
+    unit: "count",
+    excludes: [
+      "I miglioramenti lasciati cadere, esclusi dal denominatore: non agire è una scelta legittima, e contarli come fallimenti spingerebbe a dichiarare di aver fatto qualcosa.",
+      "Chi ha proposto o chiuso un miglioramento: non è registrato da nessuna parte.",
+    ],
+    unavailableWhen: "Nessun miglioramento è mai stato deciso in una retrospettiva.",
+    inputs: [
+      {
+        entity: "ImprovementAction",
+        reads: "lo stato, l'istante in cui è stato deciso e quello in cui è stato risolto",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di riferimento passato dal chiamante",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti miglioramenti sono stati decisi in tutto, in ogni stato",
+    referenceInstant: "parametro asOf",
+    edgeCases: [
+      {
+        situation: "La squadra ha lasciato cadere ogni miglioramento deciso.",
+        outcome:
+          "Nessuna quota di completamento, invece di uno zero che la farebbe sembrare una squadra che ci ha provato e ha fallito.",
+        verifiedBy: "senza nulla da considerare non riporta una quota di zero",
+      },
+      {
+        situation: "Nessun miglioramento è ancora aperto.",
+        outcome: "Nessuna anzianità, invece di zero.",
+        verifiedBy: "senza nulla di aperto non inventa un'anzianità",
+      },
+      {
+        situation: "Non è mai stato deciso alcun miglioramento.",
+        outcome: "Nessun valore, con motivo «no-data».",
+        verifiedBy: "senza alcun miglioramento dichiara la lacuna invece di rispondere zero",
+      },
+      {
+        situation: "La stessa domanda viene posta in due istanti diversi.",
+        outcome:
+          "Due anzianità diverse, perché l'istante arriva dal chiamante e non dall'orologio.",
+        verifiedBy: "non legge l'orologio: lo stesso insieme a due istanti dà due anzianità",
+      },
+    ],
+    decision:
+      "I lasciati cadere escono dal denominatore. Il libro ammette esplicitamente di decidere di non agire — «in many cases, just identifying a problem clearly is enough for it to solve itself» — e trattarli come fallimenti insegnerebbe a una squadra a chiudere per finta.",
+    sourceFile: "src/metrics/retrospective.ts",
+    sourceSymbol: "improvementFollowUp",
+    testFile: "tests/metrics/retrospective.test.ts",
+  },
+  {
+    id: "improvement-lead-time",
+    name: "Tempo di un miglioramento",
+    question: "Quanto ci mette questa squadra a portare a termine ciò che decide?",
+    formula:
+      "Media del tempo fra la decisione e la risoluzione, sui soli miglioramenti chiusi.",
+    unit: "duration",
+    excludes: [
+      "I miglioramenti ancora aperti: contarli con i «giorni finora» mescolerebbe due misure diverse, e renderebbe una squadra più veloce quanto più lascia aperto.",
+      "Le durate negative, cioè risolte prima di essere decise: sono un difetto della fonte.",
+    ],
+    unavailableWhen: "Nessun miglioramento è ancora stato chiuso.",
+    inputs: [
+      {
+        entity: "ImprovementAction",
+        reads: "l'istante in cui è stato deciso e quello in cui è stato risolto",
+      },
+    ],
+    observation: {
+      kind: "between",
+      from: "l'istante in cui il miglioramento è stato deciso",
+      to: "l'istante in cui è stato risolto",
+    },
+    operation: "mean",
+    summarisedBy: ["mean"],
+    sampleSizeMeaning: "quanti miglioramenti chiusi hanno una durata utilizzabile",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Ci sono miglioramenti aperti da molto tempo.",
+        outcome: "Non entrano nella media: è una durata osservata, non una in corso.",
+        verifiedBy: "media solo i miglioramenti chiusi",
+      },
+      {
+        situation: "Nessun miglioramento è ancora stato chiuso.",
+        outcome: "Nessun valore, con motivo «no-qualifying-data».",
+        verifiedBy: "senza nulla di chiuso non inventa una durata",
+      },
+      {
+        situation: "Un miglioramento risulta risolto prima di essere stato deciso.",
+        outcome: "Scartato, invece di mediare una durata negativa.",
+        verifiedBy: "scarta una durata negativa invece di mediarla",
+      },
+    ],
+    decision:
+      "La media e non la mediana: i miglioramenti per sprint sono pochi — il libro dice di sceglierne pochissimi — e su cinque valori la mediana butta via più informazione di quanta ne protegga.",
+    sourceFile: "src/metrics/retrospective.ts",
+    sourceSymbol: "improvementLeadTime",
+    testFile: "tests/metrics/retrospective.test.ts",
+  },
 ]);

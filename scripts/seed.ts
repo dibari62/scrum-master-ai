@@ -36,10 +36,13 @@ import {
   comments,
   estimateChanges,
   impediments,
+  improvementActions,
   organizations,
   people,
   projects,
   pullRequests,
+  retrospectiveNotes,
+  retrospectives,
   sprintScopeEvents,
   sprintStatistics,
   sprints,
@@ -259,6 +262,22 @@ async function main(): Promise<void> {
        * ingerito da uno strumento.
        */
       () => db.insert(sprintStatistics).values([...batch.sprintStatistics]),
+    ],
+    [
+      // Stessa ragione delle statistiche: cancellano a cascata dagli sprint.
+      "retrospettive",
+      batch.retrospectives.length,
+      () => db.insert(retrospectives).values([...batch.retrospectives]),
+    ],
+    [
+      "note di retrospettiva",
+      batch.retrospectiveNotes.length,
+      () => db.insert(retrospectiveNotes).values([...batch.retrospectiveNotes]),
+    ],
+    [
+      "azioni di miglioramento",
+      batch.improvementActions.length,
+      () => db.insert(improvementActions).values([...batch.improvementActions]),
     ],
     [
       "variazioni di perimetro",

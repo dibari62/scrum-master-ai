@@ -242,6 +242,43 @@ export function runConnectorConformance(options: ConformanceOptions): void {
     }
   });
 
+  it("ogni nota e ogni miglioramento appartengono a una retrospettiva del lotto", async () => {
+    /*
+     * Una nota orfana è peggio di una nota assente: comparirebbe in nessuna
+     * riunione, quindi in nessuna schermata, e nessuno saprebbe che c'è.
+     */
+    const batch = await fetchBatch();
+    const retrospectiveIds = new Set(batch.retrospectives.map((entry) => entry.id));
+
+    for (const note of batch.retrospectiveNotes) {
+      expect(
+        retrospectiveIds.has(note.retrospectiveId),
+        `nota orfana: ${note.id}`,
+      ).toBe(true);
+    }
+
+    for (const action of batch.improvementActions) {
+      expect(
+        retrospectiveIds.has(action.retrospectiveId),
+        `miglioramento orfano: ${action.id}`,
+      ).toBe(true);
+    }
+  });
+
+  it("un miglioramento chiuso ha un istante di risoluzione, e viceversa", async () => {
+    // Senza l'istante non si può dire quanto ci è voluto; con l'istante ma
+    // ancora aperto, la storia si contraddice.
+    const batch = await fetchBatch();
+
+    for (const action of batch.improvementActions) {
+      if (action.status === "open") {
+        expect(action.resolvedAt, `aperto ma risolto: ${action.id}`).toBeNull();
+      } else {
+        expect(action.resolvedAt, `chiuso senza istante: ${action.id}`).not.toBeNull();
+      }
+    }
+  });
+
   it("non colloca una transizione prima della creazione dell'elemento", async () => {
     const batch = await fetchBatch();
     const items = new Map(batch.workItems.map((item) => [item.id, item]));

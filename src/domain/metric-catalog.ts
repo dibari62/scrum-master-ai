@@ -64,6 +64,7 @@ export const metricInputEntitySchema = z.enum([
   "EstimateChange",
   "WorkingCalendar",
   "TeamMemberAvailability",
+  "ImprovementAction",
   "Sprint",
   "SprintScopeEvent",
 ]);

@@ -31,6 +31,7 @@ export default async function ProjectLayout({
     { label: "Flusso", href: `${base}/flusso` },
     { label: "Persone", href: `${base}/persone` },
     { label: "Impedimenti", href: `${base}/impedimenti` },
+    { label: "Retrospettive", href: `${base}/retrospettive` },
     { label: "Scrum Master AI", href: `${base}/scrum-master` },
   ];
 
