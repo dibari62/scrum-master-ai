@@ -91,8 +91,8 @@ Stato di una riga:
 
 | # | Regola del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
-| E1 | Scala non lineare a valori discreti: fra 40 e 100 non c'è nulla, e **7 non esiste**. | «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8; there is no 7» (pag. 40) | `estimateSchema` accetta qualsiasi numero; il mazzo è [ricostruito](#ricostruzione-b--il-mazzo-di-planning-poker-pag-38) | ⚠️ |
-| E2 | Stima minima di un task: **0,5**. | «Our lowest value is 0.5» (pag. 65) | il dominio ammette 0,5, la colonna del database è `integer` e lo troncherebbe a 0 | ⚠️ |
+| E1 | Scala non lineare a valori discreti: fra 40 e 100 non c'è nulla, e **7 non esiste**. | «you can't cheat by combining a 5 and a 2 to make a 7. You have to choose either 5 or 8; there is no 7» (pag. 40) | `estimationScale` sul contesto di progetto, `isOnScale` e `estimationScaleConformance`; il mazzo è [ricostruito](#ricostruzione-b--il-mazzo-di-planning-poker-pag-38) | ✅ |
+| E2 | Stima minima di un task: **0,5**. | «Our lowest value is 0.5» (pag. 65) | colonne `numeric(8,2)` dalla migrazione 0010; prima erano `integer` e **arrotondavano 0,5 a 1** | ✅ |
 | E3 | Vecchia conversione, dichiarata superata: `1 man-day = 6 man-hours`. | «Our general formula was: 1 effective man-day = 6 effective man-hours» (pag. 65) | non implementata di proposito | — |
 | E4 | Si stima il lavoro **totale** della storia, non la propria parte. | «The tester should not just estimate the amount of testing work» (pag. 40) | regola umana | — |
 
@@ -212,6 +212,13 @@ Fibonacci arrotondata:
 
 Le quattro dedotte sono **½, 1, 3, 13**. Restano una deduzione: nessun passaggio del libro
 le nomina.
+
+> **Dove sta nel codice.** `PLANNING_POKER_DECK` in `src/domain/estimation-scale.ts`
+> contiene gli **undici valori numerici**. `?` e la tazzina non ci sono: non sono
+> dimensioni di una storia ma risposte sullo stimatore — «I have absolutely no idea» e
+> «I'm too tired to think» — e nel modello canonico quello stato è `estimate: null`.
+> Il commento sulla costante rimanda a questa sezione, così chi un giorno vedrà la
+> figura vera saprà che cosa confrontare.
 
 | Carta | Significato dichiarato dal libro |
 |---|---|

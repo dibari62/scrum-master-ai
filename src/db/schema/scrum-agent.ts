@@ -19,6 +19,7 @@ import {
   agentStatusSchema,
   agentToneSchema,
   autonomyLevelSchema,
+  estimationScaleSchema,
   llmProviderSchema,
   skillRunFailureCauseSchema,
   skillRunStatusSchema,
@@ -71,6 +72,9 @@ export const agentStatus = pgEnum("agent_status", enumValues(agentStatusSchema))
  * refusing to *read* `advise` would be worse than never having stored it.
  */
 export const autonomyLevel = pgEnum("autonomy_level", enumValues(autonomyLevelSchema));
+
+/** Generated from the Zod enum, so the deck and the column cannot disagree (R4). */
+export const estimationScale = pgEnum("estimation_scale", enumValues(estimationScaleSchema));
 
 /**
  * `Trigger` in the domain, `skill_trigger` as a Postgres type.
@@ -223,6 +227,16 @@ export const projectContexts = pgTable(
     definitionOfDone: jsonb("definition_of_done")
       .$type<ProjectContext["definitionOfDone"]>()
       .notNull(),
+
+    /**
+     * The scale the team estimates on, `free` when none is declared.
+     *
+     * A default is required because the column arrives on a table that already
+     * has rows, and `free` is the only honest value for a project that was
+     * never asked: it reports no deviation, which is what "we did not declare a
+     * scale" should do.
+     */
+    estimationScale: estimationScale("estimation_scale").notNull().default("free"),
 
     /**
      * **Untrusted content** (§8.1), like every text field on this table: written

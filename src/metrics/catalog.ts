@@ -1479,6 +1479,67 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/planning.test.ts",
   },
   {
+    id: "estimation-scale-conformance",
+    name: "Stime fuori scala",
+    question: "Quante stime non stanno sulla scala che la squadra ha dichiarato?",
+    formula:
+      "Conteggio delle stime in punti che non compaiono fra i valori ammessi dalla scala del progetto, sul totale delle stime in punti.",
+    unit: "count",
+    excludes: [
+      "Gli elementi senza stima: non c'è nulla da confrontare con la scala, e contarli renderebbe la conformità dipendente da quanti spike contiene lo sprint.",
+      "Le stime in ore: il mazzo del planning poker misura dimensioni, non durate, e i suoi salti non hanno significato su un'ora.",
+      "Chi ha proposto la stima: nel libro stimare è un'attività di squadra (§8.2).",
+    ],
+    unavailableWhen: "Il progetto non ha dichiarato una scala.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "la stima corrente, con la sua unità",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "la stima corrente, così come la fonte l'ha riportata",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quante stime in punti la scala ha potuto giudicare",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Il progetto non ha dichiarato una scala.",
+        outcome: "Nessuna deviazione, invece di inventare una regola che nessuno ha adottato.",
+        verifiedBy: "senza scala dichiarata non riporta alcuna deviazione",
+      },
+      {
+        situation: "Una stima vale 7, e la scala è il planning poker.",
+        outcome: "Fuori scala, con i due valori ammessi fra cui sta: 5 e 8.",
+        verifiedBy: "un 7 sul planning poker viene segnalato fra 5 e 8",
+      },
+      {
+        situation: "Una stima supera la carta più grande del mazzo.",
+        outcome: "Fuori scala, ma senza valori vicini: sopra 100 non c'è nulla da nominare.",
+        verifiedBy: "sopra la carta più grande non inventa un valore superiore",
+      },
+      {
+        situation: "Lo stesso numero è ammesso da una scala e non dall'altra.",
+        outcome:
+          "Un 20 sta sul planning poker e non sulla Fibonacci stretta: sono due scale, non una con tolleranza.",
+        verifiedBy: "il 20 sta sul planning poker ma non sulla Fibonacci",
+      },
+      {
+        situation: "Una stima vale mezzo punto.",
+        outcome: "Ammessa dal planning poker: è la carta più piccola del mazzo.",
+        verifiedBy: "il mezzo punto è la carta più piccola e viene ammesso",
+      },
+    ],
+    decision:
+      "Segnala, non rifiuta. Le stime arrivano da una fonte esterna e il contenuto ingerito è dato, mai istruzione (R3): rifiutare l'importazione di una storia da 7 punti farebbe perdere la storia, non correggerebbe la stima.",
+    sourceFile: "src/metrics/estimation.ts",
+    sourceSymbol: "estimationScaleConformance",
+    testFile: "tests/metrics/estimation.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

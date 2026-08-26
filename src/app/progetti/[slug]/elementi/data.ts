@@ -1,4 +1,6 @@
 import {
+  DEFAULT_ESTIMATION_SCALE,
+  estimationScaleSchema,
   projectSchema,
   sprintSchema,
   stateTransitionSchema,
@@ -13,7 +15,9 @@ import { forOrganization, getDatabase } from "@/db";
 import { workItemEstimate } from "@/db/rows";
 import {
   cycleTime,
+  estimationScaleConformance,
   groupByWorkItem,
+  type EstimationScaleConformance,
   type Milliseconds,
   type MetricResult,
 } from "@/metrics";
@@ -44,6 +48,15 @@ export type WorkItemList = {
   /** Items before filtering: the denominator of "n su m". */
   readonly totalCount: number;
   /**
+   * Estimates that fall outside the scale the project declared.
+   *
+   * Computed over **every** item, not the filtered ones: the question "does
+   * this team estimate on its own scale" is about the project, and an answer
+   * that changed with the active filter would be a different question each
+   * time it was asked.
+   */
+  readonly scaleConformance: EstimationScaleConformance;
+  /**
    * Whether the agent may be asked a free question about this project.
    *
    * Read here so the form appears only when submitting it would work: a control
@@ -71,10 +84,11 @@ export async function loadWorkItems(
 
   const project = projectSchema.parse(projectRow);
 
-  const [itemRows, transitionRows, sprintRows] = await Promise.all([
+  const [itemRows, transitionRows, sprintRows, contextRows] = await Promise.all([
     scope.reads.workItemsByProject(project.id),
     scope.reads.transitionsByProject(project.id),
     scope.reads.sprintsByProject(project.id),
+    scope.reads.projectContextByProject(project.id),
   ]);
 
   const items: WorkItem[] = itemRows.map((row) =>
@@ -119,12 +133,25 @@ export async function loadWorkItems(
 
   const agentRows = await scope.reads.scrumAgentByProject(project.id);
 
+  /*
+   * Un progetto senza contesto non ha dichiarato nulla, quindi «nessuna scala».
+   *
+   * Il valore si convalida invece di fidarsi della colonna: la riga arriva dal
+   * database con il tipo che le abbiamo *attribuito*, non con uno verificato, e
+   * una scala che questa versione non conosce deve essere visibile, non
+   * propagata in una pagina.
+   */
+  const scale = contextRows[0]
+    ? estimationScaleSchema.parse(contextRows[0].estimationScale)
+    : DEFAULT_ESTIMATION_SCALE;
+
   return {
     project,
     rows: sorted,
     sprints,
     filter,
     totalCount: rows.length,
+    scaleConformance: estimationScaleConformance(items, scale),
     questionEnabled: agentRows[0]?.enabledSkillKeys.includes("project-qa") ?? false,
   };
 }

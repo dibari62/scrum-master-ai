@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { isKnownSkillKey } from "@/domain";
+import { ESTIMATION_SCALE_LABELS, estimationScaleSchema, isKnownSkillKey } from "@/domain";
 import { formatNumber } from "@/lib/format";
 
+import { setEstimationScaleAction } from "../../actions";
 import { AUTONOMY, PERSONA, SKILLS, STATUS } from "../../labels";
 import { loadScheda } from "../../scheda";
 
@@ -24,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  */
 export default async function ConfigurazionePage({ params }: PageProps) {
   const { slug } = await params;
-  const { agent, context } = await loadScheda(slug);
+  const { agent, context, canConfigure } = await loadScheda(slug);
 
   return (
     <div className="grid gap-4">
@@ -138,6 +140,48 @@ export default async function ConfigurazionePage({ params }: PageProps) {
                 <dd className="text-muted-foreground">
                   La durata abituale degli sprint di questo progetto, usata per capire a
                   che punto sia quello in corso.
+                </dd>
+              </div>
+            ) : null}
+
+            {context ? (
+              <div className="grid gap-0.5">
+                <dt className="font-medium">
+                  Scala di stima · {ESTIMATION_SCALE_LABELS[context.estimationScale]}
+                </dt>
+                <dd className="text-muted-foreground grid gap-2">
+                  <span>
+                    {context.estimationScale === "free"
+                      ? "Nessuna scala dichiarata: qualunque stima è ammessa, e il portale non segnala deviazioni."
+                      : "I valori che questa squadra può usare per stimare. Le stime che non vi appartengono vengono segnalate fra gli elementi, mai corrette."}
+                  </span>
+
+                  {canConfigure ? (
+                    <form
+                      action={setEstimationScaleAction}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <input type="hidden" name="slug" value={slug} />
+                      <label className="sr-only" htmlFor="estimationScale">
+                        Scala di stima
+                      </label>
+                      <select
+                        id="estimationScale"
+                        name="estimationScale"
+                        defaultValue={context.estimationScale}
+                        className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                      >
+                        {estimationScaleSchema.options.map((scale) => (
+                          <option key={scale} value={scale}>
+                            {ESTIMATION_SCALE_LABELS[scale]}
+                          </option>
+                        ))}
+                      </select>
+                      <Button type="submit" variant="outline" size="sm">
+                        Cambia scala
+                      </Button>
+                    </form>
+                  ) : null}
                 </dd>
               </div>
             ) : null}

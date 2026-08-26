@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/charts/data-table";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import {
+  ESTIMATION_SCALE_LABELS,
   organizationIdSchema,
   workItemStateSchema,
 } from "@/domain";
@@ -68,7 +69,7 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
 
   if (!list) notFound();
 
-  const { project, rows, sprints, totalCount } = list;
+  const { project, rows, sprints, totalCount, scaleConformance } = list;
 
   const linkFor = (next: Partial<WorkItemFilter>): string => {
     const merged = { ...filter, ...next };
@@ -160,6 +161,75 @@ export default async function WorkItemsPage({ params, searchParams }: PageProps)
           </div>
         ) : null}
       </div>
+
+      {scaleConformance.scale === "free" ? null : (
+        <Card>
+          <CardContent className="grid gap-3 pt-6">
+            <div className="grid gap-1">
+              <h2 className="text-base font-semibold">
+                Scala di stima · {ESTIMATION_SCALE_LABELS[scaleConformance.scale]}
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                {scaleConformance.offScale.length === 0
+                  ? `Tutte le ${formatNumber(scaleConformance.considered)} stime in punti stanno sulla scala dichiarata.`
+                  : `${formatNumber(scaleConformance.offScale.length)} stime su ${formatNumber(scaleConformance.considered)} non stanno sulla scala dichiarata.`}
+              </p>
+            </div>
+
+            {scaleConformance.offScale.length > 0 ? (
+              <>
+                <DataTable
+                  caption="Stime che non compaiono fra i valori ammessi dalla scala"
+                  rows={scaleConformance.offScale}
+                  getKey={(deviation) => deviation.itemId}
+                  getHref={(deviation) =>
+                    `/progetti/${project.slug}/elementi/${deviation.itemId}`
+                  }
+                  minWidth="min-w-[34rem]"
+                  columns={[
+                    {
+                      key: "elemento",
+                      header: "Elemento",
+                      className: "min-w-[18rem]",
+                      cell: (deviation) => (
+                        <span className="font-medium">{deviation.title}</span>
+                      ),
+                    },
+                    {
+                      key: "stima",
+                      header: "Stima",
+                      align: "end",
+                      cell: (deviation) => formatEstimate(deviation.value, "points"),
+                    },
+                    {
+                      key: "ammessi",
+                      header: "Valori ammessi vicini",
+                      align: "end",
+                      className: "min-w-[12rem]",
+                      cell: (deviation) =>
+                        deviation.neighbours ? (
+                          `${formatNumber(deviation.neighbours.below)} o ${formatNumber(deviation.neighbours.above)}`
+                        ) : (
+                          // Sopra la carta più grande non c'è un valore
+                          // superiore da nominare, e inventarne uno sarebbe
+                          // peggio che tacere.
+                          <span className="text-muted-foreground">nessuno sopra</span>
+                        ),
+                    },
+                  ]}
+                />
+
+                <p className="text-muted-foreground text-xs">
+                  Il portale <strong>segnala, non corregge</strong>: le stime arrivano da una
+                  fonte esterna, e rifiutarle farebbe perdere l&apos;elemento invece della
+                  stima. I salti della scala sono voluti — «you can&apos;t cheat by combining
+                  a 5 and a 2 to make a 7&nbsp;… there is no 7».
+                </p>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
 
       {rows.length === 0 ? (
         <Card>

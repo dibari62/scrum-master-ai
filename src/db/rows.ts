@@ -238,6 +238,7 @@ export function toProjectContextRow(context: ProjectContext): ProjectContextRow 
     sprintLengthDays: context.sprintLengthDays,
     ceremonies: context.ceremonies,
     definitionOfDone: context.definitionOfDone,
+    estimationScale: context.estimationScale,
     workingAgreement: context.workingAgreement,
     stakeholders: context.stakeholders,
     createdAt: context.createdAt,

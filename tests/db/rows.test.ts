@@ -187,6 +187,7 @@ describe("conversione del ProjectContext", () => {
       daily_scrum: { dayOfWeek: "monday", timeOfDay: "09:30" },
     },
     definitionOfDone: ["Test verdi", "Revisione approvata"],
+    estimationScale: "planning-poker",
     workingAgreement: null,
     stakeholders: [{ role: "Direzione commerciale", audience: "stakeholder" }],
     createdAt: new Date("2026-05-01T08:00:00Z"),
