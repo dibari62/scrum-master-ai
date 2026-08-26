@@ -3,12 +3,22 @@ import { notFound, redirect } from "next/navigation";
 
 import { DataTable } from "@/components/charts/data-table";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { organizationIdSchema } from "@/domain";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ACCEPTANCE_THRESHOLD_LABELS,
+  ACCEPTANCE_THRESHOLD_MEANINGS,
+  organizationIdSchema,
+  thresholdAtPosition,
+} from "@/domain";
 import { auth } from "@/lib/auth";
+import { mayConfigureAgent } from "@/lib/agents/scrum-agent";
 import { formatEstimate, formatNumber } from "@/lib/format";
 import { STATE_LABELS } from "@/lib/state-words";
 
+import { setAcceptanceThresholdsAction } from "./actions";
 import { loadBacklog } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +45,14 @@ export default async function BacklogPage({ params }: PageProps) {
 
   const { slug } = await params;
 
-  const list = await loadBacklog(organizationIdSchema.parse(session.organizationId), slug);
+  const list = await loadBacklog(
+    organizationIdSchema.parse(session.organizationId),
+    slug,
+    mayConfigureAgent(session.role),
+  );
   if (!list) notFound();
 
-  const { project, items, total, unplacedCount, describedCount } = list;
+  const { project, items, total, unplacedCount, describedCount, thresholds, coverage } = list;
 
   return (
     <main className="app-shell grid gap-6 py-10">
@@ -110,6 +124,123 @@ export default async function BacklogPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardContent className="grid gap-3 pt-6">
+              <div className="grid gap-1">
+                <h2 className="text-base font-semibold">Soglie di accettazione</h2>
+                <p className="text-muted-foreground text-sm">
+                  Dove passa la linea fra ciò che è <strong>dovuto nella 1.0</strong> e ciò
+                  che può aspettare. Sono tagli sull&apos;ordine, non punteggi: spostare un
+                  elemento più in alto lo rende obbligatorio, senza toccare altro.
+                </p>
+              </div>
+
+              {thresholds === null ? (
+                <p className="text-muted-foreground text-sm">
+                  Nessuna soglia dichiarata. Il backlog resta un elenco di cose da fare,
+                  senza dire quali sono <strong>promesse</strong>.
+                </p>
+              ) : (
+                <DataTable
+                  caption="Quanto lavoro comporta ciascuna fascia di impegno"
+                  rows={coverage.bands}
+                  getKey={(band) => band.threshold}
+                  rowAttribute="data-band"
+                  minWidth="min-w-[38rem]"
+                  columns={[
+                    {
+                      key: "fascia",
+                      header: "Fascia",
+                      className: "min-w-[16rem]",
+                      cell: (band) => (
+                        <span className="font-medium">
+                          {ACCEPTANCE_THRESHOLD_LABELS[band.threshold]}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "significato",
+                      header: "Se manca",
+                      className: "min-w-[20rem]",
+                      cell: (band) => ACCEPTANCE_THRESHOLD_MEANINGS[band.threshold],
+                    },
+                    {
+                      key: "elementi",
+                      header: "Elementi",
+                      align: "end",
+                      cell: (band) => formatNumber(band.itemCount),
+                    },
+                    {
+                      key: "stima",
+                      header: "Stima",
+                      align: "end",
+                      cell: (band) =>
+                        band.total.points === null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          formatEstimate(band.total.points, "points")
+                        ),
+                    },
+                  ]}
+                />
+              )}
+
+              {coverage.unclassified > 0 && thresholds !== null ? (
+                <p className="text-muted-foreground text-xs">
+                  {formatNumber(coverage.unclassified)} elementi non ricadono in alcuna
+                  fascia: non hanno una posizione, e <strong>«non collocato» non è
+                  «ipotetico»</strong>.
+                </p>
+              ) : null}
+
+              {list.canConfigure ? (
+                <form
+                  action={setAcceptanceThresholdsAction}
+                  className="flex flex-wrap items-end gap-3 border-t pt-3"
+                >
+                  <input type="hidden" name="slug" value={project.slug} />
+
+                  {(
+                    [
+                      ["must", "Obbligatori", thresholds?.must],
+                      ["should", "Attesi", thresholds?.should],
+                      ["later", "Dovuti dopo", thresholds?.later],
+                    ] as const
+                  ).map(([name, label, value]) => (
+                    <div key={name} className="grid gap-1.5">
+                      <Label htmlFor={name}>{label}</Label>
+                      <Input
+                        id={name}
+                        name={name}
+                        type="number"
+                        min={0}
+                        className="w-28"
+                        defaultValue={value ?? ""}
+                      />
+                    </div>
+                  ))}
+
+                  <Button type="submit" variant="outline">
+                    Salva le soglie
+                  </Button>
+
+                  {/*
+                   * Come si cancellano si dice, non si lascia scoprire.
+                   *
+                   * «Nessuna soglia» non è la stessa cosa di «tutte a zero»:
+                   * zero dichiara che non si deve nulla nella 1.0, che è
+                   * un'affermazione sul contratto.
+                   */}
+                  <p className="text-muted-foreground w-full text-xs">
+                    Quanti elementi, <strong>partendo dalla cima</strong>, ricadono in
+                    ciascuna fascia. Il resto è ipotetico. Svuotando i tre campi le soglie
+                    tornano non dichiarate, che è diverso da dichiararle tutte a zero.
+                  </p>
+                </form>
+              ) : null}
+            </CardContent>
+          </Card>
+
           <DataTable
             caption="Backlog di prodotto, nell'ordine deciso dal Product Owner"
             rows={items}
@@ -136,6 +267,33 @@ export default async function BacklogPage({ params }: PageProps) {
                 header: "Elemento",
                 className: "min-w-[18rem]",
                 cell: (item) => <span className="font-medium">{item.title}</span>,
+              },
+              {
+                key: "fascia",
+                header: "Impegno",
+                className: "min-w-[13rem]",
+                cell: (item) => {
+                  /*
+                   * La fascia si deriva dalla posizione nella lista mostrata,
+                   * non da un'etichetta sull'elemento.
+                   *
+                   * È la stessa regola del motore: una sola fonte per il fatto
+                   * «questo è obbligatorio», così spostare un elemento lo
+                   * riclassifica da solo invece di lasciare due verità.
+                   */
+                  const band =
+                    item.backlogOrder === null
+                      ? null
+                      : thresholdAtPosition(items.indexOf(item), thresholds);
+
+                  return band === null ? (
+                    <span className="text-muted-foreground">
+                      {thresholds === null ? "non dichiarato" : "non collocato"}
+                    </span>
+                  ) : (
+                    ACCEPTANCE_THRESHOLD_LABELS[band]
+                  );
+                },
               },
               {
                 key: "tipo",

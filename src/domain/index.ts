@@ -21,6 +21,7 @@ export * from "./work-item";
 export * from "./state-transition";
 export * from "./estimate-change";
 export * from "./estimation-scale";
+export * from "./acceptance-threshold";
 export * from "./working-calendar";
 export * from "./sprint";
 export * from "./sprint-statistics";

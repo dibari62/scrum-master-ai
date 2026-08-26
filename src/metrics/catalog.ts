@@ -1602,6 +1602,66 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/guidelines.test.ts",
   },
   {
+    id: "acceptance-coverage",
+    name: "Impegni per fascia di accettazione",
+    question: "Quanto lavoro comporta ciò che ci siamo impegnati a consegnare?",
+    formula:
+      "Il backlog ordinato viene diviso in quattro fasce secondo i tagli dichiarati dal progetto, e di ciascuna si contano gli elementi e si sommano le stime, separate per unità.",
+    unit: "count",
+    excludes: [
+      "Gli elementi già in uno sprint o conclusi: non fanno più parte di ciò che resta da pianificare.",
+      "Gli elementi senza posizione in backlog, contati a parte: nessuno li ha collocati, e trattarli come «ipotetici» trasformerebbe «non deciso» in «deciso di no».",
+    ],
+    unavailableWhen: "Il progetto non ha dichiarato le soglie di accettazione.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "la posizione in backlog e la stima corrente con la sua unità",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "il backlog così come risulta ora",
+    },
+    operation: "sum",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi del backlog ricadono in una fascia",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Il progetto non ha dichiarato le soglie.",
+        outcome: "Nessuna fascia assegnata: gli elementi risultano tutti non classificati.",
+        verifiedBy: "senza soglie dichiarate non classifica nulla",
+      },
+      {
+        situation: "Una fascia non contiene alcun elemento.",
+        outcome:
+          "Compare comunque, con zero: una fascia che sparisce renderebbe «non ci siamo impegnati a nulla» indistinguibile da «non abbiamo tracciato la linea».",
+        verifiedBy: "una fascia vuota compare lo stesso, con zero",
+      },
+      {
+        situation: "I tagli coprono meno elementi di quanti il backlog ne contenga.",
+        outcome: "Il resto ricade in «ipotetico», che è l'ultima fascia per definizione.",
+        verifiedBy: "ciò che sta sotto l'ultimo taglio è ipotetico",
+      },
+      {
+        situation: "Un elemento non ha una posizione in backlog.",
+        outcome: "Conteggiato a parte, in nessuna fascia.",
+        verifiedBy: "un elemento senza posizione non finisce in una fascia",
+      },
+      {
+        situation: "Il backlog mescola stime in punti e in ore.",
+        outcome: "Due totali distinti per fascia, mai sommati fra loro.",
+        verifiedBy: "tiene separate le unità di stima dentro una fascia",
+      },
+    ],
+    decision:
+      "Quattro fasce e non tre. La figura del libro ne colora tre, unendo «dovuto ma dopo» e «ipotetico»; il testo però le distingue, e la differenza fra «lo dobbiamo, più tardi» e «potrebbe non servire mai» è la ragione stessa per cui si traccia la linea.",
+    sourceFile: "src/metrics/acceptance.ts",
+    sourceSymbol: "acceptanceCoverage",
+    testFile: "tests/metrics/acceptance.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

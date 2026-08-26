@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1112 test<br/>Playwright · 147 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1129 test<br/>Playwright · 150 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -59,6 +59,7 @@ graph TB
         U17["Scala di stima<br/>dichiarata dalla squadra,<br/>deviazioni segnalate"]
         U18["Linee guida di sprint<br/>dimensione e numero<br/>delle storie"]
         U19["Backlog di prodotto<br/>ordinato, con<br/>«come si dimostra»"]
+        U20["Soglie di accettazione<br/>quattro fasce di impegno<br/>con la loro conseguenza"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -69,7 +70,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -116,7 +117,56 @@ in silenzio.
 
 ---
 
-**Il backlog di prodotto non esisteva, e il glossario diceva il contrario.** La
+**Le soglie di accettazione: che cosa il backlog *promette*.** Il libro le
+definisce «in terms of the contract» (pag. 97), ed è la parola che conta. Un
+backlog ordinato dice cosa viene prima; una soglia dice **dove passa la linea
+fra ciò che è dovuto e ciò che può aspettare**.
+
+Sono tagli sull'ordine, non punteggi: le prime N posizioni sono obbligatorie, le
+successive attese, e così via. Spostare un elemento più in alto lo rende
+obbligatorio senza toccare nient'altro — e questo è il motivo per cui la fascia
+si *deriva* dalla posizione invece di essere un'etichetta sull'elemento. Due
+fonti per lo stesso fatto divergerebbero al primo riordino fatto senza
+aggiornare l'etichetta.
+
+Sui dati veri, con 3 obbligatori / 4 attesi / 2 dovuti dopo:
+
+| Fascia | Se manca | Elementi | Stima |
+|---|---|---|---|
+| Obbligatorio nella 1.0 | il contratto è disatteso | 3 | 10 punti |
+| Atteso nella 1.0 | si rimedia con un rilascio ravvicinato | 4 | 29 punti |
+| Dovuto, ma in una versione successiva | una 1.1 è una consegna accettabile | 2 | 28 punti |
+| Ipotetico | nessun impegno | 3 | 34 punti |
+
+**Quattro fasce, non tre.** La mia nota di lavoro diceva «must / should / may».
+Il testo del libro ne elenca **quattro**, e la figura a colori ne mostra tre solo
+perché unisce le ultime due in verde. Abbiamo tenuto quattro: la differenza fra
+«lo dobbiamo, più tardi» e «potrebbe non servire mai» è la ragione stessa per cui
+si traccia la linea.
+
+Ogni fascia dice **cosa succede se manca**, non solo come si chiama:
+«obbligatorio» da solo non dice *obbligatorio entro quando*, ed è precisamente la
+parte per cui una soglia esiste.
+
+> **Un'ora persa a inseguire un difetto che non c'era, e vale la pena scriverlo.**
+> Dopo aver salvato le soglie la pagina sembrava non aggiornarsi: il database
+> aveva i valori nuovi, lo schermo mostrava i vecchi. Ho applicato due correzioni
+> plausibili — tolto un `redirect`, spostato l'invalidazione della cache — prima
+> di fermarmi a **misurare** invece di indovinare.
+>
+> Non era l'applicazione: era lo strumento di prova. Una *server action* **non
+> naviga**, quindi `networkidle` si risolve prima che il ri-render arrivi, e uno
+> script che legge la pagina in quel momento legge quella di prima. Aspettando
+> l'elemento invece della rete, si vedeva aggiornarsi da sola.
+>
+> Le due correzioni restano perché sono comunque giuste, ma i commenti che le
+> spiegavano come rimedi a un guasto sono stati **riscritti**: un commento che
+> racconta un difetto inesistente manda fuori strada chi legge dopo, ed è peggio
+> di nessun commento.
+
+---
+
+
 riga «`Backlog` — insieme **ordinato** di work item non ancora in uno sprint»
 c'è dal primo giorno. Ma nessun elemento stava fuori da uno sprint, e nessuna
 colonna conservava un ordine: quella parola era vera come intenzione e falsa
@@ -761,7 +811,7 @@ Cose note e volutamente rimandate, non sviste:
 | **La carta più piccola del mazzo sarebbe stata raddoppiata** | [mappa](scrum-dalle-trincee.md) E1-E2 | ~~le colonne delle stime sono `integer` e troncherebbero 0,5 a zero~~ **fatto**: le tre colonne sono `numeric(8,2)` dalla migrazione 0010. La supposizione sul troncamento era **sbagliata**, e verificarla contro il database vero è servito: Postgres arrotonda, e `0.5::integer` vale **1** — una storia da mezzo punto sarebbe diventata una da un punto. Insieme è arrivata la scala di stima: `estimationScale` sul contesto di progetto, dichiarata da una persona, con le deviazioni elencate fra gli elementi (5 su 44 sui dati veri) |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | **Non si può dire che un elemento serve al codice e non a una persona** | [mappa](scrum-dalle-trincee.md) G3 | il libro consiglia che le *tech story* occupino il 10–20% della capacità, e la linea guida **non è implementata** perché il modello canonico non ha il campo. `WorkItemKind` distingue storia, bug, task, epic e spike, e nessuno di questi è una storia tecnica: dedurla dal tipo produrrebbe un numero convincente e sbagliato. Serve una decisione — un tipo nuovo, oppure un'etichetta — e quindi un ADR |
-| Tredici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Dodici formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, piano di rilascio, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
 | Il backlog non si riordina dall'interfaccia | — | l'ordine arriva dal connettore e la schermata lo mostra, ma non c'è modo di trascinare un elemento più in alto. È il gesto centrale del Product Owner, e va fatto insieme alle soglie di accettazione, che si appoggiano proprio a quest'ordine |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |

@@ -29,6 +29,7 @@ import type {
 } from "@/domain";
 import {
   agentPolicySchema,
+  acceptanceThresholdsSchema,
   ceremonyScheduleSchema,
   definitionOfDoneSchema,
   estimateChangeSchema,
@@ -241,6 +242,7 @@ export function toProjectContextRow(context: ProjectContext): ProjectContextRow 
     ceremonies: context.ceremonies,
     definitionOfDone: context.definitionOfDone,
     estimationScale: context.estimationScale,
+    acceptanceThresholds: context.acceptanceThresholds,
     workingAgreement: context.workingAgreement,
     stakeholders: context.stakeholders,
     createdAt: context.createdAt,
@@ -253,10 +255,11 @@ export interface ProjectContextJsonColumns {
   readonly ceremonies: unknown;
   readonly definitionOfDone: unknown;
   readonly stakeholders: unknown;
+  readonly acceptanceThresholds: unknown;
 }
 
 /**
- * Rebuilds the three nested structures of a context.
+ * Rebuilds the nested structures of a context.
  *
  * `$type<...>()` on a `jsonb` column is a *claim*, not a check: drizzle hands
  * back whatever the row contains, typed as whatever we declared. That is the
@@ -268,11 +271,23 @@ export interface ProjectContextJsonColumns {
  */
 export function projectContextStructures(
   row: ProjectContextJsonColumns,
-): Pick<ProjectContext, "ceremonies" | "definitionOfDone" | "stakeholders"> {
+): Pick<
+  ProjectContext,
+  "ceremonies" | "definitionOfDone" | "stakeholders" | "acceptanceThresholds"
+> {
   return {
     ceremonies: ceremonyScheduleSchema.parse(row.ceremonies),
     definitionOfDone: definitionOfDoneSchema.parse(row.definitionOfDone),
     stakeholders: stakeholdersSchema.parse(row.stakeholders),
+    /*
+     * `?? null` prima di convalidare.
+     *
+     * Una colonna aggiunta a una tabella già popolata vale `NULL` sulle righe
+     * esistenti, e il driver la restituisce come `null` — che è esattamente il
+     * significato voluto, «non dichiarate». Lo schema lo accetta; la
+     * conversione esplicita serve a dire che è una lettura, non un ripiego.
+     */
+    acceptanceThresholds: acceptanceThresholdsSchema.parse(row.acceptanceThresholds ?? null),
   };
 }
 

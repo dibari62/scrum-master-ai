@@ -1,14 +1,21 @@
 import {
+  acceptanceThresholdsSchema,
   productBacklog,
   projectSchema,
   workItemSchema,
+  type AcceptanceThresholdCutoffs,
   type OrganizationId,
   type Project,
   type WorkItem,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { workItemEstimate } from "@/db/rows";
-import { totalEstimates, type EstimateTotals } from "@/metrics";
+import {
+  acceptanceCoverage,
+  totalEstimates,
+  type AcceptanceCoverage,
+  type EstimateTotals,
+} from "@/metrics";
 
 /**
  * The product backlog: what is not yet in a sprint, in the order it will be
@@ -39,11 +46,21 @@ export type BacklogList = {
 
   /** Items that say how they will be demonstrated. */
   readonly describedCount: number;
+
+  /** Where the Product Owner cut the list, or `null` if nobody has. */
+  readonly thresholds: AcceptanceThresholdCutoffs | null;
+
+  /** How much work each acceptance band holds. */
+  readonly coverage: AcceptanceCoverage;
+
+  /** Whether this reader may change the thresholds. */
+  readonly canConfigure: boolean;
 };
 
 export async function loadBacklog(
   organizationId: OrganizationId,
   slug: string,
+  canConfigure: boolean,
 ): Promise<BacklogList | null> {
   const scope = forOrganization(getDatabase(), organizationId);
 
@@ -52,7 +69,11 @@ export async function loadBacklog(
 
   const project = projectSchema.parse(projectRow);
 
-  const itemRows = await scope.reads.workItemsByProject(project.id);
+  const [itemRows, contextRows] = await Promise.all([
+    scope.reads.workItemsByProject(project.id),
+    scope.reads.projectContextByProject(project.id),
+  ]);
+
   const all = itemRows.map((row) =>
     workItemSchema.parse({ ...row, estimate: workItemEstimate(row) }),
   );
@@ -66,11 +87,26 @@ export async function loadBacklog(
    */
   const items = productBacklog(all);
 
+  /*
+   * Le soglie si convalidano, non si assumono.
+   *
+   * La colonna è `jsonb` e il tipo che le abbiamo attribuito è una nostra
+   * dichiarazione, non una verifica del database: una forma che questa
+   * versione non conosce deve essere visibile, non propagata in una pagina che
+   * dichiara impegni contrattuali.
+   */
+  const thresholds = contextRows[0]
+    ? acceptanceThresholdsSchema.parse(contextRows[0].acceptanceThresholds ?? null)
+    : null;
+
   return {
     project,
     items,
     total: totalEstimates(items),
     unplacedCount: items.filter((item) => item.backlogOrder === null).length,
     describedCount: items.filter((item) => item.howToDemo !== null).length,
+    thresholds,
+    coverage: acceptanceCoverage(items, thresholds),
+    canConfigure,
   };
 }

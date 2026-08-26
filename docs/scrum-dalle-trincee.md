@@ -83,18 +83,26 @@ Stato di una riga:
 | # | Formula del libro | Citazione | Dove | Stato |
 |---|---|---|---|---|
 | R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | ⬜ | ⬜ |
-| R2 | Soglie di accettazione: **must** / **should** / **may**. | «All items with importance >= 100 must be included in version 1.0» (pag. 97) | ⬜ | ⬜ **dipende da `backlogOrder`** — vedi nota |
+| R2 | Soglie di accettazione: **must** / **should** / **may**. | «All items with importance >= 100 must be included in version 1.0» (pag. 97) | `src/domain/acceptance-threshold.ts` → `thresholdAtPosition`; `src/metrics/acceptance.ts` → `acceptanceCoverage` | ✅ **quattro** fasce, vedi nota |
 | R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | ⬜ | ⬜ |
 | R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | 🟡 il confronto si vede, la revisione automatica del piano no |
 
-> **R2 sembra dipendere da un campo che il libro stesso abbandona, e non è così.**
+> **R2 sembrava dipendere da un campo che il libro stesso abbandona, e non era così.**
 > La regola d'esempio è scritta in termini di *importance* numerica — «items with
 > importance >= 100» — e l'autore, nella 2ª edizione, ritratta proprio quella colonna:
 > «there's no importance column. Instead, I just order the list» (§7 qui sotto).
-> Sembra un vicolo cieco, ma poche righe dopo lo chiude lui: «and you can, of course,
+> Sembrava un vicolo cieco, ma poche righe dopo lo chiude lui: «and you can, of course,
 > do this analysis **without having numeric importance ratings! Just order the list**».
-> Quindi R2 si implementa sull'**ordine** del backlog, non su un punteggio — il che
-> rende `backlogOrder` (§7) un **prerequisito** di R2, non una voce indipendente.
+> Le soglie sono quindi implementate come **tagli sull'ordine**, e `backlogOrder` ne era
+> il prerequisito.
+>
+> **Quattro fasce, non tre.** La nota di lavoro diceva «must / should / may», ma il testo
+> ne elenca **quattro**: obbligatorio nella 1.0, atteso nella 1.0, «required but can be
+> done in a follow-up release 1.1», e «speculative and might never be needed at all».
+> La figura a colori della stessa pagina ne mostra tre perché unisce le ultime due in
+> verde. Abbiamo tenuto quattro: la differenza fra «lo dobbiamo, più tardi» e «potrebbe
+> non servire mai» è la ragione stessa per cui si traccia la linea, e un modello che le
+> unisse non potrebbe più distinguerle.
 
 ## 5. Stima
 
