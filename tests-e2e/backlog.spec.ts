@@ -108,6 +108,65 @@ test.describe("backlog di prodotto", () => {
     await expect(page.getByText(/dichiarano\s+come si dimostrano/)).toBeVisible();
   });
 
+  test("dichiarate le soglie, ogni elemento dice a che cosa impegna", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    await page.fill("#must", "3");
+    await page.fill("#should", "4");
+    await page.fill("#later", "2");
+    await page.getByRole("button", { name: "Salva le soglie" }).click();
+
+    /*
+     * Si aspetta l'elemento, non «networkidle».
+     *
+     * Una server action **non naviga**: la rete torna quieta prima che il
+     * ri-render arrivi, e un test che legge la pagina in quel momento legge
+     * quella precedente. È già costato un'ora di caccia a un difetto che non
+     * c'era.
+     */
+    const bands = page.locator("[data-band]");
+    await expect(bands.first()).toBeVisible();
+    await expect(bands).toHaveCount(4);
+
+    // Le prime tre righe sono obbligatorie, per costruzione dei tagli.
+    const rows = page.locator("[data-backlog-item]");
+    await expect(rows.nth(0)).toContainText("Obbligatorio nella 1.0");
+    await expect(rows.nth(2)).toContainText("Obbligatorio nella 1.0");
+    await expect(rows.nth(3)).toContainText("Atteso nella 1.0");
+  });
+
+  test("ogni fascia dice che cosa succede se manca, non solo come si chiama", async ({
+    page,
+  }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    /*
+     * «Obbligatorio» da solo non dice *obbligatorio entro quando*, ed è
+     * esattamente la parte per cui una soglia esiste: il libro la definisce
+     * «in terms of the contract», e la conseguenza è il contratto.
+     */
+    await expect(page.getByText("Se manca, il contratto è disatteso.")).toBeVisible();
+  });
+
+  test("svuotare i campi riporta a «non dichiarate», che non è «tutte a zero»", async ({
+    page,
+  }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    for (const field of ["#must", "#should", "#later"]) await page.fill(field, "");
+    await page.getByRole("button", { name: "Salva le soglie" }).click();
+
+    await expect(page.getByText(/Nessuna soglia dichiarata/)).toBeVisible();
+    await expect(page.locator("[data-band]")).toHaveCount(0);
+
+    // Rimesse com'erano: il progetto è condiviso con le altre suite.
+    await page.fill("#must", "3");
+    await page.fill("#should", "4");
+    await page.fill("#later", "2");
+    await page.getByRole("button", { name: "Salva le soglie" }).click();
+    await expect(page.locator("[data-band]").first()).toBeVisible();
+  });
+
   test("un elemento del backlog si apre e mostra la sua storia", async ({ page }) => {
     await page.goto(`/progetti/${PROJECT}/backlog`);
 

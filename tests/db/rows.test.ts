@@ -190,6 +190,7 @@ describe("conversione del ProjectContext", () => {
     },
     definitionOfDone: ["Test verdi", "Revisione approvata"],
     estimationScale: "planning-poker",
+    acceptanceThresholds: { must: 3, should: 2, later: 1 },
     workingAgreement: null,
     stakeholders: [{ role: "Direzione commerciale", audience: "stakeholder" }],
     createdAt: new Date("2026-05-01T08:00:00Z"),
@@ -202,13 +203,14 @@ describe("conversione del ProjectContext", () => {
     );
   });
 
-  it("conserva le tre strutture annidate nell'andata e ritorno", () => {
+  it("conserva le strutture annidate nell'andata e ritorno", () => {
     const row = toProjectContextRow(context);
 
     expect(projectContextStructures(row)).toEqual({
       ceremonies: context.ceremonies,
       definitionOfDone: context.definitionOfDone,
       stakeholders: context.stakeholders,
+      acceptanceThresholds: context.acceptanceThresholds,
     });
   });
 
@@ -233,8 +235,38 @@ describe("conversione del ProjectContext", () => {
         ceremonies: UNSCHEDULED_CEREMONIES,
         definitionOfDone: [],
         stakeholders: [{ role: "Direzione", audience: "consiglio-di-amministrazione" }],
+        acceptanceThresholds: null,
       }),
     ).toThrow();
+  });
+
+  it("rifiuta soglie di accettazione con una fascia negativa", () => {
+    // Un impegno contrattuale calcolato su una regola impossibile è peggio di
+    // un impegno assente: sembra una risposta.
+    expect(() =>
+      projectContextStructures({
+        ceremonies: UNSCHEDULED_CEREMONIES,
+        definitionOfDone: [],
+        stakeholders: [],
+        acceptanceThresholds: { must: -1, should: 2, later: 0 },
+      }),
+    ).toThrow();
+  });
+
+  it("legge una colonna mai valorizzata come «soglie non dichiarate»", () => {
+    /*
+     * Una colonna aggiunta a una tabella già popolata vale `NULL` sulle righe
+     * esistenti. È esattamente il significato voluto — nessuno ha ancora
+     * tracciato la linea — e va letto come tale, non come un errore.
+     */
+    const structures = projectContextStructures({
+      ceremonies: UNSCHEDULED_CEREMONIES,
+      definitionOfDone: [],
+      stakeholders: [],
+      acceptanceThresholds: null,
+    });
+
+    expect(structures.acceptanceThresholds).toBeNull();
   });
 });
 

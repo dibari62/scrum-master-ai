@@ -239,6 +239,18 @@ export const projectContexts = pgTable(
     estimationScale: estimationScale("estimation_scale").notNull().default("free"),
 
     /**
+     * The cuts in the backlog order that say what is committed to version 1.0.
+     *
+     * `jsonb` and nullable, because `null` is "not declared" and is genuinely
+     * different from all-zero: all-zero says nothing is committed, which is a
+     * statement about the contract. The check constraint below refuses a shape
+     * this release cannot read — the same reason the other `jsonb` columns
+     * carry one.
+     */
+    acceptanceThresholds: jsonb("acceptance_thresholds")
+      .$type<ProjectContext["acceptanceThresholds"]>(),
+
+    /**
      * **Untrusted content** (§8.1), like every text field on this table: written
      * by a human, stored as data, never as instruction. `null` is "not
      * declared", never the empty string.
@@ -272,6 +284,23 @@ export const projectContexts = pgTable(
     check(
       "project_contexts_working_agreement_check",
       sql`${table.workingAgreement} IS NULL OR char_length(${table.workingAgreement}) <= ${literal(MAX_WORKING_AGREEMENT_LENGTH)}`,
+    ),
+    /*
+     * Le tre fasce esistono e non sono negative.
+     *
+     * `jsonb` accetta qualunque forma, e `$type<...>()` è una dichiarazione
+     * nostra, non una verifica del database: senza questo vincolo una riga
+     * scritta a mano potrebbe contenere `{"must": -3}` e il portale
+     * classificherebbe il backlog su una regola impossibile.
+     */
+    check(
+      "project_contexts_acceptance_thresholds_check",
+      sql`${table.acceptanceThresholds} IS NULL OR (
+        jsonb_typeof(${table.acceptanceThresholds}) = 'object'
+        AND (${table.acceptanceThresholds} ->> 'must')::int >= 0
+        AND (${table.acceptanceThresholds} ->> 'should')::int >= 0
+        AND (${table.acceptanceThresholds} ->> 'later')::int >= 0
+      )`,
     ),
   ],
 );

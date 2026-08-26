@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import type {
+  AcceptanceThresholdCutoffs,
   CreateMembershipInput,
   CreateProjectInput,
   EstimationScale,
@@ -668,6 +669,29 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
       db
         .update(projectContexts)
         .set({ estimationScale: scale, updatedAt: new Date() })
+        .where(
+          and(
+            eq(projectContexts.organizationId, organizationId),
+            eq(projectContexts.projectId, projectId),
+          ),
+        )
+        .returning(),
+
+    /**
+     * Declares where the acceptance thresholds cut the backlog.
+     *
+     * `null` clears them, which is the honest way to say "we are no longer
+     * committing to this" — different from setting every band to zero, which
+     * says "we commit to nothing", a statement about the contract rather than
+     * the absence of one.
+     */
+    setAcceptanceThresholds: (
+      projectId: ProjectId,
+      thresholds: AcceptanceThresholdCutoffs | null,
+    ) =>
+      db
+        .update(projectContexts)
+        .set({ acceptanceThresholds: thresholds, updatedAt: new Date() })
         .where(
           and(
             eq(projectContexts.organizationId, organizationId),

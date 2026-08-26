@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { auditFields, displayNameSchema, projectScopedFields, timestampSchema } from "./common";
+import { acceptanceThresholdsSchema } from "./acceptance-threshold";
 import { DEFAULT_ESTIMATION_SCALE, estimationScaleSchema } from "./estimation-scale";
 import { projectContextIdSchema } from "./ids";
 import { dayOfWeekSchema } from "./working-calendar";
@@ -224,6 +225,7 @@ export const projectContextSchema = z.object({
   ceremonies: ceremonyScheduleSchema,
   definitionOfDone: definitionOfDoneSchema,
   estimationScale: estimationScaleSchema,
+  acceptanceThresholds: acceptanceThresholdsSchema,
   workingAgreement: workingAgreementSchema,
   stakeholders: stakeholdersSchema,
 
@@ -246,6 +248,14 @@ export const createProjectContextInputSchema = z.object({
   ceremonies: ceremonyScheduleSchema.default(UNSCHEDULED_CEREMONIES),
   definitionOfDone: definitionOfDoneSchema.default([]),
   estimationScale: estimationScaleSchema.default(DEFAULT_ESTIMATION_SCALE),
+  /*
+   * Predefinito «non dichiarate».
+   *
+   * Le soglie sono un impegno contrattuale, e sceglierle al posto del Product
+   * Owner significherebbe dichiarare obbligatorio del lavoro che nessuno ha
+   * promesso.
+   */
+  acceptanceThresholds: acceptanceThresholdsSchema.default(null),
   workingAgreement: workingAgreementSchema.default(null),
   stakeholders: stakeholdersSchema.default([]),
 });
@@ -266,6 +276,7 @@ export const updateProjectContextInputSchema = projectContextSchema
     ceremonies: true,
     definitionOfDone: true,
     estimationScale: true,
+    acceptanceThresholds: true,
     workingAgreement: true,
     stakeholders: true,
   })

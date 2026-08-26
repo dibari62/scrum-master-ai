@@ -252,6 +252,31 @@ Alla successiva esecuzione Playwright ricostruisce da capo. Vale la pena fermare
 quel server ogni volta che si modifica codice dell'interfaccia e si rieseguono
 gli e2e.
 
+### 5.bis Una *server action* non naviga, e `networkidle` mente
+
+Costato un'ora, quindi merita un titolo suo.
+
+Dopo aver premuto un pulsante che salva, la pagina sembrava non aggiornarsi: il
+database aveva i valori nuovi, lo schermo mostrava i vecchi. Sembra un difetto
+di cache, ed è la spiegazione che viene in mente per prima — infatti ho applicato
+due correzioni plausibili prima di fermarmi a misurare.
+
+**Non era l'applicazione.** Una *server action* di Next non è una navigazione:
+aggiorna l'albero della pagina sul posto. Quindi `waitForLoadState("networkidle")`
+si risolve **prima** che il ri-render arrivi, e uno script che legge la pagina in
+quell'istante legge quella di prima.
+
+Nel dubbio, si aspetta **l'elemento**, non la rete:
+
+```js
+await page.getByRole("button", { name: "Salva" }).click();
+await expect(page.locator("[data-band]").first()).toBeVisible();
+```
+
+E il modo per distinguere in trenta secondi un difetto vero da questo abbaglio:
+dopo il click, fare `page.reload()`. Se dopo il ricaricamento il valore c'è ma
+prima no, il codice funziona e a mentire è la sonda.
+
 ---
 
 ## 6. Il vincolo che vale più di tutti
