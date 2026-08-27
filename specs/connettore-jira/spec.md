@@ -141,8 +141,15 @@ Nessun concetto nuovo nel glossario: è il punto di questa fase.
 
 ## 6. Criteri di accettazione
 
-1. Il connettore **supera la suite di conformità** `tests/connectors/conformance.ts`
-   senza che la suite venga modificata per accoglierlo.
+1. Il connettore **supera la suite di conformità** `tests/connectors/conformance.ts`.
+
+   > **Correzione emersa scrivendo il codice.** Due verifiche della suite non
+   > erano sul contratto ma sulla *forma dei dati generati*: «la testa del
+   > backlog dichiara come si dimostra» e «esiste un backlog». Jira non ha un
+   > campo «come si dimostra», e un progetto Jira in cui ogni elemento portasse
+   > criteri di accettazione avrebbe fallito **avendo dati migliori**. Sono state
+   > spostate in `runGeneratedDataExpectations`, che il seed continua a eseguire:
+   > nessuna verifica è stata tolta, solo puntata sulla cosa di cui parlava.
 2. Nessun tipo Jira è esportato fuori da `src/connectors/jira/`; `npm run boundaries`
    resta verde.
 3. La traduzione è una **funzione pura** da JSON registrato a `CanonicalBatch`:
@@ -212,7 +219,8 @@ mai sincronizzato, in corso, riuscito con la data, fallito con il motivo.
 - **Test unitari**: la traduzione, su fixture registrate. Un file JSON per ogni
   forma di risposta, salvato in `tests/connectors/jira/fixtures/`.
 - **Conformità**: `runConnectorConformance` con un client finto che serve le
-  fixture. È la stessa suite del seed, non una versione ridotta.
+  fixture. È la stessa suite del seed, non una versione ridotta — con la
+  distinzione del criterio 1 fra contratto e forma dei dati generati.
 - **Verifica manuale**: un'istanza Jira Cloud gratuita con un progetto Scrum,
   due sprint chiusi e uno aperto. Confronto della velocity calcolata dal portale
   con il rapporto di velocity di Jira, che è il controllo che vale più di tutti

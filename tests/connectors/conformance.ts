@@ -165,23 +165,27 @@ export function runConnectorConformance(options: ConformanceOptions): void {
     }
   });
 
-  it("il backlog di prodotto esiste ed è ordinato senza buchi", async () => {
+  it("il backlog di prodotto è ordinato senza buchi", async () => {
     /*
      * Il glossario dice «insieme **ordinato** di work item non ancora in uno
      * sprint» dal primo giorno. Finché nessun elemento stava fuori da uno
      * sprint, quella parola era vera come intenzione e falsa come fatto.
      *
      * Le posizioni devono essere consecutive da zero: un backlog che salta da 3
-     * a 7 non è sbagliato di per sé, ma su dati *generati* un salto significa
-     * che qualcosa è andato perduto fra la generazione e la lettura.
+     * a 7 non è sbagliato di per sé, ma significa che qualcosa è andato perduto
+     * fra la fonte e la lettura, e una posizione è l'unico dato su cui il piano
+     * di rilascio si regge.
+     *
+     * **Che il backlog esista non è chiesto qui.** Un progetto in cui tutto è
+     * già dentro uno sprint è legittimo, e pretenderlo da ogni connettore
+     * significherebbe chiedere a una fonte reale di somigliare al generatore.
+     * La pretesa vive in `runGeneratedDataExpectations`, dov'è vera.
      */
     const batch = await fetchBatch();
 
     const backlog = batch.workItems
       .filter((entry) => entry.sprintId === null && entry.state !== "done")
       .sort((a, b) => (a.backlogOrder ?? 0) - (b.backlogOrder ?? 0));
-
-    expect(backlog.length, "nessun elemento fuori da uno sprint").toBeGreaterThan(0);
 
     expect(backlog.map((entry) => entry.backlogOrder)).toEqual(
       backlog.map((_, index) => index),
@@ -199,35 +203,6 @@ export function runConnectorConformance(options: ConformanceOptions): void {
 
       expect(entry.backlogOrder, `${entry.sourceId} è in uno sprint e ha una posizione`).toBeNull();
     }
-  });
-
-  it("la testa del backlog dichiara come si dimostra, la coda no", async () => {
-    /*
-     * > «Items are clarified. **How to demo is filled in for all
-     * > high-importance** items» (pag. 25)
-     *
-     * Il libro affina la cima della lista e lascia grezza la coda. Un backlog
-     * in cui tutto è ugualmente specificato sarebbe una dimostrazione più
-     * ordinata e meno onesta — e nasconderebbe proprio il segnale per cui la
-     * Definition of Ready esiste.
-     */
-    const batch = await fetchBatch();
-
-    const backlog = batch.workItems
-      .filter((entry) => entry.sprintId === null && entry.backlogOrder !== null)
-      .sort((a, b) => (a.backlogOrder ?? 0) - (b.backlogOrder ?? 0));
-
-    const described = backlog.filter((entry) => entry.howToDemo !== null);
-
-    expect(described.length, "nessun elemento dichiara come si dimostra").toBeGreaterThan(0);
-    expect(described.length, "tutto il backlog è affinato: non è realistico").toBeLessThan(
-      backlog.length,
-    );
-
-    // E sono i primi, non sparsi: è la cima della lista a essere affinata.
-    expect(backlog.slice(0, described.length).every((entry) => entry.howToDemo !== null)).toBe(
-      true,
-    );
   });
 
   it("la stima corrente coincide con l'ultima variazione", async () => {
@@ -434,5 +409,76 @@ export function runConnectorConformance(options: ConformanceOptions): void {
         midpoint.occurredAt.getTime(),
       );
     }
+  });
+}
+
+/**
+ * What a **generated** data set must additionally look like.
+ *
+ * Separate from the contract, and the separation was found the hard way: while
+ * writing the first real connector it turned out that two of these assertions
+ * were not about connectors at all.
+ *
+ * «La testa del backlog dichiara come si dimostra, la coda no» is a statement
+ * about a *dataset*. Jira has no «how to demo» field, and a Jira project where
+ * every backlog item happened to carry acceptance criteria would fail the check
+ * **by having better data**. «Esiste un backlog» is the same kind of claim: a
+ * project with everything already pulled into sprints is legitimate.
+ *
+ * Demanding them of every connector would have meant asking a real source to
+ * resemble the generator — which is backwards, and would have been discovered
+ * as a failing test with no honest fix. Keeping them here loses nothing: the
+ * seed still runs both suites, so no assertion has been weakened, only aimed at
+ * the thing it was actually about.
+ */
+export function runGeneratedDataExpectations(options: ConformanceOptions): void {
+  const ASOF = new Date("2026-08-19T10:00:00.000Z");
+
+  const fetchBatch = (): Promise<CanonicalBatch> =>
+    options.connector.fetch({
+      organizationId: options.organizationId as never,
+      projectId: options.projectId as never,
+      asOf: ASOF,
+    });
+
+  it("produce un backlog, e non solo sprint", async () => {
+    // Un progetto in cui tutto è già dentro uno sprint è legittimo in generale,
+    // ma un *generatore* che non producesse backlog lascerebbe senza dati la
+    // pianificazione, il piano di rilascio e la Definition of Ready.
+    const batch = await fetchBatch();
+
+    const backlog = batch.workItems.filter(
+      (entry) => entry.sprintId === null && entry.state !== "done",
+    );
+
+    expect(backlog.length, "nessun elemento fuori da uno sprint").toBeGreaterThan(0);
+  });
+
+  it("la testa del backlog dichiara come si dimostra, la coda no", async () => {
+    /*
+     * > «Items are clarified. **How to demo is filled in for all
+     * > high-importance** items» (pag. 25)
+     *
+     * Il libro affina la cima della lista e lascia grezza la coda. Un backlog
+     * in cui tutto è ugualmente specificato sarebbe una dimostrazione più
+     * ordinata e meno onesta — e nasconderebbe proprio il segnale per cui la
+     * Definition of Ready esiste.
+     */
+    const batch = await fetchBatch();
+    const backlog = batch.workItems
+      .filter((entry) => entry.sprintId === null && entry.backlogOrder !== null)
+      .sort((a, b) => (a.backlogOrder ?? 0) - (b.backlogOrder ?? 0));
+
+    const described = backlog.filter((entry) => entry.howToDemo !== null);
+
+    expect(described.length, "nessun elemento dichiara come si dimostra").toBeGreaterThan(0);
+    expect(described.length, "tutto il backlog è affinato: non è realistico").toBeLessThan(
+      backlog.length,
+    );
+
+    // E sono i primi, non sparsi: è la cima della lista a essere affinata.
+    expect(backlog.slice(0, described.length).every((entry) => entry.howToDemo !== null)).toBe(
+      true,
+    );
   });
 }
