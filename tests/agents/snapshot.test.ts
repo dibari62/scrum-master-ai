@@ -115,6 +115,17 @@ function textOf(snapshot: ReturnType<typeof buildSnapshot>, label: string): stri
   return snapshot.values.find((value) => value.label === label)?.text;
 }
 
+/** One line of a demo agenda, with only the fields the snapshot reads. */
+function demoEntry(name: string, treatment: "demo" | "mention") {
+  return {
+    itemId: uuidFor(name) as WorkItemId,
+    title: `Elemento ${name}`,
+    kind: "story" as const,
+    treatment,
+    howToDemo: null,
+  };
+}
+
 describe("istantanea delle metriche", () => {
   it("rispetta il proprio schema", () => {
     expect(() => metricSnapshotSchema.parse(buildSnapshot(input()))).not.toThrow();
@@ -271,5 +282,98 @@ describe("istantanea delle metriche", () => {
 
   it("con almeno un valore c'è qualcosa da raccontare", () => {
     expect(hasNarratableContent(buildSnapshot(input()))).toBe(true);
+  });
+});
+
+describe("istantanea — i numeri che il libro chiede a fine sprint", () => {
+  it("dice quanti degli elementi aggiunti erano interruzioni", () => {
+    // > «We've had three **unplanned items**, as you can see down to the right.
+    // > This is useful to remember when you do the sprint retrospective.» (pag. 60)
+    const snapshot = buildSnapshot(input());
+
+    expect(textOf(snapshot, "Di cui non pianificati")).toBe("2 elementi");
+  });
+
+  it("tace sugli elementi non pianificati quando nessuno li ha dichiarati", () => {
+    /*
+     * Il caso che conta, perché sarà quasi sempre questo: né Jira né Azure
+     * DevOps distinguono un'aggiunta voluta da un'interruzione (ADR-0009).
+     * Scrivere «0 non pianificati» direbbe che lo sprint non ha subito
+     * interruzioni — un'affermazione su una settimana di lavoro che nessuno ha
+     * registrato.
+     */
+    const snapshot = buildSnapshot(
+      input({
+        scopeChange: available({
+          added: EMPTY_TOTALS,
+          removed: EMPTY_TOTALS,
+          addedCount: 3,
+          removedCount: 0,
+          committedCount: 15,
+          plannedAdditions: 0,
+          unplannedAdditions: 0,
+          undeclaredAdditions: 3,
+        }),
+      }),
+    );
+
+    expect(textOf(snapshot, "Di cui non pianificati")).toBeUndefined();
+    expect(textOf(snapshot, "Lavoro aggiunto dopo l'inizio")).toBe("3 elementi");
+  });
+
+  it("mette il verso nell'etichetta invece che nel segno del numero", () => {
+    /*
+     * La verifica di fedeltà tratta il segno come parte della cifra. Un valore
+     * citabile «-13» farebbe rifiutare un rapporto che scrive «tredici punti in
+     * meno», che è corretto: una verifica di verità non deve dipendere da una
+     * convenzione tipografica.
+     */
+    const snapshot = buildSnapshot(input({ forecastVariance: available(-13) }));
+
+    expect(textOf(snapshot, "Punti in meno rispetto alla previsione")).toBe("13 punti");
+  });
+
+  it("dichiara di più quando lo sprint ha superato la previsione", () => {
+    const snapshot = buildSnapshot(input({ forecastVariance: available(4) }));
+
+    expect(textOf(snapshot, "Punti in più rispetto alla previsione")).toBe("4 punti");
+  });
+
+  it("non parla di previsione se nessuno ne aveva registrata una", () => {
+    // Assente non è zero: zero direbbe «siamo atterrati esattamente sul piano»,
+    // che è l'opposto di «non c'era un piano su cui atterrare».
+    const snapshot = buildSnapshot(input());
+
+    expect(snapshot.values.some((value) => value.metricId === "forecast-variance")).toBe(false);
+    expect(snapshot.gaps.some((entry) => entry.metricId === "forecast-variance")).toBe(false);
+  });
+
+  it("riporta la scaletta della demo divisa in due", () => {
+    const snapshot = buildSnapshot({
+      ...input(),
+      demo: {
+        goal: "Chiudere il checkout",
+        toDemo: [demoEntry("a", "demo"), demoEntry("b", "demo")],
+        toMention: [demoEntry("c", "mention")],
+        withoutHowToDemo: [],
+      },
+    });
+
+    expect(textOf(snapshot, "Elementi da mostrare alla demo")).toBe("2 elementi");
+    expect(textOf(snapshot, "Elementi da nominare soltanto")).toBe("1 elementi");
+  });
+
+  it("non aggiunge una riga vuota quando non c'è nulla da nominare", () => {
+    const snapshot = buildSnapshot({
+      ...input(),
+      demo: {
+        goal: null,
+        toDemo: [demoEntry("a", "demo")],
+        toMention: [],
+        withoutHowToDemo: [],
+      },
+    });
+
+    expect(textOf(snapshot, "Elementi da nominare soltanto")).toBeUndefined();
   });
 });

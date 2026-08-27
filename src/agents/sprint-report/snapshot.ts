@@ -5,7 +5,7 @@ import type {
   EvidenceItem,
   MetricSnapshot,
 } from "@/domain";
-import type { CarryOver, EstimateTotals, FlowSummary, MetricResult, ScopeChange } from "@/metrics";
+import type { CarryOver, DemoAgenda, EstimateTotals, FlowSummary, MetricResult, ScopeChange } from "@/metrics";
 import { formatDuration, formatEstimate, formatNumber, formatPercent } from "@/lib/format";
 
 /**
@@ -125,6 +125,23 @@ export type SnapshotInput = {
   readonly scopeChange: MetricResult<ScopeChange>;
   readonly carryOver: MetricResult<CarryOver>;
   readonly throughput: MetricResult<number>;
+
+  /**
+   * How far the sprint landed from what was forecast, in points.
+   *
+   * > «After each sprint, we look at the actual velocity for that sprint. If the
+   * > actual velocity was very different from the estimated velocity, we revise
+   * > the estimated velocity for future sprints.» (pag. 101)
+   *
+   * Optional because a forecast is something a team *writes down*, and most
+   * sprints have none. Absent is not zero: zero would say «we landed exactly on
+   * the plan», which is the opposite of «there was no plan to land on».
+   */
+  readonly forecastVariance?: MetricResult<number> | undefined;
+
+  /** What the demo would show and what it would only name (cap. 9). */
+  readonly demo?: DemoAgenda | undefined;
+
   readonly evidence: readonly EvidenceItem[];
   readonly evidenceTruncated: boolean;
 };
@@ -184,8 +201,75 @@ export function buildSnapshot(input: SnapshotInput): MetricSnapshot {
       label: "Lavoro rimosso dopo l'inizio",
       text: `${formatNumber(change.removedCount)} elementi`,
     });
+
+    /*
+     * Gli elementi non pianificati, e **solo se qualcuno l'ha dichiarato**.
+     *
+     * > «We've had three **unplanned items**, as you can see down to the right.
+     * > This is useful to remember when you do the sprint retrospective.» (pag. 60)
+     *
+     * La condizione non è un dettaglio. Né Jira né Azure DevOps distinguono
+     * un'aggiunta voluta da un'interruzione (ADR-0009), quindi su dati veri il
+     * campo è quasi sempre indeterminato — e scrivere «0 non pianificati»
+     * direbbe che lo sprint non ha subito interruzioni, che è un'affermazione
+     * su una settimana di lavoro che nessuno ha registrato.
+     */
+    if (change.plannedAdditions + change.unplannedAdditions > 0) {
+      target.values.push({
+        metricId: "scope-change",
+        label: "Di cui non pianificati",
+        text: `${formatNumber(change.unplannedAdditions)} elementi`,
+      });
+    }
   } else {
     target.gaps.push(gap("scope-change", "Cambio di perimetro", input.scopeChange.reason));
+  }
+
+  if (input.forecastVariance?.available) {
+    /*
+     * Il verso sta nell'etichetta, non nel segno del numero.
+     *
+     * La verifica di fedeltà tratta il segno come parte della cifra — «-13» e
+     * «13» sono due affermazioni diverse — quindi un rapporto che scrivesse
+     * «tredici punti in meno» partendo da un valore citabile «-13» verrebbe
+     * **rifiutato pur essendo corretto**. Mettere la direzione in parole e
+     * lasciare il numero nudo evita di far dipendere una verifica di verità da
+     * una convenzione tipografica.
+     */
+    const points = input.forecastVariance.value;
+
+    target.values.push({
+      metricId: "forecast-variance",
+      label:
+        points < 0
+          ? "Punti in meno rispetto alla previsione"
+          : points > 0
+            ? "Punti in più rispetto alla previsione"
+            : "Scostamento dalla previsione",
+      text: formatEstimate(Math.abs(points), "points"),
+    });
+  } else if (input.forecastVariance) {
+    target.gaps.push(
+      gap("forecast-variance", "Scostamento dalla previsione", input.forecastVariance.reason),
+    );
+  }
+
+  if (input.demo) {
+    target.values.push({
+      metricId: "demo-agenda",
+      label: "Elementi da mostrare alla demo",
+      text: `${formatNumber(input.demo.toDemo.length)} elementi`,
+    });
+
+    // Solo se ce ne sono: «0 da nominare» non è la regola del libro applicata,
+    // è una riga che occupa spazio in un rapporto che si legge in un minuto.
+    if (input.demo.toMention.length > 0) {
+      target.values.push({
+        metricId: "demo-agenda",
+        label: "Elementi da nominare soltanto",
+        text: `${formatNumber(input.demo.toMention.length)} elementi`,
+      });
+    }
   }
 
   if (input.carryOver.available) {
