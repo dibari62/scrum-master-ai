@@ -148,6 +148,27 @@ export const definitionOfDoneSchema = z
   .array(definitionOfDoneEntrySchema)
   .max(MAX_DEFINITION_OF_DONE_ENTRIES);
 
+/**
+ * `DefinitionOfReady` — what this team requires before pulling an item **into**
+ * a sprint.
+ *
+ * > «So definition of done is a checklist for when a story is done, and
+ * > definition of ready is a checklist for when a story is **ready to be pulled
+ * > into a sprint**. Very useful.» (cap. 4, 2ª ed.)
+ *
+ * The same shape as the Definition of Done, and deliberately so: the second
+ * edition introduces them as a pair, and giving them different shapes would
+ * make two halves of one idea look like two ideas.
+ *
+ * The portal checks the part it *can* check — that estimate, "how to demo" and
+ * backlog position are filled in, which is the book's own simplest technique —
+ * and leaves this list for everything a database cannot know. Whether a team
+ * genuinely understands a story is not deducible from a row.
+ */
+export const definitionOfReadySchema = z
+  .array(definitionOfDoneEntrySchema)
+  .max(MAX_DEFINITION_OF_DONE_ENTRIES);
+
 export const MAX_WORKING_AGREEMENT_LENGTH = 4000;
 
 /**
@@ -224,6 +245,7 @@ export const projectContextSchema = z.object({
   sprintLengthDays: sprintLengthDaysSchema,
   ceremonies: ceremonyScheduleSchema,
   definitionOfDone: definitionOfDoneSchema,
+  definitionOfReady: definitionOfReadySchema,
   estimationScale: estimationScaleSchema,
   acceptanceThresholds: acceptanceThresholdsSchema,
   workingAgreement: workingAgreementSchema,
@@ -247,6 +269,7 @@ export const createProjectContextInputSchema = z.object({
   sprintLengthDays: sprintLengthDaysSchema.default(DEFAULT_SPRINT_LENGTH_DAYS),
   ceremonies: ceremonyScheduleSchema.default(UNSCHEDULED_CEREMONIES),
   definitionOfDone: definitionOfDoneSchema.default([]),
+  definitionOfReady: definitionOfReadySchema.default([]),
   estimationScale: estimationScaleSchema.default(DEFAULT_ESTIMATION_SCALE),
   /*
    * Predefinito «non dichiarate».
@@ -275,6 +298,7 @@ export const updateProjectContextInputSchema = projectContextSchema
     sprintLengthDays: true,
     ceremonies: true,
     definitionOfDone: true,
+    definitionOfReady: true,
     estimationScale: true,
     acceptanceThresholds: true,
     workingAgreement: true,

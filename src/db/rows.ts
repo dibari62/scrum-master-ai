@@ -32,6 +32,7 @@ import {
   acceptanceThresholdsSchema,
   ceremonyScheduleSchema,
   definitionOfDoneSchema,
+  definitionOfReadySchema,
   estimateChangeSchema,
   estimateSchema,
   stakeholdersSchema,
@@ -241,6 +242,7 @@ export function toProjectContextRow(context: ProjectContext): ProjectContextRow 
     sprintLengthDays: context.sprintLengthDays,
     ceremonies: context.ceremonies,
     definitionOfDone: context.definitionOfDone,
+    definitionOfReady: context.definitionOfReady,
     estimationScale: context.estimationScale,
     acceptanceThresholds: context.acceptanceThresholds,
     workingAgreement: context.workingAgreement,
@@ -254,6 +256,7 @@ export function toProjectContextRow(context: ProjectContext): ProjectContextRow 
 export interface ProjectContextJsonColumns {
   readonly ceremonies: unknown;
   readonly definitionOfDone: unknown;
+  readonly definitionOfReady: unknown;
   readonly stakeholders: unknown;
   readonly acceptanceThresholds: unknown;
 }
@@ -273,11 +276,18 @@ export function projectContextStructures(
   row: ProjectContextJsonColumns,
 ): Pick<
   ProjectContext,
-  "ceremonies" | "definitionOfDone" | "stakeholders" | "acceptanceThresholds"
+  | "ceremonies"
+  | "definitionOfDone"
+  | "definitionOfReady"
+  | "stakeholders"
+  | "acceptanceThresholds"
 > {
   return {
     ceremonies: ceremonyScheduleSchema.parse(row.ceremonies),
     definitionOfDone: definitionOfDoneSchema.parse(row.definitionOfDone),
+    // `?? []` per la stessa ragione delle soglie: la colonna è arrivata su una
+    // tabella già popolata, e «nessuna voce» è il significato voluto.
+    definitionOfReady: definitionOfReadySchema.parse(row.definitionOfReady ?? []),
     stakeholders: stakeholdersSchema.parse(row.stakeholders),
     /*
      * `?? null` prima di convalidare.

@@ -16,6 +16,7 @@ import {
 import { auth } from "@/lib/auth";
 import { mayConfigureAgent } from "@/lib/agents/scrum-agent";
 import { formatEstimate, formatNumber } from "@/lib/format";
+import { READINESS_LABELS } from "@/metrics";
 import { STATE_LABELS } from "@/lib/state-words";
 
 import { setAcceptanceThresholdsAction } from "./actions";
@@ -320,6 +321,82 @@ export default async function BacklogPage({ params }: PageProps) {
                     </p>
                   ) : null}
                 </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="grid gap-3 pt-6">
+              <div className="grid gap-1">
+                <h2 className="text-base font-semibold">Pronti per uno sprint</h2>
+                <p className="text-muted-foreground text-sm">
+                  La <strong>Definition of Ready</strong> è «a checklist for when a story is
+                  ready to be pulled into a sprint». Il controllo guarda i primi{" "}
+                  {formatNumber(list.readiness.considered)} elementi — quelli che entrerebbero
+                  nel prossimo sprint — perché segnalare l&apos;intero backlog produrrebbe
+                  avvisi su cui nessuno può agire.
+                </p>
+              </div>
+
+              <p className="text-sm tabular-nums">
+                {list.readiness.notReady.length === 0
+                  ? `Tutti e ${formatNumber(list.readiness.considered)} hanno stima, «come si dimostra» e posizione.`
+                  : `${formatNumber(list.readiness.ready)} su ${formatNumber(list.readiness.considered)} sono pronti.`}
+              </p>
+
+              {list.readiness.notReady.length > 0 ? (
+                <DataTable
+                  caption="Elementi in cima al backlog a cui manca qualcosa"
+                  rows={list.readiness.notReady}
+                  getKey={(entry) => entry.itemId}
+                  getHref={(entry) => `/progetti/${project.slug}/elementi/${entry.itemId}`}
+                  rowAttribute="data-not-ready"
+                  minWidth="min-w-[34rem]"
+                  columns={[
+                    {
+                      key: "elemento",
+                      header: "Elemento",
+                      className: "min-w-[20rem]",
+                      cell: (entry) => <span className="font-medium">{entry.title}</span>,
+                    },
+                    {
+                      key: "manca",
+                      header: "Che cosa manca",
+                      className: "min-w-[16rem]",
+                      cell: (entry) =>
+                        entry.missing.map((what) => READINESS_LABELS[what]).join(" · "),
+                    },
+                  ]}
+                />
+              ) : null}
+
+              {/*
+               * Ciò che il portale non può controllare si dichiara.
+               *
+               * Il libro dà la tecnica più semplice — «make sure that all the
+               * fields are filled in» — ed è quella verificabile. Che una
+               * squadra abbia davvero *capito* una storia non è deducibile da
+               * una riga di database, e una spunta verde su quello sarebbe una
+               * bugia.
+               */}
+              {list.definitionOfReady.length > 0 ? (
+                <div className="grid gap-1 border-t pt-3">
+                  <p className="text-muted-foreground text-xs">
+                    Questa squadra chiede anche, e su questo il portale non può pronunciarsi:
+                  </p>
+                  <ul className="text-muted-foreground list-disc pl-5 text-xs">
+                    {list.definitionOfReady.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Il controllo qui sopra guarda i tre campi che il libro nomina. Tutto ciò
+                  che un database non può sapere — se la squadra abbia davvero capito la
+                  storia — va dichiarato nella Definition of Ready del progetto, che non è
+                  ancora scritta.
+                </p>
               )}
             </CardContent>
           </Card>

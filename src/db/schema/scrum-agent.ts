@@ -229,6 +229,18 @@ export const projectContexts = pgTable(
       .notNull(),
 
     /**
+     * The checklist for pulling a story *into* a sprint.
+     *
+     * Defaults to an empty array rather than being nullable, matching its twin:
+     * "not declared" and "declared as empty" are the same statement for a
+     * checklist, and two shapes for one idea would invite two readings.
+     */
+    definitionOfReady: jsonb("definition_of_ready")
+      .$type<ProjectContext["definitionOfReady"]>()
+      .notNull()
+      .default([]),
+
+    /**
      * The scale the team estimates on, `free` when none is declared.
      *
      * A default is required because the column arrives on a table that already
@@ -276,6 +288,10 @@ export const projectContexts = pgTable(
     check(
       "project_contexts_definition_of_done_check",
       sql`jsonb_typeof(${table.definitionOfDone}) = 'array' AND jsonb_array_length(${table.definitionOfDone}) <= ${literal(MAX_DEFINITION_OF_DONE_ENTRIES)}`,
+    ),
+    check(
+      "project_contexts_definition_of_ready_check",
+      sql`jsonb_typeof(${table.definitionOfReady}) = 'array' AND jsonb_array_length(${table.definitionOfReady}) <= ${literal(MAX_DEFINITION_OF_DONE_ENTRIES)}`,
     ),
     check(
       "project_contexts_stakeholders_check",

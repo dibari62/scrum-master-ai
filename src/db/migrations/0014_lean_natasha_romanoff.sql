@@ -1,0 +1,2 @@
+ALTER TABLE "project_contexts" ADD COLUMN "definition_of_ready" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "project_contexts" ADD CONSTRAINT "project_contexts_definition_of_ready_check" CHECK (jsonb_typeof("project_contexts"."definition_of_ready") = 'array' AND jsonb_array_length("project_contexts"."definition_of_ready") <= 20);

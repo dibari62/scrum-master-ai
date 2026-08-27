@@ -189,6 +189,7 @@ describe("conversione del ProjectContext", () => {
       daily_scrum: { dayOfWeek: "monday", timeOfDay: "09:30" },
     },
     definitionOfDone: ["Test verdi", "Revisione approvata"],
+    definitionOfReady: ["Stima concordata", "Come si dimostra scritto"],
     estimationScale: "planning-poker",
     acceptanceThresholds: { must: 3, should: 2, later: 1 },
     workingAgreement: null,
@@ -209,6 +210,7 @@ describe("conversione del ProjectContext", () => {
     expect(projectContextStructures(row)).toEqual({
       ceremonies: context.ceremonies,
       definitionOfDone: context.definitionOfDone,
+      definitionOfReady: context.definitionOfReady,
       stakeholders: context.stakeholders,
       acceptanceThresholds: context.acceptanceThresholds,
     });
@@ -234,6 +236,7 @@ describe("conversione del ProjectContext", () => {
       projectContextStructures({
         ceremonies: UNSCHEDULED_CEREMONIES,
         definitionOfDone: [],
+        definitionOfReady: [],
         stakeholders: [{ role: "Direzione", audience: "consiglio-di-amministrazione" }],
         acceptanceThresholds: null,
       }),
@@ -247,6 +250,7 @@ describe("conversione del ProjectContext", () => {
       projectContextStructures({
         ceremonies: UNSCHEDULED_CEREMONIES,
         definitionOfDone: [],
+        definitionOfReady: [],
         stakeholders: [],
         acceptanceThresholds: { must: -1, should: 2, later: 0 },
       }),
@@ -262,6 +266,7 @@ describe("conversione del ProjectContext", () => {
     const structures = projectContextStructures({
       ceremonies: UNSCHEDULED_CEREMONIES,
       definitionOfDone: [],
+      definitionOfReady: [],
       stakeholders: [],
       acceptanceThresholds: null,
     });
