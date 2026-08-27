@@ -3,6 +3,7 @@ import {
   type CitableValue,
   type MetricSnapshot,
   type ReportContent,
+  type LlmProvider,
   type SkillRunFailureCause,
   type SprintReport,
 } from "@/domain";
@@ -141,7 +142,7 @@ function proseOf(content: ReportContent): string {
 }
 
 export type GenerateUsage = {
-  readonly provider: "gemini" | "groq" | "fake" | null;
+  readonly provider: LlmProvider | null;
   readonly model: string | null;
   readonly inputTokens: number;
   readonly outputTokens: number;

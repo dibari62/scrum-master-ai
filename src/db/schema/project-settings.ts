@@ -88,6 +88,17 @@ export const projectSettings = pgTable(
     /** `null` means «whatever the provider's default is», never an empty name. */
     brainModel: text("brain_model"),
 
+    /**
+     * Sovrascrive l'indirizzo del fornitore.
+     *
+     * Serve a due casi reali e non ipotetici: un Ollama che gira su un'altra
+     * macchina della rete aziendale, e un gateway interno che espone la stessa
+     * API dietro un indirizzo proprio. Senza questa colonna entrambi
+     * resterebbero fuori, e con loro l'unico modo di far girare lo Scrum Master
+     * AI **senza che il testo dei ticket lasci l'azienda**.
+     */
+    brainBaseUrl: text("brain_base_url"),
+
     brainApiKey: text("brain_api_key"),
     brainApiKeyUpdatedAt: timestamp("brain_api_key_updated_at", { withTimezone: true }),
 
@@ -133,6 +144,18 @@ export const projectSettings = pgTable(
     check(
       "project_settings_brain_model_check",
       sql`${table.brainModel} IS NULL OR char_length(${table.brainModel}) BETWEEN 1 AND 120`,
+    ),
+
+    /*
+     * Un indirizzo, non una stringa qualunque.
+     *
+     * Il valore finisce dentro una `fetch`: senza vincolo, un campo compilato
+     * male produrrebbe una chiamata verso un indirizzo relativo del portale
+     * stesso, e l'errore comparirebbe come «il fornitore non risponde».
+     */
+    check(
+      "project_settings_brain_base_url_check",
+      sql`${table.brainBaseUrl} IS NULL OR ${table.brainBaseUrl} ~ '^https?://'`,
     ),
   ],
 );

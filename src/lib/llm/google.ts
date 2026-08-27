@@ -1,4 +1,4 @@
-import { countTokens, renderRequest } from "./fake";
+import { countTokens, renderRequest, renderUserContent } from "./fake";
 import { LlmProviderError, type LlmProviderAdapter, type LlmRequest, type LlmResponse } from "./types";
 
 /**
@@ -18,9 +18,9 @@ import { LlmProviderError, type LlmProviderAdapter, type LlmRequest, type LlmRes
  * strada più corta sarebbe stata una variabile globale con la chiave di
  * qualcuno dentro.
  *
- * §8.1 resta intatto: il testo di terzi arriva già delimitato da `renderRequest`,
- * la stessa funzione che usa il fornitore finto. Un adattatore che componesse il
- * prompt a modo suo potrebbe perdere quei delimitatori senza che nulla fallisca.
+ * §8.1 resta intatto: il testo di terzi arriva delimitato da `renderUserContent`,
+ * la stessa funzione che usano gli altri adattatori. Le istruzioni di sistema
+ * vanno nel campo dedicato e non vengono ripetute accanto ai dati.
  */
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -116,16 +116,16 @@ export function createGoogleProvider(options: GoogleProviderOptions): LlmProvide
 
     async complete(request: LlmRequest): Promise<LlmResponse> {
       /*
-       * Il prompt è **lo stesso** che vede il fornitore finto.
+       * I delimitatori attorno al contenuto non fidato li mette
+       * `renderUserContent` (§8.1), la stessa funzione degli altri adattatori.
        *
-       * `renderRequest` è ciò che delimita e annuncia il contenuto non fidato
-       * (§8.1). Comporlo qui a modo nostro significherebbe che i test scritti
-       * contro il finto non dicono più nulla sul vero, ed è precisamente sul
-       * vero che un'iniezione avrebbe effetto.
+       * Le istruzioni di sistema vanno in `systemInstruction` e **non** vengono
+       * ripetute accanto ai dati: ripetere una direttiva vicino a testo di terzi
+       * è una delle forme che rendono un'iniezione più probabile, non meno.
        */
       const body = {
         systemInstruction: { parts: [{ text: request.system }] },
-        contents: [{ role: "user", parts: [{ text: renderRequest(request) }] }],
+        contents: [{ role: "user", parts: [{ text: renderUserContent(request) }] }],
         generationConfig: {
           maxOutputTokens: request.maxTokens,
           /*

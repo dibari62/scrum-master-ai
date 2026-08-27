@@ -5,7 +5,9 @@ import {
 } from "@/domain";
 
 import { countTokens, createFakeProvider, renderRequest } from "./fake";
+import { createAnthropicProvider } from "./anthropic";
 import { createGoogleProvider } from "./google";
+import { createCompatibleProvider, isCompatibleProvider } from "./openai-compatible";
 import { estimateCostUsd } from "./pricing";
 import {
   LlmProviderError,
@@ -112,8 +114,15 @@ export function selectedProvider(env: EnvironmentSlice = process.env): LlmProvid
  */
 const API_KEY_VARIABLE: Readonly<Record<LlmProvider, string | null>> = {
   fake: null,
+  // Gira in casa e non chiede credenziali: pretenderne una bloccherebbe l'unico
+  // fornitore in cui i dati non lasciano l'azienda.
+  ollama: null,
   gemini: "GEMINI_API_KEY",
   groq: "GROQ_API_KEY",
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 export function apiKeyVariableFor(provider: LlmProvider): string | null {
@@ -156,10 +165,36 @@ function createUnimplementedProvider(name: LlmProvider): LlmProviderAdapter {
  */
 export type ProjectCredentials = {
   readonly provider: LlmProvider;
-  /** `null` for `fake`, which answers without calling anyone. */
+  /** `null` for `fake` and for a local model, which ask for no credential. */
   readonly apiKey: string | null;
   readonly model?: string | null | undefined;
+  /** Overrides the vendor's address: a local Ollama, or a company gateway. */
+  readonly baseUrl?: string | null | undefined;
 };
+
+/**
+ * Builds the adapter a provider needs.
+ *
+ * One place, so the knowledge of «who speaks which dialect» is not spread across
+ * the two call sites that need it. Five of the eight share an adapter — see
+ * `openai-compatible.ts` for why that is possible at all.
+ */
+function adapterFor(
+  provider: LlmProvider,
+  apiKey: string | null,
+  model: string | null | undefined,
+  baseUrl: string | null | undefined,
+): LlmProviderAdapter {
+  if (provider === "fake") return createFakeProvider();
+  if (provider === "gemini") return createGoogleProvider({ apiKey: apiKey ?? "", model });
+  if (provider === "anthropic") return createAnthropicProvider({ apiKey: apiKey ?? "", model });
+
+  if (isCompatibleProvider(provider)) {
+    return createCompatibleProvider({ provider, apiKey, model, baseUrl });
+  }
+
+  return createUnimplementedProvider(provider);
+}
 
 /**
  * The chain the gateway will try, primary first.
@@ -178,35 +213,29 @@ export function defaultProviders(
   credentials?: ProjectCredentials | undefined,
 ): readonly LlmProviderAdapter[] {
   if (credentials) {
-    if (credentials.provider === "fake") return [createFakeProvider()];
-
-    if (credentials.provider === "gemini") {
-      return [
-        createGoogleProvider({
-          apiKey: credentials.apiKey ?? "",
-          model: credentials.model,
-        }),
-      ];
-    }
-
-    return [createUnimplementedProvider(credentials.provider)];
-  }
-
-  const selected = selectedProvider(env);
-
-  if (selected === "fake") return [createFakeProvider()];
-
-  if (selected === "gemini") {
     return [
-      createGoogleProvider({
-        apiKey: env["GEMINI_API_KEY"] ?? "",
-        model: env["LLM_MODEL"] ?? null,
-      }),
-      createUnimplementedProvider("groq"),
+      adapterFor(
+        credentials.provider,
+        credentials.apiKey,
+        credentials.model,
+        credentials.baseUrl,
+      ),
     ];
   }
 
-  return [createUnimplementedProvider(selected), createUnimplementedProvider("gemini")];
+  const selected = selectedProvider(env);
+  if (selected === "fake") return [createFakeProvider()];
+
+  const variable = apiKeyVariableFor(selected);
+
+  return [
+    adapterFor(
+      selected,
+      variable === null ? null : (env[variable] ?? null),
+      env["LLM_MODEL"] ?? null,
+      env["LLM_BASE_URL"] ?? null,
+    ),
+  ];
 }
 
 /** Tokens the request will cost before anything is sent. */

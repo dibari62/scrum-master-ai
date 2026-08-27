@@ -1,9 +1,12 @@
 import {
   connectorChoiceSchema,
   brainProviderSchema,
-  updateProjectSettingsInputSchema,
+  updateBrainInputSchema,
+  updateConnectorInputSchema,
+  updateProjectInputSchema,
   type ConnectorChoice,
   type OrganizationRole,
+  type UpdateProjectInput,
   type UpdateProjectSettingsInput,
 } from "@/domain";
 import { jiraConfigSchema } from "@/connectors/jira";
@@ -40,17 +43,133 @@ export type SettingsFormError = {
   readonly message: string;
 };
 
-export type ParsedSettingsForm =
-  | { readonly ok: true; readonly input: UpdateProjectSettingsInput }
+/**
+ * L'anagrafica, che vive su `Project` e non sulle impostazioni.
+ *
+ * Nome, descrizione e stato erano già nel modello e non avevano un modulo: un
+ * progetto si creava e poi era immutabile, e la sola via per archiviarne uno era
+ * una `UPDATE` scritta a mano. Sono qui e non in `ProjectSettings` perché
+ * appartengono al progetto stesso — duplicarli sarebbe la violazione di R4 che
+ * la stessa `UPDATE` scritta a mano poi renderebbe visibile.
+ */
+export type ParsedIdentityForm =
+  | { readonly ok: true; readonly input: UpdateProjectInput }
   | { readonly ok: false; readonly errors: readonly SettingsFormError[] };
 
+export function parseIdentityForm(form: FormData): ParsedIdentityForm {
+  const candidate = {
+    name: fieldOf(form, "name") ?? "",
+    /*
+     * `null` quando è vuota, non stringa vuota.
+     *
+     * Sono due affermazioni diverse: «non l'ho scritta» e «l'ho scritta vuota».
+     * La seconda comparirebbe nell'elenco dei progetti come una riga di spazio
+     * bianco sotto il nome.
+     */
+    description: fieldOf(form, "description"),
+    status: form.get("status") === "archived" ? ("archived" as const) : ("active" as const),
+  };
+
+  const parsed = updateProjectInputSchema.safeParse(candidate);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      errors: parsed.error.issues.map((issue) => ({
+        field: String(issue.path[0] ?? ""),
+        message: issue.message,
+      })),
+    };
+  }
+
+  return { ok: true, input: parsed.data };
+}
+
 /** A form value as a trimmed string, or `null` when the field was left empty. */
-function field(form: FormData, name: string): string | null {
+function fieldOf(form: FormData, name: string): string | null {
   const raw = form.get(name);
   if (typeof raw !== "string") return null;
 
   const trimmed = raw.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+export type ParsedSettingsForm =
+  | { readonly ok: true; readonly input: Partial<UpdateProjectSettingsInput> }
+  | { readonly ok: false; readonly errors: readonly SettingsFormError[] };
+
+/**
+ * Reads the form, or reports every problem at once.
+ *
+ * Every problem, not the first: a form that rejects one field at a time makes
+ * somebody submit four times to discover four mistakes, and each submission is a
+ * chance to retype an API key wrong.
+ *
+ * **Legge solo la metà che il modulo ha inviato.** Le impostazioni sono divise
+ * in due schede, quindi arriva o il connettore o il modello; ciò che non è
+ * nominato resta com'è. Un parser che restituisse sempre entrambe le metà
+ * manderebbe un modello vuoto quando si salva il connettore, cancellando la
+ * configurazione dell'altra scheda.
+ */
+export function parseSettingsForm(form: FormData): ParsedSettingsForm {
+  const errors: SettingsFormError[] = [];
+  const input: Record<string, unknown> = {};
+
+  const sezione = field(form, "sezione");
+
+  if (sezione === null || sezione === "dati") {
+    const connectorRaw = field(form, "connector");
+    const connector: ConnectorChoice | null =
+      connectorRaw === null ? null : (connectorChoiceSchema.safeParse(connectorRaw).data ?? null);
+
+    if (connectorRaw !== null && connector === null) {
+      errors.push({ field: "connector", message: "Connettore non riconosciuto." });
+    }
+
+    const parsed = updateConnectorInputSchema.safeParse({
+      connector,
+      connectorConfig: connector === "jira" ? jiraConfigFrom(form, errors) : {},
+      connectorSecret: secretFrom(form, "connectorSecret"),
+    });
+
+    if (parsed.success) Object.assign(input, parsed.data);
+    else collect(parsed.error.issues, errors);
+  }
+
+  if (sezione === null || sezione === "modello") {
+    const brainParsed = brainProviderSchema.safeParse(field(form, "brainProvider") ?? "fake");
+    if (!brainParsed.success) {
+      errors.push({ field: "brainProvider", message: "Modello non riconosciuto." });
+    }
+
+    const parsed = updateBrainInputSchema.safeParse({
+      brainProvider: brainParsed.success ? brainParsed.data : "fake",
+      brainModel: field(form, "brainModel"),
+      brainBaseUrl: field(form, "brainBaseUrl"),
+      brainApiKey: secretFrom(form, "brainApiKey"),
+    });
+
+    if (parsed.success) Object.assign(input, parsed.data);
+    else collect(parsed.error.issues, errors);
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+
+  return { ok: true, input: input as Partial<UpdateProjectSettingsInput> };
+}
+
+function collect(
+  issues: readonly { readonly path: readonly PropertyKey[]; readonly message: string }[],
+  errors: SettingsFormError[],
+): void {
+  for (const issue of issues) {
+    errors.push({ field: String(issue.path[0] ?? ""), message: issue.message });
+  }
+}
+
+/** A form value as a trimmed string, or `null` when the field was left empty. */
+function field(form: FormData, name: string): string | null {
+  return fieldOf(form, name);
 }
 
 /**
@@ -67,53 +186,6 @@ function secretFrom(
   if (form.get(`${name}-rimuovi`) === "on") return null;
 
   return field(form, name) ?? undefined;
-}
-
-/**
- * Reads the whole form, or reports every problem at once.
- *
- * Every problem, not the first: a form that rejects one field at a time makes
- * somebody submit four times to discover four mistakes, and each submission is a
- * chance to retype an API key wrong.
- */
-export function parseSettingsForm(form: FormData): ParsedSettingsForm {
-  const errors: SettingsFormError[] = [];
-
-  const connectorRaw = field(form, "connector");
-  const connector: ConnectorChoice | null =
-    connectorRaw === null ? null : (connectorChoiceSchema.safeParse(connectorRaw).data ?? null);
-
-  if (connectorRaw !== null && connector === null) {
-    errors.push({ field: "connector", message: "Connettore non riconosciuto." });
-  }
-
-  const brainParsed = brainProviderSchema.safeParse(field(form, "brainProvider") ?? "fake");
-  if (!brainParsed.success) {
-    errors.push({ field: "brainProvider", message: "Modello non riconosciuto." });
-  }
-
-  const connectorConfig = connector === "jira" ? jiraConfigFrom(form, errors) : {};
-
-  const candidate = {
-    connector,
-    connectorConfig,
-    connectorSecret: secretFrom(form, "connectorSecret"),
-    brainProvider: brainParsed.success ? brainParsed.data : "fake",
-    brainModel: field(form, "brainModel"),
-    brainApiKey: secretFrom(form, "brainApiKey"),
-  };
-
-  const parsed = updateProjectSettingsInputSchema.safeParse(candidate);
-
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      errors.push({ field: String(issue.path[0] ?? ""), message: issue.message });
-    }
-  }
-
-  if (errors.length > 0 || !parsed.success) return { ok: false, errors };
-
-  return { ok: true, input: parsed.data };
 }
 
 /**

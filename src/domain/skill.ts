@@ -121,13 +121,44 @@ export const skillRunFailureCauseSchema = z.enum([
 export type SkillRunFailureCause = z.infer<typeof skillRunFailureCauseSchema>;
 
 /**
- * The model vendors the gateway can talk to (ADR-0005).
+ * The model vendors the gateway can talk to (ADR-0005, ADR-0010).
  *
  * Recorded on every run because the gateway may fall back to the reserve
  * provider on its own: without this field the register could not answer "who
  * actually served this?", which is the only reason the fallback is observable.
+ *
+ * **Perché sono così tanti, e perché costano poco.** Cinque di questi parlano lo
+ * stesso dialetto — quello che OpenAI ha pubblicato e che gli altri hanno
+ * adottato — quindi un solo adattatore, parametrizzato sull'indirizzo di base, li
+ * serve tutti. Aggiungerne un sesto compatibile è una riga in una tabella, non
+ * un file nuovo. Solo Gemini e Anthropic hanno un formato proprio e un
+ * adattatore ciascuno.
+ *
+ * Con ADR-0010 la scelta non è più nostra ma di chi usa il portale: offrirne uno
+ * solo significherebbe obbligare un'azienda che ha già un contratto con un
+ * fornitore ad aprirne un altro.
  */
-export const llmProviderSchema = z.enum(["gemini", "groq", "fake"]);
+export const llmProviderSchema = z.enum([
+  /** Nessuna rete, nessun costo: il predefinito e l'unico ammesso nei test. */
+  "fake",
+  "gemini",
+  "openai",
+  "anthropic",
+  /** Europeo, e per un'azienda europea non è un dettaglio di gusto. */
+  "mistral",
+  "groq",
+  /** Aggregatore: una chiave sola, e sotto ci sono i modelli di tutti. */
+  "openrouter",
+  /**
+   * Un modello che gira dove vuole il cliente.
+   *
+   * L'unica opzione in cui **il testo dei ticket non lascia l'azienda**. Per uno
+   * strumento che legge descrizioni e commenti di lavoro altrui questa non è una
+   * curiosità tecnica: è la risposta a un'obiezione che un responsabile IT farà
+   * prima di ogni altra.
+   */
+  "ollama",
+]);
 
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 

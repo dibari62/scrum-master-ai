@@ -1,6 +1,7 @@
 import {
   bottleneckNarrativeSchema,
   type BottleneckNarrative,
+  type LlmProvider,
   type SkillRunFailureCause,
 } from "@/domain";
 import { checkNumericFidelity } from "@/agents/sprint-report";
@@ -150,7 +151,7 @@ function proseOf(narrative: BottleneckNarrative): string {
 }
 
 export type BottleneckUsage = {
-  readonly provider: "gemini" | "groq" | "fake" | null;
+  readonly provider: LlmProvider | null;
   readonly model: string | null;
   readonly inputTokens: number;
   readonly outputTokens: number;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   mayConfigureSettings,
+  parseIdentityForm,
   parseSettingsForm,
   parseStateMapping,
   renderStateMapping,
@@ -22,7 +23,106 @@ function form(values: Record<string, string>): FormData {
   return data;
 }
 
-const MINIMO = { brainProvider: "fake" };
+const MINIMO = { brainProvider: "fake", sezione: "modello" };
+
+describe("le due metà si salvano senza toccarsi", () => {
+  it("salvare il modello non nomina il connettore", () => {
+    /*
+     * **La verifica che giustifica la divisione in schede.**
+     *
+     * La schermata mostra connettore e modello separatamente, quindi arrivano
+     * due invii distinti. Se il parser restituisse sempre entrambe le metà,
+     * salvare il modello manderebbe un connettore vuoto — e cancellerebbe la
+     * configurazione di Jira senza che nessuno l'abbia chiesto.
+     *
+     * Ciò che non è nominato deve restare `undefined`, che a valle significa
+     * «lascia com'è».
+     */
+    const parsed = parseSettingsForm(
+      form({ sezione: "modello", brainProvider: "openai", brainApiKey: "sk-nuova" }),
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.input.brainProvider).toBe("openai");
+      expect("connector" in parsed.input).toBe(false);
+      expect("connectorConfig" in parsed.input).toBe(false);
+    }
+  });
+
+  it("salvare il connettore non nomina il modello", () => {
+    const parsed = parseSettingsForm(
+      form({
+        sezione: "dati",
+        connector: "jira",
+        jiraSiteUrl: "https://esempio.atlassian.net",
+        jiraProjectKey: "SMAI",
+        jiraBoardId: "7",
+        jiraStateMapping: "To Do = todo",
+      }),
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.input.connector).toBe("jira");
+      expect("brainProvider" in parsed.input).toBe(false);
+    }
+  });
+
+  it("senza sezione dichiarata legge entrambe le metà", () => {
+    // Il comportamento di prima, che resta valido per un chiamante che ha
+    // davvero tutto — un caricamento iniziale, o un test.
+    const parsed = parseSettingsForm(form({ connector: "seed", brainProvider: "fake" }));
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.input.connector).toBe("seed");
+      expect(parsed.input.brainProvider).toBe("fake");
+    }
+  });
+});
+
+describe("l'anagrafica del progetto", () => {
+  it("legge nome e descrizione", () => {
+    const parsed = parseIdentityForm(
+      form({ name: "  Checkout  ", description: "  Il flusso di pagamento.  " }),
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.input.name).toBe("Checkout");
+      expect(parsed.input.description).toBe("Il flusso di pagamento.");
+    }
+  });
+
+  it("una descrizione vuota è assente, non una stringa vuota", () => {
+    /*
+     * Sono due affermazioni diverse: «non l'ho scritta» e «l'ho scritta vuota».
+     * La seconda comparirebbe nell'elenco dei progetti come una riga di spazio
+     * bianco sotto il nome.
+     */
+    const parsed = parseIdentityForm(form({ name: "Checkout", description: "   " }));
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.input.description).toBeNull();
+  });
+
+  it("un progetto è attivo finché non si spunta l'archiviazione", () => {
+    const attivo = parseIdentityForm(form({ name: "Checkout" }));
+    const archiviato = parseIdentityForm(form({ name: "Checkout", status: "archived" }));
+
+    expect(attivo.ok && attivo.input.status).toBe("active");
+    expect(archiviato.ok && archiviato.input.status).toBe("archived");
+  });
+
+  it("rifiuta un nome vuoto", () => {
+    // Un progetto senza nome comparirebbe nell'elenco come una riga vuota
+    // cliccabile.
+    const parsed = parseIdentityForm(form({ name: "   " }));
+
+    expect(parsed.ok).toBe(false);
+  });
+});
 
 describe("chi può cambiare le impostazioni", () => {
   it("solo proprietario e amministratore", () => {
@@ -99,8 +199,8 @@ describe("la configurazione Jira", () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
       expect(parsed.input.connector).toBe("jira");
-      expect(parsed.input.connectorConfig["projectKey"]).toBe("SMAI");
-      expect(parsed.input.connectorConfig["boardId"]).toBe(7);
+      expect(parsed.input.connectorConfig?.["projectKey"]).toBe("SMAI");
+      expect(parsed.input.connectorConfig?.["boardId"]).toBe(7);
     }
   });
 

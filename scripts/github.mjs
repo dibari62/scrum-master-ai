@@ -124,6 +124,8 @@ async function checkRuns(client, owner, repo, number) {
 
   return {
     pull,
+    /** Il commit su cui i controlli hanno girato, per chi deve risalire ai log. */
+    head: pull.head.sha,
     runs,
     flows,
     failed: [
@@ -267,7 +269,7 @@ async function runs(client, [owner, repo, branch]) {
 async function ciLog(client, [owner, repo, number]) {
   if (!owner || !repo || !number) throw new Error(USAGE);
 
-  const { failed } = await checkRuns(client, owner, repo, number);
+  const { failed, head } = await checkRuns(client, owner, repo, number);
 
   if (failed.length === 0) {
     console.log("nessun controllo fallito");
@@ -279,6 +281,48 @@ async function ciLog(client, [owner, repo, number]) {
     console.log(run.details_url);
     if (run.output?.summary) console.log(run.output.summary);
     if (run.output?.text) console.log(run.output.text.slice(0, 4000));
+  }
+
+  /*
+   * Il log vero, non solo il riepilogo.
+   *
+   * GitHub Actions **non popola** `output.text` sui propri check: il comando
+   * stampava un indirizzo web e nient'altro, e per sapere che cosa fosse fallito
+   * bisognava aprire un browser — cioè esattamente ciò che uno strumento da
+   * terminale dovrebbe evitare.
+   *
+   * Si stampa la coda, non tutto: un log di CI è lungo migliaia di righe di cui
+   * le ultime cinquanta contengono l'errore, e le precedenti sono l'installazione
+   * delle dipendenze.
+   */
+  const runs = await client.json(
+    `/repos/${owner}/${repo}/actions/runs?head_sha=${head}&per_page=10`,
+  );
+
+  for (const workflow of runs.workflow_runs ?? []) {
+    if (workflow.conclusion !== "failure") continue;
+
+    const jobs = await client.json(`/repos/${owner}/${repo}/actions/runs/${workflow.id}/jobs`);
+
+    for (const job of jobs.jobs ?? []) {
+      if (job.conclusion !== "failure") continue;
+
+      const step = (job.steps ?? []).find((entry) => entry.conclusion === "failure");
+      console.log(`\n=== ${job.name} → passo «${step?.name ?? "sconosciuto"}» ===`);
+
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`,
+        { headers: client.headers },
+      );
+
+      if (!response.ok) {
+        console.log(`(log non scaricabile: ${response.status})`);
+        continue;
+      }
+
+      const lines = (await response.text()).split("\n");
+      console.log(lines.slice(-60).join("\n"));
+    }
   }
 }
 

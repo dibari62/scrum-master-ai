@@ -7,7 +7,7 @@ import { organizationIdSchema, projectIdSchema } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
-import { mayConfigureSettings, parseSettingsForm } from "@/lib/projects/settings";
+import { mayConfigureSettings, parseIdentityForm, parseSettingsForm } from "@/lib/projects/settings";
 import { secretsAvailable } from "@/lib/secrets";
 
 /**
@@ -124,6 +124,76 @@ export async function saveSettingsAction(
    * Gli **errori** restano invece nello stato del componente, e devono: in caso
    * di errore non si salva nulla, quindi il modulo non si rimonta e il messaggio
    * resta accanto ai campi che l'hanno causato.
+   *
+   * **La scheda torna nell'indirizzo, e solo qui.** Lo stesso rimontaggio
+   * riporterebbe altrimenti alla prima scheda: chi ha appena salvato la
+   * configurazione di Jira si ritroverebbe sull'anagrafica, senza aver chiesto
+   * di andarci. Il resto del tempo la scheda scelta resta nel browser, dov'è
+   * giusto che stia.
    */
-  redirect(`/progetti/${slug}/impostazioni?salvato=1`);
+  const sezione = form.get("sezione");
+  const dove = typeof sezione === "string" ? `&sezione=${sezione}` : "";
+
+  redirect(`/progetti/${slug}/impostazioni?salvato=1${dove}`);
+}
+
+/**
+ * Salvataggio dell'anagrafica: nome, descrizione, stato.
+ *
+ * Un'azione separata da quella delle impostazioni tecniche, e la separazione non
+ * è estetica: sono due moduli, e un modulo solo obbligherebbe chi corregge un
+ * refuso nel nome a rimandare anche la configurazione di Jira — che è la strada
+ * per cambiare qualcosa senza volerlo.
+ */
+export async function saveIdentityAction(
+  _previous: SettingsFormState,
+  form: FormData,
+): Promise<SettingsFormState> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  if (typeof slug !== "string") {
+    return { status: "error", message: "Progetto non indicato.", fields: {} };
+  }
+
+  if (!mayConfigureSettings(session.role)) {
+    return {
+      status: "error",
+      message: "Solo il proprietario o un amministratore può cambiare l'anagrafica.",
+      fields: {},
+    };
+  }
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) {
+    return { status: "error", message: "Progetto non trovato.", fields: {} };
+  }
+
+  const parsed = parseIdentityForm(form);
+  if (!parsed.ok) {
+    const fields: Record<string, string> = {};
+    for (const error of parsed.errors) fields[error.field] = error.message;
+
+    return { status: "error", message: "Alcuni campi non vanno bene.", fields };
+  }
+
+  await scope.writes.updateProject(projectIdSchema.parse(project.id), parsed.input);
+
+  /*
+   * Anche l'elenco dei progetti, non solo questo progetto.
+   *
+   * Nome, descrizione e stato compaiono **là**, ed è là che si nota se una
+   * modifica non ha avuto effetto. Rivalidare solo la pagina corrente
+   * mostrerebbe il valore nuovo qui e quello vecchio nell'elenco, che è il modo
+   * più efficace di far dubitare del salvataggio.
+   */
+  revalidatePath("/progetti");
+  revalidatePath(`/progetti/${slug}`);
+  revalidatePath(`/progetti/${slug}/impostazioni`);
+
+  redirect(`/progetti/${slug}/impostazioni?salvato=1&sezione=anagrafica`);
 }

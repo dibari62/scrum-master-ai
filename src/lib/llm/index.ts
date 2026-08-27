@@ -10,3 +10,10 @@ export * from "./gateway";
 export * from "./pricing";
 export { FAKE_MODEL, countTokens, createFakeProvider, renderRequest } from "./fake";
 export { createGoogleProvider, DEFAULT_GEMINI_MODEL } from "./google";
+export { createAnthropicProvider, DEFAULT_ANTHROPIC_MODEL } from "./anthropic";
+export {
+  createCompatibleProvider,
+  isCompatibleProvider,
+  COMPATIBLE_PROFILES,
+  type CompatibleProvider,
+} from "./openai-compatible";

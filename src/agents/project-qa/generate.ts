@@ -1,6 +1,7 @@
 import {
   projectAnswerSchema,
   type ProjectAnswer,
+  type LlmProvider,
   type SkillRunFailureCause,
 } from "@/domain";
 import type { Gateway, UntrustedBlock } from "@/lib/llm";
@@ -106,7 +107,7 @@ function parseJson(text: string): unknown {
 }
 
 export type AnswerUsage = {
-  readonly provider: "gemini" | "groq" | "fake" | null;
+  readonly provider: LlmProvider | null;
   readonly model: string | null;
   readonly inputTokens: number;
   readonly outputTokens: number;

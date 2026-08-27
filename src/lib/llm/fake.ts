@@ -33,15 +33,20 @@ export function countTokens(text: string): number {
 }
 
 /**
- * Everything the request puts in front of the model, in order.
+ * The question and its material, **without** the system instructions.
  *
- * Untrusted blocks are delimited and announced as data (§8.1). The delimiters
- * are not decoration: they are what a test inspects to prove that ingested text
- * arrived as material to read, not as instructions to follow — and what a real
- * adapter must reproduce.
+ * Exists because every real vendor offers a dedicated place for instructions —
+ * a `system` message, a `system` field, a `systemInstruction` — and using it is
+ * the separation between instruction and data that §8.1 asks for. An adapter
+ * that also sent `renderRequest` would deliver the instructions **twice**, which
+ * is not merely wasteful: repeating a directive next to third-party text is one
+ * of the shapes that make an injection more likely to land, not less.
+ *
+ * The delimiters live here, so they survive whichever of the two renderings is
+ * used.
  */
-export function renderRequest(request: LlmRequest): string {
-  const parts = [request.system, "", request.prompt];
+export function renderUserContent(request: LlmRequest): string {
+  const parts = [request.prompt];
 
   for (const block of request.untrustedData ?? []) {
     parts.push(
@@ -54,6 +59,21 @@ export function renderRequest(request: LlmRequest): string {
   }
 
   return parts.join("\n");
+}
+
+/**
+ * Everything the request puts in front of the model, in order.
+ *
+ * Used by the deterministic provider, which has no separate channel for
+ * instructions, and by the budget estimate — which has to count *everything*
+ * that will be sent, however it ends up being split.
+ *
+ * Untrusted blocks are delimited and announced as data (§8.1). The delimiters
+ * are not decoration: they are what a test inspects to prove that ingested text
+ * arrived as material to read, not as instructions to follow.
+ */
+export function renderRequest(request: LlmRequest): string {
+  return [request.system, "", renderUserContent(request)].join("\n");
 }
 
 /**

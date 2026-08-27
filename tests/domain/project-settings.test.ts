@@ -75,6 +75,7 @@ describe("i tre stati di un campo segreto in un modulo", () => {
     connectorConfig: {},
     brainProvider: "fake",
     brainModel: null,
+    brainBaseUrl: null,
   };
 
   it("assente significa «lascia stare quello che c'è»", () => {

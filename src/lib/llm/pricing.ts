@@ -40,8 +40,36 @@ export const PRICING: Readonly<Record<LlmProvider, ProviderPricing>> = {
   /** No network, no vendor, no cost. Zero by construction, not by rounding. */
   fake: { inputPerMillionUsd: 0, outputPerMillionUsd: 0, quotedOn: "—" },
 
+  /**
+   * Zero, ed è la verità e non un'omissione.
+   *
+   * Ollama gira sulla macchina del cliente: non c'è un fornitore che fatturi
+   * nulla. Il costo esiste — corrente elettrica, un computer acceso — ma non è
+   * misurabile in dollari per milione di token, e inventare una cifra qui la
+   * farebbe comparire in un registro dei costi accanto a numeri che invece
+   * corrispondono a una fattura.
+   */
+  ollama: { inputPerMillionUsd: 0, outputPerMillionUsd: 0, quotedOn: "—" },
+
   gemini: { inputPerMillionUsd: 0.075, outputPerMillionUsd: 0.3, quotedOn: "2026-08-22" },
   groq: { inputPerMillionUsd: 0.05, outputPerMillionUsd: 0.08, quotedOn: "2026-08-22" },
+
+  // Le tariffe del modello predefinito di ciascuno, non del più capace: è quello
+  // che un progetto userà se non sceglie, e quindi quello che pagherà.
+  openai: { inputPerMillionUsd: 0.15, outputPerMillionUsd: 0.6, quotedOn: "2026-08-27" },
+  anthropic: { inputPerMillionUsd: 0.8, outputPerMillionUsd: 4, quotedOn: "2026-08-27" },
+  mistral: { inputPerMillionUsd: 0.1, outputPerMillionUsd: 0.3, quotedOn: "2026-08-27" },
+
+  /**
+   * Una stima, e va detto che lo è più delle altre.
+   *
+   * OpenRouter è un aggregatore: il prezzo dipende dal modello scelto, e sotto
+   * ci sono centinaia di modelli che vanno da zero a due ordini di grandezza in
+   * più. La cifra qui è quella del predefinito; per qualunque altro modello il
+   * registro riporterà un costo indicativo e nulla di più, il che è già ciò che
+   * la parola «stimato» promette.
+   */
+  openrouter: { inputPerMillionUsd: 0.1, outputPerMillionUsd: 0.4, quotedOn: "2026-08-27" },
 };
 
 /**

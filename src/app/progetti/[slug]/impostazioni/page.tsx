@@ -3,11 +3,13 @@ import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
-import { connectorReady } from "@/domain";
+import { connectorReady, providerNeedsKey } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 
 import { loadSettings } from "./data";
+import { IdentityForm } from "./identity-form";
+import { SettingsSections } from "./sections";
 import { SettingsForm } from "./settings-form";
 
 export const dynamic = "force-dynamic";
@@ -23,11 +25,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * Le impostazioni di un progetto: da dove arrivano i dati, e chi scrive i testi.
+ * Le impostazioni di un progetto, in tre domande.
  *
- * Due domande diverse su una pagina sola perché sono le due cose che vanno fatte
- * **prima** che il portale serva a qualcosa, e mandare qualcuno in due posti per
- * completare un'unica configurazione è il modo per lasciarla a metà.
+ * «Come si chiama», «da dove arrivano i dati», «chi scrive i testi». Tre schede
+ * e non un unico modulo lungo: con una ventina di campi di fila si ricrea
+ * esattamente il difetto già segnalato sulla dashboard — si scorre in basso per
+ * scoprire che cosa esiste, e un elenco che si scopre scorrendo è un elenco che
+ * nessuno legge fino in fondo.
+ *
+ * Le tre schede salvano **separatamente**: correggere un refuso nel nome non
+ * deve rimandare anche la configurazione di Jira, che è la strada per cambiare
+ * qualcosa senza volerlo.
  *
  * ADR-0010: la chiave del modello la porta chi usa il portale. Noi la custodiamo
  * cifrata e non la restituiamo mai a un browser — nemmeno a chi l'ha inserita.
@@ -38,7 +46,9 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
   if (!session.organizationId) redirect("/organizzazione");
 
   const { slug } = await params;
-  const saved = (await searchParams)["salvato"] === "1";
+  const query = await searchParams;
+  const saved = query["salvato"] === "1";
+  const sezione = typeof query["sezione"] === "string" ? query["sezione"] : undefined;
   const view = await loadSettings(slug);
 
   if (!view) notFound();
@@ -50,6 +60,9 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
     connectorConfig: settings.connectorConfig,
     connectorSecret: settings.connectorSecret.configured ? "v1.x.y.z" : null,
   });
+
+  const brainReadyNow =
+    !providerNeedsKey(settings.brainProvider) || settings.brainApiKey.configured;
 
   return (
     <main className="app-shell grid gap-6 py-10">
@@ -64,51 +77,10 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
 
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Impostazioni</h1>
         <p className="text-muted-foreground">
-          Come questo progetto è collegato al mondo: da dove prende i dati, e con quale
-          modello li racconta.
+          Come questo progetto si chiama, da dove prende i dati e con quale modello li
+          racconta.
         </p>
       </header>
-
-      {/*
-       * Lo stato prima del modulo.
-       *
-       * Chi arriva qui vuole sapere due cose — «funziona?» e «cosa manca?» — e
-       * scoprirlo scorrendo un modulo di quindici campi significa non scoprirlo.
-       */}
-      <Card>        <CardContent className="grid gap-3 pt-6 text-sm sm:grid-cols-2">
-          <div className="grid gap-0.5" data-stato="dati">
-            <p className="font-medium">
-              Dati: {dataReady ? "collegati" : "non ancora collegati"}
-            </p>
-            <p className="text-muted-foreground">
-              {describeConnector(settings.connector, dataReady)}
-              {settings.lastSyncedAt
-                ? ` Ultima lettura il ${formatDate(settings.lastSyncedAt)}.`
-                : ""}
-            </p>
-          </div>
-
-          <div className="grid gap-0.5" data-stato="modello">
-            {/*
-             * «Pronto» per il modello finto sarebbe stato vero e fuorviante
-             * insieme: risponde davvero, ma con segnaposto. Chi legge «pronto»
-             * accanto a «nessun modello collegato» si chiede quale delle due
-             * frasi credere.
-             */}
-            <p className="font-medium">
-              Modello:{" "}
-              {settings.brainProvider === "fake"
-                ? "nessuno"
-                : settings.brainProvider === "gemini"
-                  ? settings.brainApiKey.configured
-                    ? "pronto"
-                    : "in attesa di una chiave"
-                  : "configurato, collegamento non ancora scritto"}
-            </p>
-            <p className="text-muted-foreground">{describeBrain(settings.brainProvider)}</p>
-          </div>
-        </CardContent>
-      </Card>
 
       {saved ? (
         /*
@@ -124,24 +96,43 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
       ) : null}
 
       {canConfigure ? (
-        /*
-         * `key` che cambia a ogni salvataggio, e non è un dettaglio.
-         *
-         * Il modulo è un componente client, e i suoi `useState` prendono il
-         * valore iniziale dalle proprietà **solo al primo montaggio**. Dopo una
-         * server action la pagina si rivalida ma il componente non si rimonta:
-         * senza questa riga i due menu a tendina continuavano a mostrare
-         * «Nessuno» dopo aver salvato Jira e Gemini.
-         *
-         * Non era un difetto estetico. Chi salvava vedeva «Nessuno», pensava
-         * che non avesse funzionato, e salvando di nuovo **cancellava davvero**
-         * la configurazione appena inserita.
-         */
-        <SettingsForm
+        <SettingsSections
           key={settings.updatedAt.toISOString()}
-          slug={project.slug}
-          settings={settings}
-          custodyReady={custodyReady}
+          initial={sezione}
+          sections={[
+            {
+              id: "anagrafica",
+              label: "Anagrafica",
+              hint: project.status === "archived" ? "archiviato" : "attivo",
+              content: <IdentityForm project={project} />,
+            },
+            {
+              id: "dati",
+              label: "Dati",
+              hint: describeConnectorShort(settings.connector, dataReady, settings.lastSyncedAt),
+              content: (
+                <SettingsForm
+                  slug={project.slug}
+                  settings={settings}
+                  custodyReady={custodyReady}
+                  sezione="dati"
+                />
+              ),
+            },
+            {
+              id: "modello",
+              label: "Modello",
+              hint: describeBrainShort(settings.brainProvider, brainReadyNow),
+              content: (
+                <SettingsForm
+                  slug={project.slug}
+                  settings={settings}
+                  custodyReady={custodyReady}
+                  sezione="modello"
+                />
+              ),
+            },
+          ]}
         />
       ) : (
         /*
@@ -162,46 +153,28 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
   );
 }
 
-function describeConnector(connector: string | null, ready: boolean): string {
-  if (connector === null) {
-    return "Nessuna fonte scelta: le schermate resteranno vuote finché non ne indichi una.";
-  }
+/**
+ * Lo stato in due o tre parole, per la linguetta della scheda.
+ *
+ * Corto per forza: è ciò che permette di sapere che cosa manca **senza** aprire
+ * ogni scheda — cioè la ragione per cui le schede non ricreano il problema che
+ * risolvono. Una frase intera su una linguetta non si legge.
+ */
+function describeConnectorShort(
+  connector: string | null,
+  ready: boolean,
+  lastSyncedAt: Date | null,
+): string {
+  if (connector === null) return "nessuna fonte";
+  if (connector === "seed") return "dati di esempio";
+  if (!ready) return "configurazione incompleta";
 
-  if (connector === "seed") {
-    return "Dati di esempio: un progetto inventato, utile per vedere come funziona il portale.";
-  }
-
-  if (connector === "jira") {
-    return ready
-      ? "Jira Cloud, in sola lettura."
-      : "Jira Cloud scelto, ma la configurazione non è completa: mancano dei campi o il token.";
-  }
-
-  return "Fonte configurata.";
+  return lastSyncedAt ? `letto il ${formatDate(lastSyncedAt)}` : "mai letto";
 }
 
-function describeBrain(provider: string): string {
-  if (provider === "fake") {
-    return (
-      "Nessun modello collegato: i numeri restano veri, i testi che li accompagnano sono " +
-      "segnaposto. Basta per provare il portale."
-    );
-  }
+function describeBrainShort(provider: string, ready: boolean): string {
+  if (provider === "fake") return "nessuno";
+  if (!ready) return "manca la chiave";
 
-  if (provider === "gemini") {
-    return "La chiave è tua: il consumo lo paghi tu, e puoi cambiare fornitore quando vuoi.";
-  }
-
-  /*
-   * La verità sullo stato del portale, non su quello del fornitore.
-   *
-   * Il collegamento verso Groq è deciso (ADR-0005) e non ancora scritto: il
-   * gateway lo salta. Scrivere «pronto» sarebbe la bugia più costosa della
-   * pagina, perché a crederla si smette di cercare la ragione per cui i testi
-   * restano segnaposto.
-   */
-  return (
-    "La chiave è tua e viene custodita cifrata, ma il collegamento verso questo fornitore " +
-    "non è ancora scritto: i testi restano segnaposto."
-  );
+  return provider;
 }
