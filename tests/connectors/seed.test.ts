@@ -5,7 +5,7 @@ import { BACKLOG_ITEMS, ITEM_TITLES } from "@/connectors/seed/scenario";
 import { isMidSprintAddition, organizationIdSchema, projectIdSchema } from "@/domain";
 import { velocity } from "@/metrics";
 
-import { runConnectorConformance } from "./conformance";
+import { runConnectorConformance, runGeneratedDataExpectations } from "./conformance";
 
 const ORGANIZATION_ID = organizationIdSchema.parse("3f1a9c2e-8b6d-4f2a-9c1e-5d7b3a8f0e21");
 const PROJECT_ID = projectIdSchema.parse("9d5b2c31-6a7e-4c0f-b2d8-11a4e6f3c905");
@@ -25,6 +25,16 @@ const ASOF = new Date("2026-08-19T10:00:00.000Z");
 
 describe("connettore seed — conformità", () => {
   runConnectorConformance({
+    connector: seedConnector,
+    organizationId: ORGANIZATION_ID,
+    projectId: PROJECT_ID,
+  });
+});
+
+describe("connettore seed — forma dei dati generati", () => {
+  // Ciò che si pretende da un *generatore* e non da una fonte reale. Nessuna
+  // verifica è stata indebolita: il seed le supera tutte, come prima.
+  runGeneratedDataExpectations({
     connector: seedConnector,
     organizationId: ORGANIZATION_ID,
     projectId: PROJECT_ID,
