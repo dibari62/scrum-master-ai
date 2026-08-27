@@ -107,6 +107,7 @@ function scopeEvent(
     sprintId,
     workItemId,
     kind: "added",
+    reason: null,
     occurredAt,
     createdAt: occurredAt,
     updatedAt: occurredAt,

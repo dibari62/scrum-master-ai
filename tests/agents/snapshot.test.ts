@@ -95,6 +95,9 @@ function input(overrides: Partial<SnapshotInput> = {}): SnapshotInput {
       addedCount: 3,
       removedCount: 0,
       committedCount: 15,
+      plannedAdditions: 1,
+      unplannedAdditions: 2,
+      undeclaredAdditions: 0,
     }),
     carryOver: available({
       items: [uuidFor("a"), uuidFor("b")] as WorkItemId[],

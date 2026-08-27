@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1147 test<br/>Playwright · 152 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1151 test<br/>Playwright · 155 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -118,7 +118,40 @@ in silenzio.
 
 ---
 
-**Il piano di rilascio, verificato sull'esempio stampato nel libro.** La regola
+**Le interruzioni non si confondono più con le aggiunte volute.** Era l'unica
+voce rimasta che riguardava la *correttezza* di una metrica esistente, non una
+funzione nuova — e per la regola R1 vale più di una funzione nuova.
+
+Il libro tiene gli elementi non pianificati in un'area a sé sulla lavagna: «We've
+had three **unplanned items**, as you can see down to the right. This is useful
+to remember when you do the sprint retrospective» (pag. 60). La distinzione è
+reale, e il portale la perdeva: un Product Owner che tira dentro altro lavoro
+perché la squadra ha spazio sta **estendendo** il piano; un'interruzione lo sta
+**rompendo**. Il conteggio unico non distingue una squadra che ha accettato altro
+lavoro da una che è stata disturbata, e sono due conversazioni diverse da fare in
+retrospettiva.
+
+**Il campo sta sull'evento, non sull'elemento.** La stessa storia può essere
+un'aggiunta voluta in uno sprint e un'interruzione in un altro: ciò che è
+imprevisto è l'*arrivo*, non il lavoro. Metterlo sull'elemento avrebbe legato una
+proprietà del momento a una cosa che dura.
+
+**E ha tre stati, non due.** `null` significa «la fonte non lo dice», ed è la
+condizione normale: Jira sa che un ticket è entrato in uno sprint, non se il
+pomeriggio di qualcuno è stato dirottato. Schiacciare l'ignoto su «voluta»
+nasconderebbe le interruzioni proprio dove sono più difficili da vedere; su
+«interruzione» le gonfierebbe. Si riportano tutte e tre, e la dashboard lo dice a
+parole: «Di questi, 2 sono interruzioni; 1 non lo dichiara».
+
+Anche i dati di prova rispettano la cosa: lo scenario dichiara **una parte** delle
+aggiunte come interruzioni e lascia il resto non dichiarato. Un dato in cui ogni
+evento è classificato mostrerebbe la funzione al lavoro in una condizione che su
+dati veri non si verifica quasi mai — e nasconderebbe proprio il caso che il
+portale deve saper dichiarare.
+
+---
+
+
 sta in una frase: «Each sprint includes **as many stories as possible without
 exceeding** the estimated velocity of 45» (pag. 100). Entrambe le metà contano.
 

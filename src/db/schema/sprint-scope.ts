@@ -1,6 +1,6 @@
 import { index, pgEnum, pgTable, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
-import { sprintScopeEventKindSchema } from "@/domain";
+import { sprintScopeEventKindSchema, scopeChangeReasonSchema } from "@/domain";
 
 import { enumValues } from "./enum-values";
 import { auditColumns } from "./organizations";
@@ -11,6 +11,12 @@ import { workItems } from "./work-items";
 export const sprintScopeEventKind = pgEnum(
   "sprint_scope_event_kind",
   enumValues(sprintScopeEventKindSchema),
+);
+
+/** Generated from the Zod enum, so the two lists cannot disagree (R4). */
+export const scopeChangeReason = pgEnum(
+  "scope_change_reason",
+  enumValues(scopeChangeReasonSchema),
 );
 
 /**
@@ -38,6 +44,16 @@ export const sprintScopeEvents = pgTable(
       .references(() => workItems.id, { onDelete: "cascade" }),
 
     kind: sprintScopeEventKind("kind").notNull(),
+
+    /**
+     * Why the work arrived, when the source says so.
+     *
+     * **Nullable, and `null` is a third state** — not a synonym for "planned".
+     * Most tools have no field for it, and defaulting the unknown either way
+     * would silently invent a fact about a team's week.
+     */
+    reason: scopeChangeReason("reason"),
+
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
 
     ...auditColumns,

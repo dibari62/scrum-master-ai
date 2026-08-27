@@ -79,6 +79,26 @@ export const sprintScopeEventKindSchema = z.enum(["added", "removed"]);
 
 export type SprintScopeEventKind = z.infer<typeof sprintScopeEventKindSchema>;
 
+/**
+ * Why work entered a sprint after it had started.
+ *
+ * > «We've had three **unplanned items**, as you can see down to the right.
+ * > This is useful to remember when you do the sprint retrospective.» (pag. 60)
+ *
+ * The book keeps unplanned items in an area of their own on the task board,
+ * and the retrospective has a line for them — «Too many external disturbances»
+ * (pag. 89). The two things it separates are genuinely different: a Product
+ * Owner deliberately pulling in more work because the team had room is a plan
+ * being extended, while an interruption is the plan being broken into.
+ *
+ * **It belongs to the event, not to the item.** The same story can be a planned
+ * addition in one sprint and an interruption in another — what is unplanned is
+ * the *arrival*, not the work.
+ */
+export const scopeChangeReasonSchema = z.enum(["planned", "unplanned"]);
+
+export type ScopeChangeReason = z.infer<typeof scopeChangeReasonSchema>;
+
 export const sprintScopeEventSchema = z.object({
   ...projectScopedFields,
   ...sourceFields,
@@ -86,6 +106,19 @@ export const sprintScopeEventSchema = z.object({
   sprintId: sprintIdSchema,
   workItemId: workItemIdSchema,
   kind: sprintScopeEventKindSchema,
+
+  /**
+   * `null` means **the source does not say**, and it is not a synonym for
+   * "planned".
+   *
+   * Most tools have no field for it: Jira knows an issue moved into a sprint,
+   * not whether somebody's afternoon was hijacked. Defaulting the unknown to
+   * `planned` would under-report interruptions and defaulting it to
+   * `unplanned` would over-report them — so the third state is kept, and the
+   * metrics report it instead of choosing.
+   */
+  reason: scopeChangeReasonSchema.nullable(),
+
   occurredAt: timestampSchema,
 
   ...auditFields,

@@ -462,10 +462,11 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     name: "Cambio di perimetro",
     question: "Quanto lavoro è entrato o uscito dallo sprint dopo che era già cominciato?",
     formula:
-      "Elementi aggiunti o rimossi in un istante successivo, in senso stretto, all'inizio dello sprint.",
+      "Elementi aggiunti o rimossi in un istante successivo, in senso stretto, all'inizio dello sprint. Le aggiunte si dividono in tre: volute, interruzioni, e quelle di cui la fonte non dichiara il motivo.",
     unit: "count",
     excludes: [
       "Gli elementi presenti esattamente all'istante di inizio: quelli sono l'impegno preso, non una modifica a esso.",
+      "Il motivo delle rimozioni: la distinzione del libro è fra un piano esteso e un piano interrotto, e vale sulle entrate.",
     ],
     unavailableWhen: "Non risulta alcun evento di composizione per lo sprint.",
     inputs: [
@@ -475,7 +476,8 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
       },
       {
         entity: "SprintScopeEvent",
-        reads: "ogni ingresso e ogni uscita, con il proprio istante e il proprio verso",
+        reads:
+          "ogni ingresso e ogni uscita, con il proprio istante, il proprio verso e il motivo dichiarato",
       },
       {
         entity: "WorkItem",
@@ -507,9 +509,26 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
         outcome: "Nessun valore, con motivo «no-data»: non «nessuna variazione».",
         verifiedBy: "non è disponibile senza eventi di perimetro",
       },
+      {
+        situation: "Un'aggiunta è dichiarata interruzione, un'altra è voluta.",
+        outcome: "Contate separatamente: sono due cose diverse.",
+        verifiedBy: "separa un'aggiunta voluta da un'interruzione",
+      },
+      {
+        situation: "La fonte non dice perché un elemento sia entrato.",
+        outcome:
+          "Contato a parte, in nessuna delle due: sceglierne una inventerebbe un fatto sulla settimana di una squadra.",
+        verifiedBy: "un'aggiunta senza motivo dichiarato non finisce in nessuna delle due",
+      },
+      {
+        situation: "Un elemento presente dall'inizio è marcato come interruzione.",
+        outcome:
+          "Non conta: alla partenza non c'era ancora un piano da interrompere, ed è un difetto della fonte.",
+        verifiedBy: "ciò che c'era all'inizio non è un'interruzione, comunque sia marcato",
+      },
     ],
     decision:
-      "Il confronto con l'istante di inizio è stretto. Trattare come aggiunte gli elementi presenti all'inizio riporterebbe ogni sprint come cento per cento di rimescolamento.",
+      "Il confronto con l'istante di inizio è stretto. Trattare come aggiunte gli elementi presenti all'inizio riporterebbe ogni sprint come cento per cento di rimescolamento. E il motivo ha **tre** stati e non due: «non dichiarato» è la condizione normale delle fonti reali, e schiacciarlo su «voluta» nasconderebbe le interruzioni proprio dove sono più difficili da vedere.",
     sourceFile: "src/metrics/sprint.ts",
     sourceSymbol: "scopeChange",
     testFile: "tests/metrics/sprint.test.ts",

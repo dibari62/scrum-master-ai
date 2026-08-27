@@ -4,6 +4,7 @@ import {
   workingDayInstants,
   DEFAULT_WORKING_CALENDAR,
   type EstimateChange,
+  type ScopeChangeReason,
   type Sprint,
   type SprintScopeEvent,
   type StateTransition,
@@ -144,6 +145,22 @@ export type ScopeChange = {
   readonly removedCount: number;
   /** Items present at the start: the commitment the change is measured against. */
   readonly committedCount: number;
+
+  /**
+   * How the additions split between a plan being extended and a plan being
+   * broken into.
+   *
+   * > «We've had three **unplanned items**, as you can see down to the right.
+   * > This is useful to remember when you do the sprint retrospective.»
+   * > (pag. 60)
+   *
+   * Three numbers and not two, because the third is the honest one: most
+   * sources cannot tell us, and folding "we don't know" into either side would
+   * invent a fact about somebody's week.
+   */
+  readonly plannedAdditions: number;
+  readonly unplannedAdditions: number;
+  readonly undeclaredAdditions: number;
 };
 
 /**
@@ -169,6 +186,18 @@ export function scopeChange(
   const addedIds = forSprint
     .filter((event) => isMidSprintAddition(event, sprint))
     .map((event) => event.workItemId);
+
+  /*
+   * Perché l'aggiunta è avvenuta, quando la fonte lo dice.
+   *
+   * Le tre categorie non si sovrappongono e sommano ad `addedCount`: è la
+   * proprietà che rende leggibile il numero. Un'aggiunta «non dichiarata» non
+   * viene contata né fra le pianificate né fra le interruzioni, perché
+   * sceglierne una inventerebbe un fatto sulla settimana di qualcuno.
+   */
+  const additions = forSprint.filter((event) => isMidSprintAddition(event, sprint));
+  const withReason = (reason: ScopeChangeReason): number =>
+    additions.filter((event) => event.reason === reason).length;
 
   const removedIds = forSprint
     .filter(
@@ -201,6 +230,9 @@ export function scopeChange(
       addedCount: addedIds.length,
       removedCount: removedIds.length,
       committedCount: committed.size,
+      plannedAdditions: withReason("planned"),
+      unplannedAdditions: withReason("unplanned"),
+      undeclaredAdditions: additions.filter((event) => event.reason === null).length,
     },
     committed.size,
   );

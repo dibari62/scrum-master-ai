@@ -62,6 +62,7 @@ function scopeEvent(
   kind: "added" | "removed",
   occurredAt: string,
   sprintId = SPRINT_ID,
+  reason: "planned" | "unplanned" | null = null,
 ): SprintScopeEvent {
   eventCounter += 1;
   return sprintScopeEventSchema.parse({
@@ -70,6 +71,14 @@ function scopeEvent(
     sprintId,
     workItemId,
     kind,
+    /*
+     * Predefinito «non dichiarato».
+     *
+     * È lo stato in cui arriva la maggior parte delle fonti, e farne il
+     * predefinito impedisce a un test di sembrare verde su una distinzione che
+     * nessuno ha espresso.
+     */
+    reason,
     occurredAt,
     createdAt: occurredAt,
     updatedAt: occurredAt,
@@ -351,6 +360,99 @@ describe("scopeChange", () => {
 
   it("non è disponibile senza eventi di perimetro", () => {
     expect(scopeChange(sprint(), [], []).available).toBe(false);
+  });
+
+  describe("interruzioni contro aggiunte volute", () => {
+    /*
+     * > «We've had three **unplanned items**, as you can see down to the
+     * > right. This is useful to remember when you do the sprint
+     * > retrospective.» (pag. 60)
+     *
+     * Il libro tiene le interruzioni in un'area a sé sulla lavagna. La
+     * distinzione è reale: un Product Owner che tira dentro altro lavoro
+     * perché la squadra ha spazio sta estendendo il piano; un'interruzione lo
+     * sta rompendo.
+     */
+    it("separa un'aggiunta voluta da un'interruzione", () => {
+      const events = [
+        scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+        scopeEvent(ITEM_B, "added", "2026-04-10T09:00:00.000Z", SPRINT_ID, "planned"),
+        scopeEvent(ITEM_C, "added", "2026-04-11T09:00:00.000Z", SPRINT_ID, "unplanned"),
+      ];
+
+      const result = scopeChange(
+        sprint(),
+        [item({ id: ITEM_A }), item({ id: ITEM_B }), item({ id: ITEM_C })],
+        events,
+      );
+
+      if (!result.available) throw new Error("attesa disponibile");
+      expect(result.value.plannedAdditions).toBe(1);
+      expect(result.value.unplannedAdditions).toBe(1);
+      expect(result.value.undeclaredAdditions).toBe(0);
+    });
+
+    it("un'aggiunta senza motivo dichiarato non finisce in nessuna delle due", () => {
+      /*
+       * `null` non è «pianificata».
+       *
+       * La maggior parte delle fonti non ha un campo per dirlo: Jira sa che un
+       * ticket è entrato in uno sprint, non se il pomeriggio di qualcuno è
+       * stato dirottato. Farne una delle due inventerebbe un fatto sulla
+       * settimana di una squadra.
+       */
+      const events = [
+        scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+        scopeEvent(ITEM_B, "added", "2026-04-10T09:00:00.000Z"),
+      ];
+
+      const result = scopeChange(sprint(), [item({ id: ITEM_A }), item({ id: ITEM_B })], events);
+
+      if (!result.available) throw new Error("attesa disponibile");
+      expect(result.value.plannedAdditions).toBe(0);
+      expect(result.value.unplannedAdditions).toBe(0);
+      expect(result.value.undeclaredAdditions).toBe(1);
+    });
+
+    it("le tre categorie sommano al totale delle aggiunte", () => {
+      // È la proprietà che rende leggibili i numeri: non si sovrappongono e
+      // non lasciano buchi.
+      const events = [
+        scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z"),
+        scopeEvent(ITEM_B, "added", "2026-04-10T09:00:00.000Z", SPRINT_ID, "unplanned"),
+        scopeEvent(ITEM_C, "added", "2026-04-11T09:00:00.000Z"),
+      ];
+
+      const result = scopeChange(
+        sprint(),
+        [item({ id: ITEM_A }), item({ id: ITEM_B }), item({ id: ITEM_C })],
+        events,
+      );
+
+      if (!result.available) throw new Error("attesa disponibile");
+      const { plannedAdditions, unplannedAdditions, undeclaredAdditions, addedCount } =
+        result.value;
+
+      expect(plannedAdditions + unplannedAdditions + undeclaredAdditions).toBe(addedCount);
+    });
+
+    it("ciò che c'era all'inizio non è un'interruzione, comunque sia marcato", () => {
+      /*
+       * Un evento d'inizio marcato «unplanned» è un difetto della fonte, non
+       * un'interruzione: alla partenza dello sprint non c'era ancora un piano
+       * da interrompere. Contarlo direbbe che una squadra è stata disturbata
+       * prima di cominciare.
+       */
+      const events = [
+        scopeEvent(ITEM_A, "added", "2026-04-06T08:00:00.000Z", SPRINT_ID, "unplanned"),
+      ];
+
+      const result = scopeChange(sprint(), [item({ id: ITEM_A })], events);
+
+      if (!result.available) throw new Error("attesa disponibile");
+      expect(result.value.unplannedAdditions).toBe(0);
+      expect(result.value.addedCount).toBe(0);
+    });
   });
 });
 
