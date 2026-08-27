@@ -99,7 +99,11 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
               Modello:{" "}
               {settings.brainProvider === "fake"
                 ? "nessuno"
-                : "configurato, collegamento non ancora scritto"}
+                : settings.brainProvider === "gemini"
+                  ? settings.brainApiKey.configured
+                    ? "pronto"
+                    : "in attesa di una chiave"
+                  : "configurato, collegamento non ancora scritto"}
             </p>
             <p className="text-muted-foreground">{describeBrain(settings.brainProvider)}</p>
           </div>
@@ -184,13 +188,17 @@ function describeBrain(provider: string): string {
     );
   }
 
+  if (provider === "gemini") {
+    return "La chiave è tua: il consumo lo paghi tu, e puoi cambiare fornitore quando vuoi.";
+  }
+
   /*
    * La verità sullo stato del portale, non su quello del fornitore.
    *
-   * Il collegamento verso Gemini e Groq è deciso (ADR-0005) e non ancora
-   * scritto: il gateway li salta. Scrivere «pronto» qui sarebbe la bugia più
-   * costosa della pagina, perché a crederla si smette di cercare la ragione per
-   * cui i testi restano segnaposto.
+   * Il collegamento verso Groq è deciso (ADR-0005) e non ancora scritto: il
+   * gateway lo salta. Scrivere «pronto» sarebbe la bugia più costosa della
+   * pagina, perché a crederla si smette di cercare la ragione per cui i testi
+   * restano segnaposto.
    */
   return (
     "La chiave è tua e viene custodita cifrata, ma il collegamento verso questo fornitore " +

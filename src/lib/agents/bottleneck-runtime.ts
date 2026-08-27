@@ -21,7 +21,9 @@ import {
 } from "@/agents/bottleneck";
 import type { NarrationOrigin } from "@/agents/sprint-health";
 import { bottleneck } from "@/metrics";
-import { createGateway, selectedProvider, type Gateway } from "@/lib/llm";
+import { selectedProvider, type Gateway } from "@/lib/llm";
+
+import { gatewayForProject } from "./project-gateway";
 
 /**
  * Explaining where the work waits, and writing down what it cost.
@@ -56,7 +58,10 @@ export async function runBottleneckNarration(input: {
 }): Promise<BottleneckNarrationOutcome> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
-  const gateway = options.gateway ?? createGateway();
+  const gateway =
+    options.gateway ??
+    // La chiave e del progetto, non dell'applicazione (ADR-0010).
+    (await gatewayForProject(input.organizationId, input.projectId));
 
   const startedAt = now();
   const runId = randomUUID();
