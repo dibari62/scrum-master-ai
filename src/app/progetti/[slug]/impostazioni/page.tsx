@@ -3,11 +3,12 @@ import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
-import { connectorReady, providerNeedsKey } from "@/domain";
+import { connectorReady, providerNeedsKey, type WorkingCalendar } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 
 import { loadSettings } from "./data";
+import { CalendarForm } from "./calendar-form";
 import { IdentityForm } from "./identity-form";
 import { SettingsSections } from "./sections";
 import { SettingsForm } from "./settings-form";
@@ -53,7 +54,7 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
 
   if (!view) notFound();
 
-  const { project, settings, canConfigure, custodyReady } = view;
+  const { project, settings, canConfigure, custodyReady, calendar, hasContext } = view;
 
   const dataReady = connectorReady({
     connector: settings.connector,
@@ -105,6 +106,12 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
               label: "Anagrafica",
               hint: project.status === "archived" ? "archiviato" : "attivo",
               content: <IdentityForm project={project} />,
+            },
+            {
+              id: "calendario",
+              label: "Calendario",
+              hint: describeCalendarShort(calendar, hasContext),
+              content: <CalendarForm slug={project.slug} calendar={calendar} />,
             },
             {
               id: "dati",
@@ -177,4 +184,19 @@ function describeBrainShort(provider: string, ready: boolean): string {
   if (!ready) return "manca la chiave";
 
   return provider;
+}
+
+/**
+ * Il calendario in due parole.
+ *
+ * Il numero di festività è la parte che conta: zero su un progetto italiano
+ * significa quasi sempre «nessuno l'ha ancora dichiarato», non «non ce ne sono».
+ */
+function describeCalendarShort(calendar: WorkingCalendar, hasContext: boolean): string {
+  if (!hasContext) return "manca il contesto";
+
+  const giorni = `${calendar.workingDays.length} giorni`;
+  if (calendar.holidays.length === 0) return `${giorni}, nessuna festività`;
+
+  return `${giorni}, ${calendar.holidays.length} festività`;
 }

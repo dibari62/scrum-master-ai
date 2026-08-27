@@ -10,6 +10,7 @@ import {
   UNSCHEDULED_CEREMONIES,
   audienceSchema,
   ceremonyScheduleSchema,
+  createProjectContextInputSchema,
   definitionOfDoneSchema,
   scrumEventSchema,
   sprintLengthDaysSchema,
@@ -232,5 +233,50 @@ describe("calendario delle cerimonie", () => {
     expect(timeOfDaySchema.safeParse("24:00").success).toBe(false);
     expect(timeOfDaySchema.safeParse("9:30").success).toBe(false);
     expect(timeOfDaySchema.safeParse("09:60").success).toBe(false);
+  });
+});
+
+describe("calendario lavorativo del progetto", () => {
+  it("un contesto nuovo lavora lunedì-venerdì, senza festività", () => {
+    /*
+     * L'unico predefinito onesto.
+     *
+     * È ciò che i dati sintetici già assumono, quindi adottarlo non cambia
+     * nessun numero già mostrato. Inventare invece le festività di un paese che
+     * nessuno ha dichiarato produrrebbe una capacità sbagliata con l'aria di
+     * essere stata configurata.
+     */
+    const context = createProjectContextInputSchema.parse({});
+
+    expect(context.workingCalendar.workingDays).toEqual([
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+    ]);
+    expect(context.workingCalendar.holidays).toEqual([]);
+  });
+
+  it("accetta una settimana diversa e le festività dichiarate", () => {
+    const context = createProjectContextInputSchema.parse({
+      workingCalendar: {
+        workingDays: ["monday", "tuesday", "wednesday", "thursday"],
+        holidays: ["2026-08-15"],
+      },
+    });
+
+    expect(context.workingCalendar.workingDays).toHaveLength(4);
+    expect(context.workingCalendar.holidays).toEqual(["2026-08-15"]);
+  });
+
+  it("rifiuta un calendario senza giorni lavorativi", () => {
+    // Renderebbe ogni ciclo che scorre i giorni o vuoto o infinito, a seconda
+    // di come è scritto.
+    expect(() =>
+      createProjectContextInputSchema.parse({
+        workingCalendar: { workingDays: [], holidays: [] },
+      }),
+    ).toThrow();
   });
 });

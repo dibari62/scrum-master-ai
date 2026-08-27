@@ -1,7 +1,7 @@
 import type { Query } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { createDatabase, forOrganization, MAX_SKILL_RUN_PAGE_SIZE, type TenantScope } from "@/db";
+import { createDatabase, forOrganization, MAX_EXPORT_ROWS, MAX_SKILL_RUN_PAGE_SIZE, type TenantScope } from "@/db";
 import type { TenantReadName, TenantWriteName } from "@/db";
 import { organizationIdSchema, projectIdSchema, sprintIdSchema, userIdSchema, workItemIdSchema } from "@/domain";
 
@@ -71,6 +71,7 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   boardsByProject: (scope) => scope.reads.boardsByProject(PROJECT_ID).toSQL(),
   boardColumnsByProject: (scope) => scope.reads.boardColumnsByProject(PROJECT_ID).toSQL(),
   commentsByWorkItem: (scope) => scope.reads.commentsByWorkItem(WORK_ITEM_ID).toSQL(),
+  commentsByProject: (scope) => scope.reads.commentsByProject(PROJECT_ID).toSQL(),
   impedimentsByProject: (scope) => scope.reads.impedimentsByProject(PROJECT_ID).toSQL(),
   pullRequestsByProject: (scope) => scope.reads.pullRequestsByProject(PROJECT_ID).toSQL(),
 
@@ -80,6 +81,11 @@ const READS: Record<TenantReadName, (scope: TenantScope) => Query> = {
   skillRunsByProject: (scope) => scope.reads.skillRunsByProject(PROJECT_ID).toSQL(),
   healthChecksBySprint: (scope) => scope.reads.healthChecksBySprint(SPRINT_ID).toSQL(),
   sprintReportsByProject: (scope) => scope.reads.sprintReportsByProject(PROJECT_ID).toSQL(),
+
+  skillRunsForExport: (scope) => scope.reads.skillRunsForExport(PROJECT_ID).toSQL(),
+  sprintReportsForExport: (scope) =>
+    scope.reads.sprintReportsForExport(PROJECT_ID).toSQL(),
+  exportRowCounts: (scope) => scope.reads.exportRowCounts(PROJECT_ID).toSQL(),
 };
 
 /** Same contract for writes: an unlisted write breaks the build. */
@@ -111,6 +117,10 @@ const WRITES: Record<TenantWriteName, (scope: TenantScope) => Query> = {
     scope.writes.setEstimationScale(PROJECT_ID, "planning-poker").toSQL(),
   setAcceptanceThresholds: (scope) =>
     scope.writes.setAcceptanceThresholds(PROJECT_ID, { must: 3, should: 2, later: 1 }).toSQL(),
+  setWorkingCalendar: (scope) =>
+    scope.writes
+      .setWorkingCalendar(PROJECT_ID, { workingDays: ["monday"], holidays: ["2026-08-15"] })
+      .toSQL(),
 };
 
 const readNames = Object.keys(READS) as ReadonlyArray<TenantReadName>;
@@ -206,8 +216,49 @@ describe("elenco delle persone", () => {
   });
 });
 
-describe("isolamento fra organizzazioni: scritture", () => {
-  it.each(writeNames)("%s porta con sé il tenant dello scope", (name) => {
+/**
+ * Le letture che servono l'esportazione.
+ *
+ * Un export legge tabelle intere: è il posto in cui un filtro dimenticato
+ * produrrebbe la fuga di dati peggiore possibile in un prodotto multi-azienda,
+ * e per giunta invisibile finché i clienti sono uno solo. Le prove qui sotto
+ * guardano proprio quello che il resto del file dà per scontato quando una
+ * lettura è semplice: che *ogni* pezzo dell'istruzione porti il proprio tenant.
+ */
+describe("letture per l'esportazione", () => {
+  it("conta le dieci tabelle in una sola istruzione", () => {
+    const query = scopeA.reads.exportRowCounts(PROJECT_ID).toSQL();
+
+    expect(query.sql.match(/count\(\*\)::int/g)).toHaveLength(10);
+  });
+
+  it("filtra per organizzazione ogni singolo conteggio, non solo la query esterna", () => {
+    const query = scopeA.reads.exportRowCounts(PROJECT_ID).toSQL();
+
+    // Dieci sotto-conteggi più la lettura del progetto: undici predicati di
+    // tenant. Se un conteggio ne fosse privo, il numero scenderebbe.
+    expect(query.params.filter((value) => value === ORGANIZATION_A)).toHaveLength(11);
+    expect(query.params).not.toContain(ORGANIZATION_B);
+  });
+
+  it("non restituisce nulla quando il progetto è di un'altra azienda", () => {
+    // Stessa forma, tenant diverso: il progetto di A cercato dallo scope di B
+    // non produce righe, quindi la pagina non può mostrarne i conteggi.
+    const fromB = scopeB.reads.exportRowCounts(PROJECT_ID).toSQL();
+
+    expect(fromB.params).not.toContain(ORGANIZATION_A);
+    expect(fromB.sql).toBe(scopeA.reads.exportRowCounts(PROJECT_ID).toSQL().sql);
+  });
+
+  it.each(["skillRunsForExport", "sprintReportsForExport", "commentsByProject"] as const)(
+    "%s porta con sé il tetto dell'esportazione",
+    (name) => {
+      expect(READS[name](scopeA).params).toContain(MAX_EXPORT_ROWS);
+    },
+  );
+});
+
+describe("isolamento fra organizzazioni: scritture", () => {  it.each(writeNames)("%s porta con sé il tenant dello scope", (name) => {
     expect(WRITES[name](scopeA).params).toContain(ORGANIZATION_A);
   });
 

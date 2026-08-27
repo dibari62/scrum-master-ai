@@ -25,6 +25,7 @@ import {
   skillRunStatusSchema,
   triggerSchema,
   MAX_DEFINITION_OF_DONE_ENTRIES,
+  MAX_HOLIDAYS,
   MAX_RUNS_PER_DAY_LIMIT,
   MAX_SPRINT_LENGTH_DAYS,
   MAX_STAKEHOLDERS,
@@ -251,6 +252,23 @@ export const projectContexts = pgTable(
     estimationScale: estimationScale("estimation_scale").notNull().default("free"),
 
     /**
+     * Quali giorni la squadra lavora, e quali sono festivi.
+     *
+     * `jsonb` con predefinito, perché la colonna arriva su una tabella che ha
+     * già righe: lunedì-venerdì senza festività è ciò che quelle righe già
+     * assumevano, quindi il predefinito non cambia nessun numero già mostrato.
+     *
+     * Il vincolo qui sotto è la difesa che conta: `$type<>()` è una nostra
+     * dichiarazione, non una regola che Postgres applica, e un calendario senza
+     * giorni lavorativi renderebbe ogni ciclo che scorre i giorni o vuoto o
+     * infinito, a seconda di come è scritto.
+     */
+    workingCalendar: jsonb("working_calendar")
+      .$type<ProjectContext["workingCalendar"]>()
+      .notNull()
+      .default({ workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"], holidays: [] }),
+
+    /**
      * The cuts in the backlog order that say what is committed to version 1.0.
      *
      * `jsonb` and nullable, because `null` is "not declared" and is genuinely
@@ -296,6 +314,20 @@ export const projectContexts = pgTable(
     check(
       "project_contexts_stakeholders_check",
       sql`jsonb_typeof(${table.stakeholders}) = 'array' AND jsonb_array_length(${table.stakeholders}) <= ${literal(MAX_STAKEHOLDERS)}`,
+    ),
+    /*
+     * Almeno un giorno lavorativo, e un tetto alle festività.
+     *
+     * Un calendario senza giorni lavorativi non è una configurazione insolita:
+     * è quella che rende ogni ciclo che scorre i giorni o vuoto o infinito. Il
+     * tetto invece coglie un difetto di importazione, non una preferenza.
+     */
+    check(
+      "project_contexts_working_calendar_check",
+      sql`jsonb_typeof(${table.workingCalendar} -> 'workingDays') = 'array'
+        AND jsonb_array_length(${table.workingCalendar} -> 'workingDays') BETWEEN 1 AND 7
+        AND jsonb_typeof(${table.workingCalendar} -> 'holidays') = 'array'
+        AND jsonb_array_length(${table.workingCalendar} -> 'holidays') <= ${literal(MAX_HOLIDAYS)}`,
     ),
     check(
       "project_contexts_working_agreement_check",

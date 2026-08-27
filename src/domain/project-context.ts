@@ -4,7 +4,7 @@ import { auditFields, displayNameSchema, projectScopedFields, timestampSchema } 
 import { acceptanceThresholdsSchema } from "./acceptance-threshold";
 import { DEFAULT_ESTIMATION_SCALE, estimationScaleSchema } from "./estimation-scale";
 import { projectContextIdSchema } from "./ids";
-import { dayOfWeekSchema } from "./working-calendar";
+import { dayOfWeekSchema, DEFAULT_WORKING_CALENDAR, workingCalendarSchema } from "./working-calendar";
 
 /**
  * `ProjectContext` is how this team has **decided** to work: sprint length,
@@ -244,6 +244,23 @@ export const projectContextSchema = z.object({
 
   sprintLengthDays: sprintLengthDaysSchema,
   ceremonies: ceremonyScheduleSchema,
+
+  /**
+   * Quali giorni questa squadra lavora davvero.
+   *
+   * Il modello esisteva ed era testato, e **nessuno gliene passava mai uno**:
+   * ogni metrica usava il predefinito lunedì-venerdì senza festività. Per una
+   * squadra italiana significa contare Ferragosto, Pasquetta, il 25 aprile e il
+   * 2 giugno come giorni di lavoro fermo — cioè fabbricare allarmi nel burndown
+   * e sovrastimare la capacità nella pianificazione.
+   *
+   * Sta qui e non su `ProjectSettings` perché è **come la squadra ha deciso di
+   * lavorare**, non come il progetto è collegato al mondo. È la stessa natura
+   * della durata dello sprint e delle cerimonie, che stanno già in questo
+   * oggetto.
+   */
+  workingCalendar: workingCalendarSchema,
+
   definitionOfDone: definitionOfDoneSchema,
   definitionOfReady: definitionOfReadySchema,
   estimationScale: estimationScaleSchema,
@@ -268,6 +285,14 @@ export type ProjectContext = z.infer<typeof projectContextSchema>;
 export const createProjectContextInputSchema = z.object({
   sprintLengthDays: sprintLengthDaysSchema.default(DEFAULT_SPRINT_LENGTH_DAYS),
   ceremonies: ceremonyScheduleSchema.default(UNSCHEDULED_CEREMONIES),
+  /*
+   * Lunedì-venerdì senza festività.
+   *
+   * È l'unico predefinito onesto: è ciò che i dati sintetici già assumono, e
+   * inventare le festività di un paese che nessuno ha dichiarato produrrebbe una
+   * capacità sbagliata con l'aria di essere stata configurata.
+   */
+  workingCalendar: workingCalendarSchema.default(DEFAULT_WORKING_CALENDAR),
   definitionOfDone: definitionOfDoneSchema.default([]),
   definitionOfReady: definitionOfReadySchema.default([]),
   estimationScale: estimationScaleSchema.default(DEFAULT_ESTIMATION_SCALE),

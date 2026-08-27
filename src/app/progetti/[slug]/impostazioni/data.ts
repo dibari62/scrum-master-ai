@@ -1,9 +1,12 @@
 import {
+  DEFAULT_WORKING_CALENDAR,
   organizationIdSchema,
   projectIdSchema,
   projectSchema,
+  workingCalendarSchema,
   type OrganizationRole,
   type Project,
+  type WorkingCalendar,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings, type SafeProjectSettings } from "@/db/project-settings";
@@ -33,6 +36,18 @@ export type SettingsView = {
    * person has already fetched it from a vendor's dashboard.
    */
   readonly custodyReady: boolean;
+
+  /**
+   * Il calendario dichiarato dalla squadra, o il predefinito.
+   *
+   * Viene dal contesto di progetto, che nasce insieme allo Scrum Master AI: un
+   * progetto senza agente non ha un contesto, e finché non ce l'ha il calendario
+   * è quello predefinito — lunedì-venerdì, nessuna festività.
+   */
+  readonly calendar: WorkingCalendar;
+
+  /** Se un contesto esiste: senza, il calendario si mostra ma non si salva. */
+  readonly hasContext: boolean;
 };
 
 export async function loadSettings(slug: string): Promise<SettingsView | null> {
@@ -46,11 +61,12 @@ export async function loadSettings(slug: string): Promise<SettingsView | null> {
   if (!row) return null;
 
   const project = projectSchema.parse(row);
+  const projectId = projectIdSchema.parse(project.id);
 
-  const settings = await readProjectSettings(
-    organizationId,
-    projectIdSchema.parse(project.id),
-  );
+  const [settings, contextRows] = await Promise.all([
+    readProjectSettings(organizationId, projectId),
+    scope.reads.projectContextByProject(projectId),
+  ]);
 
   return {
     project,
@@ -58,5 +74,9 @@ export async function loadSettings(slug: string): Promise<SettingsView | null> {
     role: session.role ?? null,
     canConfigure: mayConfigureSettings(session.role),
     custodyReady: secretsAvailable(),
+    calendar: contextRows[0]
+      ? workingCalendarSchema.parse(contextRows[0].workingCalendar)
+      : DEFAULT_WORKING_CALENDAR,
+    hasContext: contextRows.length > 0,
   };
 }

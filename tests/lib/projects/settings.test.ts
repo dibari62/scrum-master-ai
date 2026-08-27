@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   mayConfigureSettings,
+  parseCalendarForm,
   parseIdentityForm,
   parseSettingsForm,
   parseStateMapping,
@@ -79,6 +80,91 @@ describe("le due metà si salvano senza toccarsi", () => {
       expect(parsed.input.connector).toBe("seed");
       expect(parsed.input.brainProvider).toBe("fake");
     }
+  });
+});
+
+describe("il calendario lavorativo", () => {
+  const calendario = (values: Record<string, string | string[]>) => {
+    const data = new FormData();
+    for (const [key, value] of Object.entries(values)) {
+      if (Array.isArray(value)) for (const entry of value) data.append(key, entry);
+      else data.append(key, value);
+    }
+    return parseCalendarForm(data);
+  };
+
+  it("legge i giorni lavorativi e le festività", () => {
+    const parsed = calendario({
+      workingDays: ["monday", "tuesday", "wednesday"],
+      holidays: "2026-08-15\n2026-12-25",
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.calendar.workingDays).toEqual(["monday", "tuesday", "wednesday"]);
+      expect(parsed.calendar.holidays).toEqual(["2026-08-15", "2026-12-25"]);
+    }
+  });
+
+  it("rifiuta un calendario senza giorni lavorativi", () => {
+    /*
+     * Non è una configurazione insolita: è quella che rende ogni ciclo che
+     * scorre i giorni o vuoto o infinito, a seconda di come è scritto.
+     */
+    const parsed = calendario({ holidays: "" });
+
+    expect(parsed.ok).toBe(false);
+  });
+
+  it("dice quale riga è sbagliata, non che «il calendario non va bene»", () => {
+    // «La riga 2 non è una data» è qualcosa su cui una persona può agire.
+    const parsed = calendario({
+      workingDays: ["monday"],
+      holidays: "2026-08-15\n15 agosto\n2026-12-25",
+    });
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors[0]?.message).toContain("Riga 2");
+      expect(parsed.errors[0]?.message).toContain("15 agosto");
+    }
+  });
+
+  it("ignora le righe vuote invece di lamentarsene", () => {
+    const parsed = calendario({
+      workingDays: ["monday"],
+      holidays: "\n2026-08-15\n\n\n2026-12-25\n",
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.calendar.holidays).toHaveLength(2);
+  });
+
+  it("non conserva due volte la stessa festività", () => {
+    /*
+     * Chi incolla due elenchi sovrapposti — le nazionali più quelle aziendali —
+     * lo fa senza pensarci. Rifiutare il salvataggio sarebbe pedanteria;
+     * contarla due volte gonfierebbe l'elenco a ogni salvataggio.
+     */
+    const parsed = calendario({
+      workingDays: ["monday"],
+      holidays: "2026-08-15\n2026-12-25\n2026-08-15",
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.calendar.holidays).toEqual(["2026-08-15", "2026-12-25"]);
+  });
+
+  it("una settimana di sei giorni è legittima", () => {
+    // Non tutte le squadre lavorano cinque giorni, e il modello non deve avere
+    // un'opinione su quale sia la settimana giusta.
+    const parsed = calendario({
+      workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
+      holidays: "",
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.calendar.workingDays).toHaveLength(6);
   });
 });
 
