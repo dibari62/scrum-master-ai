@@ -26,7 +26,7 @@ type Figures = {
 /**
  * How each signal's numbers are written.
  *
- * The units differ per signal and are not interchangeable: three of them are
+ * The units differ per signal and are not interchangeable: four of them are
  * proportions and two are multiples of a reference. Writing a multiple as a
  * percentage would turn «due volte l'abitudine» into «200% dell'abitudine»,
  * which reads as a different claim to most people.
@@ -42,6 +42,7 @@ function figuresOf(signal: HealthSignal): Figures {
     case "progress":
     case "scope-added":
     case "aging":
+    case "unowned":
       return { measured: asPercent(signal.measured), threshold: asPercent(signal.threshold) };
 
     case "review-wait":

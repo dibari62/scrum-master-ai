@@ -170,6 +170,8 @@ describe("soglie del giudizio", () => {
       wipOverLimitCritical: 2,
       agingShareWatch: 0.15,
       agingShareCritical: 0.35,
+      unownedShareWatch: 0.1,
+      unownedShareCritical: 0.34,
     });
   });
 
@@ -586,6 +588,72 @@ describe("elementi fermi", () => {
     });
 
     expect(signalOf(result, "aging").status).toBe("not-evaluable");
+  });
+});
+
+describe("lavoro che nessuno ha in carico", () => {
+  const SOMEBODY = "11111111-0000-4000-8000-00000000000a";
+
+  /**
+   * A sprint where `unownedCount` of the items in progress are held by nobody.
+   *
+   * At least one item is always assigned, because a project that never fills
+   * in the field is a different situation — the one the next test is about.
+   */
+  function boardWith(unownedCount: number, total: number) {
+    const items = [];
+    const transitions = [];
+    const scopeEvents = [];
+
+    for (let index = 0; index < total; index += 1) {
+      const id = idOf(index);
+
+      items.push(
+        item({
+          id,
+          sprintId: SPRINT_ID,
+          estimate: { value: 1, unit: "points" },
+          assigneeId: index < unownedCount ? null : SOMEBODY,
+        }),
+      );
+      scopeEvents.push(added(id));
+      transitions.push(move(null, "in_progress", "2026-04-06T09:00:00.000Z", { workItemId: id }));
+    }
+
+    return { items, transitions, scopeEvents };
+  }
+
+  it("è sereno quando quasi tutto il lavoro ha un titolare", () => {
+    const signal = signalOf(health(boardWith(0, 10)), "unowned");
+    expect(signal.status).toBe("respected");
+  });
+
+  it("diventa critico quando un terzo della lavagna non è in carico a nessuno", () => {
+    const signal = signalOf(health(boardWith(4, 10)), "unowned");
+    expect(signal.status).toBe("critical");
+    expect(signal.measured).toBe(0.4);
+  });
+
+  it("non si pronuncia se il progetto non registra chi prende in carico", () => {
+    /*
+     * La distinzione che rende il segnale utilizzabile.
+     *
+     * `evenSprint` non assegna nessuno: senza questo caso il segnale sarebbe
+     * rosso fisso su ogni progetto che non usa il campo, cioè un allarme che
+     * non dipende da come sta andando lo sprint.
+     */
+    const signal = signalOf(health(), "unowned");
+    expect(signal.status).toBe("not-evaluable");
+    expect(signal.missing).not.toBeNull();
+  });
+
+  it("non nomina chi ha in carico gli altri elementi", () => {
+    // §8.2 di nuovo, ma sul segnale che ci va più vicino di tutti: qui un
+    // identificativo di persona sarebbe a portata di mano e non deve esserci.
+    const result = health(boardWith(4, 10));
+    if (!result.available) throw new Error("atteso disponibile");
+
+    expect(JSON.stringify(result.value)).not.toContain(SOMEBODY);
   });
 });
 

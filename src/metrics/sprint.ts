@@ -494,6 +494,141 @@ export function throughput(
 }
 
 /**
+ * How long an item must sit unheld before it counts as stuck.
+ *
+ * **Ours, not the book's**, and it has to be: the page that listed the warning
+ * signs is a picture, so no number survives in the text. One calendar day is
+ * chosen because it is the interval between two daily scrums — below it, the
+ * team has not yet had the meeting at which the item would have been noticed.
+ */
+export const DEFAULT_UNOWNED_STUCK_AFTER_MS = 24 * 60 * 60 * 1000;
+
+export type UnownedWorkInput = {
+  /** The sprint's items. Their `assigneeId` is read, nothing else about them. */
+  readonly items: readonly WorkItem[];
+  readonly transitions: readonly StateTransition[];
+  readonly asOf: Date;
+  /** See `DEFAULT_UNOWNED_STUCK_AFTER_MS`. */
+  readonly stuckAfterMs: number;
+};
+
+export type UnownedWorkInProgress = {
+  /** Items in progress that nobody holds and that have been so long enough. */
+  readonly unowned: number;
+  /** Items in progress at all: the denominator, kept so it can be shown. */
+  readonly active: number;
+  readonly share: number;
+  /**
+   * Which items, so the board can point at them.
+   *
+   * Items, deliberately. There is no matching list of people, and adding one
+   * is the step §8.2 forbids.
+   */
+  readonly items: readonly WorkItemId[];
+};
+
+/**
+ * Items being worked on that nobody is holding, and for long enough to notice.
+ *
+ * The one board warning sign the book states outright:
+ *
+ * > «Sometimes, for larger teams, a task gets stuck in *Checked out* because
+ * > **nobody remembers who was working on it**» (pag. 59)
+ *
+ * **A property of the item, never of a person** (§8.2). The question is "is
+ * this item held by nobody", not "how much is this person holding". The second
+ * phrasing is the forbidden per-person metric, and it is one refactor away
+ * from here — hence this note rather than a bare comment.
+ *
+ * **Two conditions, and the second is what makes it true rather than noisy.**
+ *
+ * An item may sit unassigned for a few minutes after someone drags it across
+ * the board; that is ordinary, not a warning. The book says *gets stuck*, so
+ * an item counts only once it has been unheld for `stuckAfterMs`. Below that
+ * threshold "not yet assigned" and "just started" are the same picture, and no
+ * data separates them.
+ *
+ * **Unavailable, not zero, and not one.** A project that never fills in an
+ * assignee at all would score a perfect 100% unowned and light up red for a
+ * field it does not use. That is not a stuck board, it is an absent column —
+ * the same failure as drawing a flat line at zero for a sprint with no
+ * estimates. When no item of the sprint has ever been held by anybody, the
+ * result is `no-qualifying-data`.
+ */
+export function unownedWorkInProgress(
+  input: UnownedWorkInput,
+): MetricResult<UnownedWorkInProgress> {
+  const byItem = groupByWorkItem(input.transitions);
+  if (byItem.size === 0) return unavailable("no-data", 0);
+
+  const active = input.items.filter((item) => {
+    const state = stateAt(byItem.get(item.id) ?? [], input.asOf);
+    return state === "in_progress" || state === "in_review";
+  });
+
+  if (active.length === 0) return unavailable("no-qualifying-data", byItem.size);
+
+  /*
+   * Does this project record who holds an item at all?
+   *
+   * Asked of every item passed in, not only the active ones: a sprint may
+   * legitimately have all of its current work unassigned while the project
+   * plainly uses the field elsewhere. Narrowing the question to the active
+   * items would turn that ordinary moment into "the field does not exist".
+   */
+  const everHeld = input.items.some((item) => item.assigneeId !== null);
+  if (!everHeld) return unavailable("no-qualifying-data", active.length);
+
+  const stuck = active.filter((item) => {
+    if (item.assigneeId !== null) return false;
+
+    const history = byItem.get(item.id) ?? [];
+    const entered = enteredCurrentStateAt(history, input.asOf);
+    if (entered === null) return false;
+
+    return input.asOf.getTime() - entered.getTime() >= input.stuckAfterMs;
+  });
+
+  return available(
+    {
+      unowned: stuck.length,
+      active: active.length,
+      share: stuck.length / active.length,
+      items: stuck.map((item) => item.id),
+    },
+    active.length,
+  );
+}
+
+/**
+ * When the item entered the state it is in at `asOf`.
+ *
+ * Not simply the last transition before `asOf`: an item bounced from
+ * `in_progress` to `in_review` and back is in `in_progress` since the *return*,
+ * and reading the first entry would age it from a state it has since left.
+ */
+function enteredCurrentStateAt(
+  history: readonly StateTransition[],
+  asOf: Date,
+): Date | null {
+  const upTo = history
+    .filter((transition) => transition.occurredAt.getTime() <= asOf.getTime())
+    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+
+  const last = upTo.at(-1);
+  if (!last) return null;
+
+  let entered = last.occurredAt;
+  for (let i = upTo.length - 2; i >= 0; i -= 1) {
+    const step = upTo[i];
+    if (step === undefined || step.toState !== last.toState) break;
+    entered = step.occurredAt;
+  }
+
+  return entered;
+}
+
+/**
  * Work in progress: items in an active state at an instant.
  *
  * `blocked` is excluded, following `isActiveState` in the domain: an item

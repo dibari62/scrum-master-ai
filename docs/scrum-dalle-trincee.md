@@ -143,16 +143,41 @@ Sono **avvisi**, non vincoli: il libro le chiama *guideline*.
 |---|---|---|---|
 | G1 | Storie da **2 a 8** punti. Velocity tipica di un team: 40–60. | «We normally strive for stories weighted two to eight man-days» (pag. 43) | ✅ `planningGuidelines` |
 | G2 | Da **5 a 15** storie per sprint. Meno di 5: storie troppo grandi. Più di 15: il team ha preso troppo. | pag. 43 | ✅ `planningGuidelines` |
-| G3 | Tech story: **10–20 %** della capacità. | «10-20% of our time is spent on tech stories» (pag. 47) | ⛔ **non implementabile**: manca il campo |
+| G3 | Tech story: **10-20 %** della capacità. | «10-20% of our time is spent on tech stories» (pag. 47) | — **il libro dice di non misurarlo** |
 
-> **Perché G3 non c'è, e non è una dimenticanza.** Il modello canonico non sa dire che
-> un elemento serve al codice invece che a una persona: `WorkItemKind` distingue storia,
-> bug, task, epic e spike, e nessuno di questi è una *tech story*. Dedurla dal tipo
-> sarebbe sbagliato — un `task` in Scrum è un pezzo di una storia, non una storia
-> tecnica — e una linea guida calcolata sull'insieme sbagliato è peggio di una assente,
-> perché sembra una risposta. Serve un campo, e quindi una decisione: è la prossima
-> voce del debito.
-
+> **Perché G3 non si calcola, e non è una dimenticanza né un debito.**
+> La prima lettura diceva «manca il campo per marcare una storia tecnica». Rileggendo
+> la sezione per intero è venuta fuori una cosa diversa, e più importante: **l'autore
+> dice esplicitamente di non tracciarlo.**
+>
+> > «**No need for elaborate tracking schemes** like focus factor or time reports,
+> > **just use gut feel.** Ask at the retro, "Roughly how much of our sprint capacity
+> > did we spend on tech stories, and did that feel about right?"» (pag. 48)
+>
+> Il 10-20 % non è una metrica: è un **accordo** fra squadra e Product Owner, e la
+> verifica che il libro prevede è una domanda in retrospettiva, a sensazione. Un
+> portale che ne calcolasse la percentuale insegnerebbe la pratica che l'autore
+> scarta due righe più sotto — e la calcolerebbe su un insieme che nessuno ha
+> definito, perché le tech story piccole «are just embedded into the day-to-day work»
+> e non compaiono da nessuna parte.
+>
+> **La parte della sezione che vale davvero è un'altra**, ed è una gerarchia in tre
+> passi (pag. 47):
+>
+> 1. **evitare** la tech story: trasformarla in una storia normale con valore
+>    misurabile, «that way the product owner has a better chance to make correct
+>    tradeoffs»;
+> 2. se non si può, farla come **task dentro un'altra storia** — «refactor the DAO
+>    layer» sta dentro «edit user»;
+> 3. solo se entrambe falliscono, tenerla in un **elenco separato**, visibile al
+>    Product Owner ma gestito dalla squadra.
+>
+> Un campo «questa è una tech story» implementerebbe il **terzo** passo per primo,
+> cioè insegnerebbe il ripiego prima dell'alternativa. Il passo 2 il portale lo
+> supporta già: un task dentro una storia è `parentId`, che esiste.
+>
+> Riclassificata quindi come le altre tre voci che non sono software: non manca del
+> codice, manca una ragione per scriverlo.
 
 ## 7. Il product backlog
 
@@ -175,7 +200,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Definition of Ready | 4 (2ª ed.) | ✅ `definitionOfReady` sul contesto, e `readinessCheck` verifica i tre campi che il libro nomina |
 | Calendario delle cerimonie | 4, 8 | ✅ `ceremonySchedule` |
 | Sprint info page | 5 | ✅ generata dai dati: obiettivo, elementi con «come si dimostra», date e cerimonie |
-| Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |
+| Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 6 dei 7 in `sprintHealth`, fra cui l'unico che il libro enuncia per esteso — S3, `unowned`. Resta fuori S6, che non lascia traccia nei dati |
 | Elementi non pianificati | 6 | ✅ `SprintScopeEvent.reason` distingue interruzione, aggiunta voluta e **non dichiarato**; `scopeChange` li conta separatamente |
 | Checklist della demo | 9 | ✅ le sei regole di pag. 82, e la **scaletta divisa in due**: storie da mostrare, correzioni e task da nominare soltanto |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
@@ -249,25 +274,43 @@ Quello che segue è dedotto da altri passaggi del libro, con la loro pagina.
 |---|---|---|---|
 | S1 | **Molte storie iniziate, nessuna conclusa.** Il valore del lavoro a metà è zero. | «The value of stuff half-done is zero (may in fact be negative)» (pag. 30); l'esempio della lavagna a pag. 60 distingue esplicitamente ciò che è concluso, parziale, iniziato e non iniziato | alta |
 | S2 | **Il lavoro in corso supera quello che la squadra riesce a reggere.** | gli avatar limitano il multitasking: «if each person only has like two magnets, that indirectly limits work in progress and multitasking. WTF, I'm out of avatars! Yeah, so stop starting and start finishing tasks!» (pag. 59) | alta |
-| S3 | **Un elemento fermo in lavorazione senza che si sappia chi ci sta lavorando.** | «Sometimes, for larger teams, a task gets stuck in *Checked out* because nobody remembers who was working on it» (pag. 59) | alta |
+| S3 | **Un elemento fermo in lavorazione senza che si sappia chi ci sta lavorando.** | «Sometimes, for larger teams, a task gets stuck in *Checked out* because nobody remembers who was working on it» (pag. 59) | alta — **l'unico enunciato per esteso**, e l'unico implementato leggendo il libro |
 | S4 | **Troppi elementi non pianificati.** | l'esempio di lavagna a pag. 60 tiene le interruzioni in un'area a sé — «We've had three unplanned items, as you can see down to the right. This is useful to remember when you do the sprint retrospective» — e la retrospettiva ha una voce apposita, «Too many external disturbances» (pag. 89) | alta |
 | S5 | **Il ritmo non porta a chiudere entro la fine.** | la linea di tendenza del burndown: «The dashed trend line shows that they are approximately on track, i.e. at this pace they will complete everything by the end of the sprint» (pag. 62) | alta |
 | S6 | **Qualcuno non sa cosa fare.** | un intero paragrafo, «Dealing with I don't know what to do today» (pag. 76-78), che nasce proprio dal guardare la lavagna insieme | media — il libro lo tratta al daily, non lo elenca fra i segnali |
 | S7 | **La squadra ha preso più di quanto chiude, sprint dopo sprint.** | «We overcommitted and only got half of the stuff done» fra gli esiti tipici della retrospettiva (pag. 89) | media — è un esito di retrospettiva, non un segnale di lavagna |
 
-**Cosa abbiamo già.** Cinque dei sette hanno un corrispettivo in `sprintHealth`: S1 e S5 in
-`progress`, S2 in `wip-limit`, S4 in `scope-added`, S7 indirettamente in `progress`. **Non
-li abbiamo ricavati dal libro** — li avevamo scelti noi, e la coincidenza è un buon segno,
-non una conferma.
+**Cosa abbiamo già.** Sei dei sette hanno un corrispettivo in `sprintHealth`: S1 e S5 in
+`progress`, S2 in `wip-limit`, S4 in `scope-added`, S7 indirettamente in `progress`, **S3 in
+`unowned`**. I primi cinque **non li abbiamo ricavati dal libro** — li avevamo scelti noi, e
+la coincidenza è un buon segno, non una conferma. S3 è l'eccezione: è l'unico segnale che il
+libro enuncia per esteso, ed è stato scritto **dopo** averlo letto.
 
-**Cosa manca.** S3 (elemento fermo senza titolare) e S6 (nessuno sa cosa fare) non sono
-misurabili oggi: il primo richiederebbe di distinguere «in lavorazione senza assegnatario»
-dal semplice aging, il secondo non lascia traccia nei dati.
+**Come è stato implementato S3, e perché due condizioni invece di una.** `unownedWorkInProgress`
+conta gli elementi in lavorazione senza assegnatario **da almeno un giorno**. La seconda
+condizione è ciò che lo rende un segnale invece che rumore: il libro dice «gets **stuck**», e
+un elemento spostato sulla lavagna dieci minuti fa e non ancora assegnato non è fermo — sotto
+la soglia «non ancora assegnato» e «appena iniziato» sono la stessa immagine, e nessun dato le
+separa. La soglia di un giorno è **nostra**: è l'intervallo fra due daily, cioè la riunione in
+cui l'elemento sarebbe stato notato.
+
+**Il caso che rende la misura onesta.** Un progetto che non compila mai il campo
+dell'assegnatario otterrebbe il 100 % di lavoro senza titolare e un semaforo rosso permanente:
+un rimprovero per non aver usato un campo facoltativo, non una lavagna bloccata. Quando nessun
+elemento dello sprint ha mai avuto un titolare la metrica risponde `no-qualifying-data`, **non
+zero e non uno**. È la stessa lezione di B3, dove l'assenza di stime veniva disegnata come una
+linea piatta a zero.
+
+**Cosa manca.** S6 (nessuno sa cosa fare) non è misurabile: non lascia traccia nei dati. Sta
+nella stessa categoria delle voci umane della checklist del capitolo 16 — dichiarate, non
+fatte sparire.
 
 > **Attenzione a S3 e §8.2.** «Chi ci sta lavorando» è a un passo dal contare quanto fa
-> ciascuno, che è la metrica vietata numero uno. Se verrà implementato, il segnale dovrà
-> dire *«un elemento è fermo e nessuno lo ha in carico»* — una proprietà dell'**elemento**
-> — mai *«questa persona ha troppi elementi»*.
+> ciascuno, che è la metrica vietata numero uno. **Implementato tenendo il vincolo**: il
+> segnale dice *«un elemento è fermo e nessuno lo ha in carico»* — una proprietà
+> dell'**elemento** — e non esiste la sua versione per persona. Il risultato elenca gli id
+> degli elementi, mai delle persone; il giudizio che finisce nell'interfaccia non contiene
+> nemmeno quelli. Due test lo verificano sulla **forma** del risultato, non sulle intenzioni.
 
 ### Ricostruzione B — Il mazzo di planning poker (pag. 38)
 

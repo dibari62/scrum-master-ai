@@ -14,13 +14,14 @@
  * canonical model.
  */
 
-/** The five signals, named for a reader rather than by their identifier. */
+/** The six signals, named for a reader rather than by their identifier. */
 export const SIGNAL_TITLES = {
   progress: "Avanzamento",
   "scope-added": "Lavoro aggiunto dopo l'inizio",
   "review-wait": "Attesa in revisione",
   "wip-limit": "Limite di lavoro in corso",
   aging: "Elementi fermi",
+  unowned: "Lavoro che nessuno ha in carico",
 } as const;
 
 /** The verdict itself, said in words rather than carried by a colour. */

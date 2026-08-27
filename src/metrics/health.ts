@@ -12,7 +12,11 @@ import { cycleTime, reviewWaitTime } from "./flow";
 import { totalEstimates } from "./estimates";
 import { groupByWorkItem, stateAt } from "./history";
 import { available, median, percentile, unavailable, type MetricResult } from "./result";
-import { membershipAt } from "./sprint";
+import {
+  membershipAt,
+  unownedWorkInProgress,
+  DEFAULT_UNOWNED_STUCK_AFTER_MS,
+} from "./sprint";
 
 /**
  * How the sprint that is still running is going.
@@ -109,15 +113,41 @@ export const HEALTH_THRESHOLDS = {
    */
   agingShareWatch: 0.15,
   agingShareCritical: 0.35,
+
+  /**
+   * Share of the items in progress that nobody holds, and has not for a day.
+   *
+   * **Ours**, like every threshold here, but with a weaker foundation than the
+   * others: the book's list of warning signs is a picture, so there is no
+   * number to be faithful to. Only the sign itself is quoted (pag. 59).
+   *
+   * One unheld item in ten is the sort of thing that happens on a Tuesday; a
+   * third of the board held by nobody is the situation the book describes,
+   * where the team has stopped knowing who is doing what.
+   */
+  unownedShareWatch: 0.1,
+  unownedShareCritical: 0.34,
 } as const;
 
-/** The five things looked at. Named so a finding can be traced to its rule. */
+/** The six things looked at. Named so a finding can be traced to its rule. */
 export type HealthSignalId =
   | "progress"
   | "scope-added"
   | "review-wait"
   | "wip-limit"
-  | "aging";
+  | "aging"
+  /**
+   * S3 della ricostruzione: un elemento in lavorazione che nessuno ha in carico.
+   *
+   * > «Sometimes, for larger teams, a task gets stuck in *Checked out* because
+   * > **nobody remembers who was working on it**» (pag. 59)
+   *
+   * **È una proprietà dell'elemento, mai della persona** (§8.2). Dice «questo
+   * elemento è preso in carico da nessuno», non «questa persona ne ha troppi»:
+   * la seconda formulazione sarebbe la metrica di performance individuale che
+   * §8.2 vieta, ed è a un passo da questa.
+   */
+  | "unowned";
 
 /**
  * Where a signal stands.
@@ -299,6 +329,7 @@ export function sprintHealth(input: SprintHealthInput): MetricResult<SprintHealt
     reviewWaitSignal(input, sprintItems, byItem),
     wipLimitSignal(input, byItem),
     agingSignal(input, sprintItems, byItem),
+    unownedSignal(input, sprintItems),
   ];
 
   const evaluated = signals.filter((signal) => signal.status !== "not-evaluable");
@@ -617,6 +648,51 @@ function agingSignal(
     {
       watch: HEALTH_THRESHOLDS.agingShareWatch,
       critical: HEALTH_THRESHOLDS.agingShareCritical,
+    },
+    "above",
+  );
+}
+
+/**
+ * Items in progress that nobody holds — the one warning sign the book states.
+ *
+ * The calculation lives in `unownedWorkInProgress`; here it is only turned
+ * into a verdict. Its `no-qualifying-data` becomes `not-evaluable` with the
+ * reason spelled out, because "this project does not record who holds an item"
+ * and "every item is held" are different situations and one of them is not
+ * good news.
+ */
+function unownedSignal(
+  input: SprintHealthInput,
+  sprintItems: readonly WorkItem[],
+): HealthSignal {
+  const id = "unowned";
+  const metricId = "unowned-work";
+
+  const result = unownedWorkInProgress({
+    items: sprintItems,
+    transitions: input.transitions,
+    asOf: input.asOf,
+    stuckAfterMs: DEFAULT_UNOWNED_STUCK_AFTER_MS,
+  });
+
+  if (!result.available) {
+    return UNKNOWN(
+      id,
+      metricId,
+      result.reason === "no-data"
+        ? "nessuna storia di stati: non si sa quali elementi siano in lavorazione"
+        : "lo sprint non ha lavoro in corso, oppure il progetto non registra chi prende in carico gli elementi",
+    );
+  }
+
+  return classify(
+    id,
+    metricId,
+    result.value.share,
+    {
+      watch: HEALTH_THRESHOLDS.unownedShareWatch,
+      critical: HEALTH_THRESHOLDS.unownedShareCritical,
     },
     "above",
   );

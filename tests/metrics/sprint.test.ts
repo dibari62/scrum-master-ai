@@ -15,6 +15,7 @@ import {
   sprintItemCount,
   throughput,
   totalEstimates,
+  unownedWorkInProgress,
   velocity,
   workInProgress,
   workItemsByState,
@@ -772,6 +773,177 @@ describe("workInProgress", () => {
     if (!during.available || !after.available) throw new Error("attese disponibili");
     expect(during.value).toBe(1);
     expect(after.value).toBe(0);
+  });
+});
+
+describe("unownedWorkInProgress", () => {
+  /*
+   * Il segnale di pag. 59: «a task gets stuck in Checked out because nobody
+   * remembers who was working on it».
+   *
+   * Una persona qualsiasi, che serve solo a dimostrare che il progetto compila
+   * il campo. Non compare in nessuna asserzione: la misura è una proprietà
+   * dell'elemento, e un test che guardasse *chi* sarebbe il primo passo verso
+   * la metrica per persona che §8.2 vieta.
+   */
+  const SOMEBODY = "11111111-0000-4000-8000-00000000000a";
+  const ASOF = new Date("2026-04-10T09:00:00.000Z");
+  const STUCK_AFTER = DAY;
+
+  it("conta gli elementi in lavorazione che nessuno ha in carico", () => {
+    const items = [
+      item({ id: ITEM_A, assigneeId: null }),
+      item({ id: ITEM_B, assigneeId: SOMEBODY }),
+    ];
+    const transitions = [
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.unowned).toBe(1);
+    expect(result.value.active).toBe(2);
+    expect(result.value.share).toBe(0.5);
+    expect(result.value.items).toEqual([ITEM_A]);
+  });
+
+  it("non è disponibile se nessun elemento ha mai avuto un assegnatario", () => {
+    /*
+     * Il caso che rende la metrica onesta.
+     *
+     * Un progetto che non usa il campo otterrebbe altrimenti il 100% e un
+     * semaforo rosso, cioè un rimprovero per non aver compilato un campo
+     * facoltativo. Non è una lavagna bloccata: è una colonna che non esiste.
+     */
+    const items = [
+      item({ id: ITEM_A, assigneeId: null }),
+      item({ id: ITEM_B, assigneeId: null }),
+    ];
+    const transitions = [
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    expect(result.available).toBe(false);
+    if (result.available) throw new Error("attesa non disponibile");
+    expect(result.reason).toBe("no-qualifying-data");
+  });
+
+  it("non conta un elemento senza titolare da meno della soglia", () => {
+    // Il libro dice «gets **stuck**»: un'ora non è essere fermi.
+    const items = [
+      item({ id: ITEM_A, assigneeId: null }),
+      item({ id: ITEM_B, assigneeId: SOMEBODY }),
+    ];
+    const transitions = [
+      move(null, "in_progress", "2026-04-10T08:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.unowned).toBe(0);
+  });
+
+  it("conta dall'ultimo ingresso nello stato attuale", () => {
+    /*
+     * Un elemento andato in revisione e tornato indietro due ore fa non è
+     * fermo da quattro giorni: ci è rientrato adesso. Leggere il primo
+     * ingresso lo invecchierebbe da uno stato che ha già lasciato.
+     */
+    const items = [
+      item({ id: ITEM_A, assigneeId: null }),
+      item({ id: ITEM_B, assigneeId: SOMEBODY }),
+    ];
+    const transitions = [
+      move(null, "in_progress", "2026-04-06T09:00:00.000Z", { workItemId: ITEM_A }),
+      move("in_progress", "in_review", "2026-04-09T09:00:00.000Z", { workItemId: ITEM_A }),
+      move("in_review", "in_progress", "2026-04-10T07:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_progress", "2026-04-08T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.unowned).toBe(0);
+  });
+
+  it("non guarda ciò che non è in lavorazione", () => {
+    // Un elemento nel backlog non ha titolare per definizione: contarlo
+    // renderebbe la misura priva di significato.
+    const items = [
+      item({ id: ITEM_A, assigneeId: null }),
+      item({ id: ITEM_B, assigneeId: SOMEBODY }),
+    ];
+    const transitions = [
+      move(null, "todo", "2026-04-06T09:00:00.000Z", { workItemId: ITEM_A }),
+      move(null, "in_progress", "2026-04-06T09:00:00.000Z", { workItemId: ITEM_B }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    if (!result.available) throw new Error("attesa disponibile");
+    expect(result.value.active).toBe(1);
+    expect(result.value.unowned).toBe(0);
+  });
+
+  it("non è disponibile senza lavoro in corso", () => {
+    const items = [item({ id: ITEM_A, assigneeId: SOMEBODY })];
+    const transitions = [
+      move(null, "done", "2026-04-06T09:00:00.000Z", { workItemId: ITEM_A }),
+    ];
+
+    const result = unownedWorkInProgress({
+      items,
+      transitions,
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    expect(result.available).toBe(false);
+  });
+
+  it("non è disponibile senza storia di stati", () => {
+    const result = unownedWorkInProgress({
+      items: [item({ id: ITEM_A, assigneeId: SOMEBODY })],
+      transitions: [],
+      asOf: ASOF,
+      stuckAfterMs: STUCK_AFTER,
+    });
+
+    expect(result.available).toBe(false);
+    if (result.available) throw new Error("attesa non disponibile");
+    expect(result.reason).toBe("no-data");
   });
 });
 
