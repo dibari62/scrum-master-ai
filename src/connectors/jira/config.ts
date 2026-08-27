@@ -106,3 +106,24 @@ export const jiraConfigSchema = z.object({
 });
 
 export type JiraConfig = z.infer<typeof jiraConfigSchema>;
+
+/**
+ * Who is reading, as opposed to what is read.
+ *
+ * Jira authenticates with the pair «account email + API token», so the address
+ * is half a credential. It is kept out of `jiraConfigSchema` on purpose: that
+ * schema describes a board, and mixing an identity into it would mean every
+ * test that builds a configuration has to invent an account.
+ *
+ * **Not a secret**, and the distinction is worth stating. An address
+ * identifies, it does not authorise; sealing it would mean never being able to
+ * show it back to the person who typed it, and «which account are we using?» is
+ * a question a screen has to be able to answer. The token, which does
+ * authorise, is sealed.
+ */
+export const jiraAccountSchema = z.object({
+  accountEmail: z.email(),
+});
+
+export type JiraAccount = z.infer<typeof jiraAccountSchema>;
+

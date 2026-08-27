@@ -12,6 +12,7 @@ import { CalendarForm } from "./calendar-form";
 import { IdentityForm } from "./identity-form";
 import { SettingsSections } from "./sections";
 import { SettingsForm } from "./settings-form";
+import { SyncPanel } from "./sync-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -118,12 +119,20 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
               label: "Dati",
               hint: describeConnectorShort(settings.connector, dataReady, settings.lastSyncedAt),
               content: (
-                <SettingsForm
-                  slug={project.slug}
-                  settings={settings}
-                  custodyReady={custodyReady}
-                  sezione="dati"
-                />
+                <>
+                  <SyncPanel
+                    slug={project.slug}
+                    connector={settings.connector}
+                    ready={dataReady}
+                    lastSyncedAt={settings.lastSyncedAt}
+                  />
+                  <SettingsForm
+                    slug={project.slug}
+                    settings={settings}
+                    custodyReady={custodyReady}
+                    sezione="dati"
+                  />
+                </>
               ),
             },
             {

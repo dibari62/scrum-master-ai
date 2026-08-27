@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useState } from "react";
 
@@ -182,6 +182,34 @@ export function SettingsForm({
   const [connector, setConnector] = useState<string>(settings.connector ?? "");
   const [brain, setBrain] = useState<string>(settings.brainProvider);
 
+  /**
+   * Il valore da rimettere in un campo: quello appena inviato, se c'è.
+   *
+   * Dopo un errore il modulo si ri-renderizza e i `defaultValue` tornano a
+   * quelli del server — che per una configurazione mai salvata sono vuoti.
+   * Senza questa funzione, sbagliare un campo su otto svuota gli altri sette.
+   *
+   * Le credenziali non compaiono mai qui: `submittedValues` le lascia fuori sul
+   * server, quindi non c'è modo di rimetterle nemmeno volendo.
+   */
+  const kept = (name: string, fallback: string): string =>
+    state.status === "error" ? (state.values?.[name] ?? fallback) : fallback;
+
+  /**
+   * Rimonta i campi quando torna un errore, e senza questo la correzione sopra
+   * non servirebbe a nulla.
+   *
+   * React azzera un modulo dopo aver eseguito la sua action, e `defaultValue`
+   * si applica **solo al montaggio**: cambiarlo su un campo già montato non
+   * tocca ciò che si vede. Cambiando la chiave i campi nascono di nuovo, e
+   * nascono con i valori appena inviati.
+   *
+   * La chiave deriva dai valori stessi, non da un contatore: due tentativi
+   * identici non hanno bisogno di rimontare nulla.
+   */
+  const formKey =
+    state.status === "error" ? JSON.stringify(state.values ?? {}) : "iniziale";
+
   const connectorNote = CONNECTORS.find((entry) => entry.value === connector)?.explanation;
   const chosenBrain = BRAINS.find((entry) => entry.value === brain);
 
@@ -189,7 +217,7 @@ export function SettingsForm({
   const canTypeSecret = sezione === "dati" ? connector === "jira" : !KEYLESS.has(brain);
 
   return (
-    <form action={action} className="grid gap-6">
+    <form key={formKey} action={action} className="grid gap-6">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="sezione" value={sezione} />
 
@@ -199,6 +227,13 @@ export function SettingsForm({
           className="border-destructive/40 text-destructive rounded-md border px-3 py-2 text-sm"
         >
           {state.message}
+          {state.secretLost ? (
+            <>
+              {" "}
+              <strong>La credenziale che avevi inserito va riscritta:</strong> non viene mai
+              rimandata al browser, nemmeno per ricompilare un modulo.
+            </>
+          ) : null}
         </p>
       ) : null}
 
@@ -261,7 +296,7 @@ export function SettingsForm({
               label="Indirizzo del sito Jira"
               placeholder="https://laMiaAzienda.atlassian.net"
               hint="Quello che compare nella barra del browser quando sei dentro Jira, senza barra finale."
-              defaultValue={configString(settings.connectorConfig, "siteUrl")}
+              defaultValue={kept("jiraSiteUrl", configString(settings.connectorConfig, "siteUrl"))}
               error={errorOf(state, "jiraSiteUrl")}
             />
 
@@ -270,8 +305,17 @@ export function SettingsForm({
               label="Chiave del progetto"
               placeholder="SMAI"
               hint="Il prefisso delle issue: in «SMAI-42» la chiave è SMAI."
-              defaultValue={configString(settings.connectorConfig, "projectKey")}
+              defaultValue={kept("jiraProjectKey", configString(settings.connectorConfig, "projectKey"))}
               error={errorOf(state, "jiraProjectKey")}
+            />
+
+            <Field
+              name="jiraAccountEmail"
+              label="Indirizzo dell'account Atlassian"
+              placeholder="nome.cognome@laMiaAzienda.it"
+              hint="Jira autentica con la coppia indirizzo + token: da solo il token non basta. Non è un segreto, quindi resta visibile."
+              defaultValue={kept("jiraAccountEmail", configString(settings.connectorConfig, "accountEmail"))}
+              error={errorOf(state, "jiraAccountEmail")}
             />
 
             <Field
@@ -280,7 +324,7 @@ export function SettingsForm({
               placeholder="7"
               inputMode="numeric"
               hint="Si legge nell'indirizzo della board Jira, dopo «rapidView=» o «boards/»."
-              defaultValue={configString(settings.connectorConfig, "boardId")}
+              defaultValue={kept("jiraBoardId", configString(settings.connectorConfig, "boardId"))}
               error={errorOf(state, "jiraBoardId")}
             />
 
@@ -292,7 +336,7 @@ export function SettingsForm({
                 rows={6}
                 className={TEXTAREA_CLASS}
                 placeholder={"To Do = todo\nIn Progress = in_progress\nIn Review = in_review\nDone = done"}
-                defaultValue={renderStateMapping(settings.connectorConfig)}
+                defaultValue={kept("jiraStateMapping", renderStateMapping(settings.connectorConfig))}
                 aria-invalid={errorOf(state, "jiraStateMapping") ? true : undefined}
               />
               {/*
@@ -333,7 +377,7 @@ export function SettingsForm({
                 "il nome e il portale lo leggerà. Altrimenti resta vuoto, e la Definition of " +
                 "Ready segnalerà la mancanza invece di far finta che ci sia."
               }
-              defaultValue={configString(settings.connectorConfig, "howToDemoFieldName")}
+              defaultValue={kept("jiraHowToDemoField", configString(settings.connectorConfig, "howToDemoFieldName"))}
               error={errorOf(state, "jiraHowToDemoField")}
             />
 
@@ -420,7 +464,7 @@ export function SettingsForm({
                   ? "Su OpenRouter il modello è la scelta principale: si scrive «fornitore/modello», per esempio anthropic/claude-3.5-sonnet."
                   : "Lascia vuoto per usare quello predefinito del fornitore, che è anche il più economico."
               }
-              defaultValue={settings.brainModel ?? ""}
+              defaultValue={kept("brainModel", settings.brainModel ?? "")}
               error={errorOf(state, "brainModel")}
             />
 
@@ -434,7 +478,7 @@ export function SettingsForm({
                   "indirizzo se è su un altro computer della rete, o se usi un gateway interno " +
                   "che espone la stessa interfaccia."
                 }
-                defaultValue={settings.brainBaseUrl ?? ""}
+                defaultValue={kept("brainBaseUrl", settings.brainBaseUrl ?? "")}
                 error={errorOf(state, "brainBaseUrl")}
               />
             ) : null}

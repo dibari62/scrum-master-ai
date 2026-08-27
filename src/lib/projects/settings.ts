@@ -12,7 +12,7 @@ import {
   type UpdateProjectSettingsInput,
   type WorkingCalendar,
 } from "@/domain";
-import { jiraConfigSchema } from "@/connectors/jira";
+import { jiraAccountSchema, jiraConfigSchema } from "@/connectors/jira";
 
 /**
  * Leggere il modulo delle impostazioni di un progetto.
@@ -233,6 +233,54 @@ function field(form: FormData, name: string): string | null {
 }
 
 /**
+ * I campi che non si rimandano mai indietro al browser.
+ *
+ * Ogni nome qui è una credenziale. Il criterio non è «sembra sensibile» ma
+ * «autorizza qualcosa»: un indirizzo di posta identifica e resta, un token
+ * autorizza e sparisce.
+ */
+const SECRET_FIELDS: ReadonlySet<string> = new Set(["connectorSecret", "brainApiKey"]);
+
+export type SubmittedValues = {
+  /** Quello che si può rimettere nel modulo senza pubblicare nulla. */
+  readonly values: Readonly<Record<string, string>>;
+  /** Se fra ciò che si è perso c'era una credenziale. */
+  readonly secretLost: boolean;
+};
+
+/**
+ * Ciò che era stato scritto, per rimetterlo nel modulo dopo un errore.
+ *
+ * **Perché serve.** Il modulo non è controllato: dopo un errore React
+ * ripristina i valori iniziali, che per una configurazione mai salvata sono
+ * vuoti. Sbagliare un campo su otto svuotava gli altri sette, incluso un token
+ * appena generato — e chi lo aveva copiato doveva tornare su Atlassian.
+ *
+ * **Perché i segreti restano fuori.** Un `value` in un `input` finisce
+ * nell'HTML che il browser riceve, quindi rimandare la chiave sarebbe la stessa
+ * fuga che la cifratura evita, fatta un livello più in là. Se ne perde uno, e
+ * `secretLost` esiste perché la schermata possa **dirlo** invece di lasciarlo
+ * scoprire al salvataggio successivo.
+ */
+export function submittedValues(form: FormData): SubmittedValues {
+  const values: Record<string, string> = {};
+  let secretLost = false;
+
+  for (const [name, raw] of form.entries()) {
+    if (typeof raw !== "string") continue;
+
+    if (SECRET_FIELDS.has(name)) {
+      if (raw.trim() !== "") secretLost = true;
+      continue;
+    }
+
+    values[name] = raw;
+  }
+
+  return { values, secretLost };
+}
+
+/**
  * What the form is asking to do with a secret.
  *
  * Three outcomes and not two. The form never shows the stored key — it cannot,
@@ -255,6 +303,17 @@ function secretFrom(
  * a Jira type outside `src/connectors/jira`, so the shape of a board is the
  * connector's business. The domain guarantees «there is a configuration»; the
  * connector guarantees «this one is usable».
+ *
+ * **`accountEmail` is stored alongside the configuration but is not part of it.**
+ * Jira authenticates with the pair «account email + API token», so the address
+ * belongs to the credential, not to the description of a board — and it is
+ * deliberately absent from `jiraConfigSchema`, which describes what to read
+ * rather than who is reading. It is kept here because it is the only place a
+ * project's connector settings live, and read back by a schema of its own.
+ *
+ * It is **not** a secret: an address identifies, it does not authorise. Sealing
+ * it would mean it could never be shown back to the person who typed it, and
+ * «which account are we using?» is a question a screen has to be able to answer.
  */
 function jiraConfigFrom(form: FormData, errors: SettingsFormError[]): Record<string, unknown> {
   const boardRaw = field(form, "jiraBoardId");
@@ -277,7 +336,18 @@ function jiraConfigFrom(form: FormData, errors: SettingsFormError[]): Record<str
     return {};
   }
 
-  return parsed.data;
+  const email = field(form, "jiraAccountEmail");
+  const emailParsed = jiraAccountSchema.safeParse({ accountEmail: email });
+
+  if (!emailParsed.success) {
+    errors.push({
+      field: "jiraAccountEmail",
+      message: "Serve l'indirizzo dell'account Atlassian a cui appartiene il token.",
+    });
+    return {};
+  }
+
+  return { ...parsed.data, ...emailParsed.data };
 }
 
 /** Maps a schema path back to the input the reader actually filled in. */

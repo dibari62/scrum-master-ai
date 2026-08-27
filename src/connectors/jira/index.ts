@@ -84,8 +84,13 @@ export function createJiraConnector(options: JiraConnectorOptions): Connector {
   };
 }
 
-export { jiraConfigSchema, DEFAULT_KIND_MAPPING, STATUS_CATEGORY_FALLBACK } from "./config";
-export type { JiraConfig } from "./config";
+export {
+  jiraAccountSchema,
+  jiraConfigSchema,
+  DEFAULT_KIND_MAPPING,
+  STATUS_CATEGORY_FALLBACK,
+} from "./config";
+export type { JiraAccount, JiraConfig } from "./config";
 export { translateSnapshot } from "./translate";
 export type { TranslationResult } from "./translate";
 export { jiraSnapshotSchema } from "./types";
