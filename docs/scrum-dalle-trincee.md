@@ -1,4 +1,4 @@
-# Scrum dalle trincee — mappa fra il libro e il codice
+﻿# Scrum dalle trincee — mappa fra il libro e il codice
 
 > Riferimento: Henrik Kniberg, *Scrum and XP from the Trenches*, 2ª edizione, InfoQ 2015.
 > Copia in `book/Scrum-and-XP-from-the-Trenches-2nd-edition.pdf`.
@@ -77,7 +77,7 @@ quanto sia.
 | F2 | `velocity stimata = man-days disponibili × focus factor` | 50 × 40 % ⇒ **20 punti** (pag. 31) | `src/metrics/planning.ts` → `estimatedVelocity`, metodo `focus-factor` | ✅ |
 | F3 | Focus factor predefinito per un team nuovo: **70 %** | «The default focus factor I use for new teams is usually 70%» (pag. 32) | `DEFAULT_FOCUS_FACTOR`, metodo `default-focus-factor` | ✅ |
 | Y1 | *Yesterday's weather*: velocity stimata = velocity dell'ultimo sprint, o media degli ultimi tre. | «pull in only as many story points as you got done last sprint (or the average of the last three sprints if you want to be fancy)» (pag. 89) | `src/metrics/planning.ts` → `yesterdaysWeather`, **metodo predefinito** | ✅ |
-| R4 | Dopo ogni sprint si confronta effettiva vs stimata. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `src/metrics/planning.ts` → `forecastVariance` | 🟡 il confronto si calcola, la revisione del piano no |
+| R4 | Dopo ogni sprint si confronta effettiva vs stimata. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `src/metrics/planning.ts` → `forecastVariance` | ✅ vedi la riga R4 della sezione seguente |
 
 > **Ogni riga ha un test che riproduce l'esempio stampato**, in
 > `tests/metrics/planning.test.ts`: 49,5 man-days (il libro arrotonda a 50), 18/45 = 40 %,
@@ -97,7 +97,7 @@ quanto sia.
 |---|---|---|---|---|
 | B1 | Punti ancora aperti, un punto per **giorno lavorativo**. I fine settimana si saltano. | «We skip weekends on the X-axis […] it would flatten out over weekends, which would look like a warning sign» (pag. 62) | `src/metrics/sprint.ts` → `burndown`, `src/domain/working-calendar.ts` | ✅ |
 | B2 | Linea di tendenza tratteggiata: dice se si è in rotta. | «The dashed trend line shows that they are approximately on track» (pag. 62) | `BurndownPoint.ideal` + `Burndown.totalWorkingDays` | ✅ |
-| B3 | Senza stime sui task, il burndown si può fare **contando i task**. | «just count the tasks instead of adding up the hours» (pag. 66) | `BurndownPoint.openCount` esiste già | 🟡 |
+| B3 | Senza stime sui task, il burndown si può fare **contando i task**. | «just count the tasks instead of adding up the hours» (pag. 66) | `BurndownPoint.openCount`, reso da `presentBurndown` | ✅ senza stime il grafico conta gli elementi, invece di disegnare una linea piatta a zero |
 | B4 | Il residuo di un giorno usa la stima di **quel** giorno: una ri-stima è parte della risposta corrente a «quanto manca». | pag. 62, per contrasto con V1 | `src/metrics/sprint.ts` → `burndown` | ✅ |
 
 ## 4. Pianificazione di rilascio
@@ -107,7 +107,7 @@ quanto sia.
 | R1 | Si tagliano gli sprint prendendo storie in ordine finché non si supera la velocity stimata. | «Each sprint includes as many stories as possible without exceeding the estimated velocity of 45» (pag. 100) | `src/metrics/release-plan.ts` → `releasePlan` | ✅ verificato **sull'esempio stampato** |
 | R2 | Soglie di accettazione: **must** / **should** / **may**. | «All items with importance >= 100 must be included in version 1.0» (pag. 97) | `src/domain/acceptance-threshold.ts` → `thresholdAtPosition`; `src/metrics/acceptance.ts` → `acceptanceCoverage` | ✅ **quattro** fasce, vedi nota |
 | R3 | Variante a intervallo: velocity 30–50 ⇒ liste **All / Some / None**. | «All: these will all be done even if our velocity is low (30)» (pag. 101) | `src/metrics/release-plan.ts` → `rangeForecast` | ✅ |
-| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | 🟡 il confronto si vede, la revisione automatica del piano no |
+| R4 | Dopo ogni sprint si confronta effettiva vs stimata e si rivede il piano. | «After each sprint, we look at the actual velocity […] we revise the estimated velocity for future sprints» (pag. 101) | `forecastVariance` + tabella «Previsto contro effettivo» | ✅ la revisione **avviene da sola**: il piano di rilascio legge il meteo di ieri, cioè la media degli ultimi tre sprint **chiusi**, quindi a ogni chiusura la velocity stimata e il piano si ricalcolano. Nel libro è un gesto che si può dimenticare; qui è una proprietà derivata |
 
 > **R2 sembrava dipendere da un campo che il libro stesso abbandona, e non era così.**
 > La regola d'esempio è scritta in termini di *importance* numerica — «items with
@@ -165,7 +165,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Importance | `backlogOrder` | ✅ l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementato come **ordine**, non come punteggio |
 | Initial estimate | `estimate` + `EstimateChange` | ✅ la storia è conservata; `estimate` resta la corrente |
 | How to demo | `howToDemo` | ✅ «essentially a simple test spec»; il seed lo riempie per la **testa** del backlog, come il libro |
-| Notes | `description` | 🟡 |
+| Notes | `description` | ✅ sesta colonna del backlog, popolata dal seed dove c'è qualcosa da chiarire |
 
 ## 8. Cerimonie e operatività
 
@@ -179,7 +179,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Elementi non pianificati | 6 | ✅ `SprintScopeEvent.reason` distingue interruzione, aggiunta voluta e **non dichiarato**; `scopeChange` li conta separatamente |
 | Checklist della demo | 9 | ✅ le sei regole di pag. 82, e la **scaletta divisa in due**: storie da mostrare, correzioni e task da nominare soltanto |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
-| Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; i punti chiave della retrospettiva non vi confluiscono ancora |
+| Statistiche di sprint | 16 | ✅ previsione, effettivo, scostamento e **i punti chiave della retrospettiva**, letti dall'entità che li contiene invece che ricopiati |
 | Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ✅ tutte e quattordici, con lo stato di ciascuna e **le umane dichiarate tali** |
 
 > **La checklist del capitolo 16 non è una voce fra le altre: ne nomina quattro.**

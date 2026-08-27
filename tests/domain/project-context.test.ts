@@ -237,13 +237,13 @@ describe("calendario delle cerimonie", () => {
 });
 
 describe("calendario lavorativo del progetto", () => {
-  it("un contesto nuovo lavora lunedì-venerdì, senza festività", () => {
+  it("un contesto nuovo lavora lunedÃ¬-venerdÃ¬, senza festivitÃ ", () => {
     /*
      * L'unico predefinito onesto.
      *
-     * È ciò che i dati sintetici già assumono, quindi adottarlo non cambia
-     * nessun numero già mostrato. Inventare invece le festività di un paese che
-     * nessuno ha dichiarato produrrebbe una capacità sbagliata con l'aria di
+     * Ãˆ ciÃ² che i dati sintetici giÃ  assumono, quindi adottarlo non cambia
+     * nessun numero giÃ  mostrato. Inventare invece le festivitÃ  di un paese che
+     * nessuno ha dichiarato produrrebbe una capacitÃ  sbagliata con l'aria di
      * essere stata configurata.
      */
     const context = createProjectContextInputSchema.parse({});
@@ -258,7 +258,7 @@ describe("calendario lavorativo del progetto", () => {
     expect(context.workingCalendar.holidays).toEqual([]);
   });
 
-  it("accetta una settimana diversa e le festività dichiarate", () => {
+  it("accetta una settimana diversa e le festivitÃ  dichiarate", () => {
     const context = createProjectContextInputSchema.parse({
       workingCalendar: {
         workingDays: ["monday", "tuesday", "wednesday", "thursday"],
@@ -272,7 +272,7 @@ describe("calendario lavorativo del progetto", () => {
 
   it("rifiuta un calendario senza giorni lavorativi", () => {
     // Renderebbe ogni ciclo che scorre i giorni o vuoto o infinito, a seconda
-    // di come è scritto.
+    // di come Ã¨ scritto.
     expect(() =>
       createProjectContextInputSchema.parse({
         workingCalendar: { workingDays: [], holidays: [] },

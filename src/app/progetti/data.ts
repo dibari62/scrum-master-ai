@@ -85,6 +85,19 @@ export type SprintMetrics = {
    * available and a stored copy could drift from them.
    */
   readonly forecastVariance: MetricResult<number> | null;
+
+  /**
+   * I punti chiave della retrospettiva di questo sprint.
+   *
+   * La checklist del capitolo 16 chiede di aggiornare le statistiche con «the
+   * actual velocity **and key points from the retrospective**» (pag. 163). Nel
+   * libro sono su un wiki e si ricopiano a mano; qui le due entità esistono già
+   * entrambe, quindi si **collegano** invece di duplicarle — una copia dei punti
+   * chiave accanto alle note originali divergerebbe alla prima correzione (R4).
+   *
+   * Vuoto quando la retrospettiva non è stata tenuta, o non ha lasciato note.
+   */
+  readonly retrospectiveKeyPoints: readonly string[];
 };
 
 export type ProjectDashboard = {
@@ -162,6 +175,8 @@ export async function loadProjectDashboard(
     peopleRows,
     agentRows,
     contextRows,
+    retroRows,
+    retroNoteRows,
   ] = await Promise.all([
     scope.reads.sprintsByProject(project.id),
     scope.reads.workItemsByProject(project.id),
@@ -172,7 +187,26 @@ export async function loadProjectDashboard(
     scope.reads.peopleByProject(project.id),
     scope.reads.scrumAgentByProject(project.id),
     scope.reads.projectContextByProject(project.id),
+    scope.reads.retrospectivesByProject(project.id),
+    scope.reads.retrospectiveNotesByProject(project.id),
   ]);
+
+  /*
+   * I punti chiave della retrospettiva, per sprint.
+   *
+   * La checklist del capitolo 16 chiede di aggiornare le statistiche con «the
+   * actual velocity **and key points from the retrospective**». Le due entità
+   * esistono già entrambe: si collegano, non si duplicano.
+   */
+  const keyPointsBySprint = new Map<string, string[]>();
+
+  for (const retro of retroRows) {
+    const notes = retroNoteRows
+      .filter((note) => note.retrospectiveId === retro.id)
+      .map((note) => note.text);
+
+    if (notes.length > 0) keyPointsBySprint.set(retro.sprintId, notes);
+  }
 
   /*
    * Il calendario della squadra, non quello predefinito.
@@ -234,6 +268,7 @@ export async function loadProjectDashboard(
             estimateChanges,
           )
         : null,
+      retrospectiveKeyPoints: keyPointsBySprint.get(sprint.id) ?? [],
     };
   });
 

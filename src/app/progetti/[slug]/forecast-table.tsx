@@ -33,6 +33,15 @@ const RETRACTED_METHODS: ReadonlySet<StoredForecastMethod> = new Set([
   "default-focus-factor",
 ]);
 
+/**
+ * Quanti punti chiave stanno in una cella prima di diventare un muro di testo.
+ *
+ * Tre: una retrospettiva ne produce dodici, e riportarli tutti trasformerebbe
+ * una tabella di confronto in un verbale. Il resto si conta, e la pagina delle
+ * retrospettive li ha tutti.
+ */
+const KEY_POINTS_SHOWN = 3;
+
 function varianceText(sprint: SprintMetrics): { text: string; tone: string } {
   const variance = sprint.forecastVariance;
 
@@ -85,7 +94,18 @@ export function ForecastTable({ sprints }: { readonly sprints: readonly SprintMe
               <th scope="col" className="py-2 pr-3 font-medium">Previsto</th>
               <th scope="col" className="py-2 pr-3 font-medium">Effettivo</th>
               <th scope="col" className="py-2 pr-3 font-medium">Scostamento</th>
-              <th scope="col" className="py-2 font-medium">Metodo</th>
+              <th scope="col" className="py-2 pr-3 font-medium">Metodo</th>
+              {/*
+               * La colonna che la checklist del capitolo 16 chiede.
+               *
+               * > «Update the sprint statistics page with the actual velocity
+               * > **and key points from the retrospective**» (pag. 163)
+               *
+               * Nel libro si ricopiano a mano su un wiki. Qui le note della
+               * retrospettiva esistono già come entità: si leggono da lì invece
+               * di copiarle, perché due copie divergono alla prima correzione.
+               */}
+              <th scope="col" className="py-2 font-medium">Dalla retrospettiva</th>
             </tr>
           </thead>
           <tbody>
@@ -112,8 +132,27 @@ export function ForecastTable({ sprints }: { readonly sprints: readonly SprintMe
                   <td className={`py-2 pr-3 tabular-nums ${variance.tone}`}>
                     {variance.text}
                   </td>
-                  <td className="text-muted-foreground py-2">
+                  <td className="text-muted-foreground py-2 pr-3">
                     {METHOD_LABELS[forecast.method]}
+                  </td>
+                  <td className="text-muted-foreground py-2">
+                    {entry.retrospectiveKeyPoints.length === 0 ? (
+                      // Un trattino, non «nessun punto»: una retrospettiva che
+                      // non ha lasciato note è diversa da una non tenuta, e
+                      // questa colonna non sa distinguerle.
+                      "—"
+                    ) : (
+                      <ul className="grid gap-0.5">
+                        {entry.retrospectiveKeyPoints.slice(0, KEY_POINTS_SHOWN).map((point) => (
+                          <li key={point}>{point}</li>
+                        ))}
+                        {entry.retrospectiveKeyPoints.length > KEY_POINTS_SHOWN ? (
+                          <li className="text-xs">
+                            e altri {entry.retrospectiveKeyPoints.length - KEY_POINTS_SHOWN}
+                          </li>
+                        ) : null}
+                      </ul>
+                    )}
                   </td>
                 </tr>
               );
