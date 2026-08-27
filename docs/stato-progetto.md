@@ -9,10 +9,20 @@
 > dei calcoli sono ora ancorate a un libro dichiarato, non a scelte nostre
 > ([ADR-0008](architecture/ADR-0008-fedelta-al-libro.md)).
 >
-> **Due cose sono cambiate oggi.** Il libro non ha più voci completamente aperte:
-> `npm run libro` dice **84,2 % fatto per intero**, e ciò che resta sono cinque
-> voci già cominciate più una bloccata su una decisione. Ed è nato il **primo
-> connettore verso uno strumento reale**: Jira Cloud
+> **Il libro è finito, per quanto un libro possa finire.** `npm run libro` dice
+> **97,3 % fatto per intero** — 36 voci su 37. L'unica non chiusa è «segnali
+> d'allarme della lavagna», e resta gialla **per onestà, non per lavoro
+> mancante**: la pagina che li elencava è un'immagine, sei dei sette segnali sono
+> implementati, e il settimo — «qualcuno non sa cosa fare» — non lascia traccia
+> nei dati. Nella stessa categoria delle voci umane della checklist del capitolo
+> 16: dichiarate, non fatte sparire.
+>
+> Due voci che sembravano debito non lo erano. **R4** (rivedere il piano dopo
+> ogni sprint) era già implementata da quando esiste il piano di rilascio. **G3**
+> (la quota di tech story) è una misura che il libro dice esplicitamente di *non*
+> costruire: «no need for elaborate tracking schemes […] just use gut feel».
+>
+> Ed è nato il **primo connettore verso uno strumento reale**: Jira Cloud
 > ([ADR-0009](architecture/ADR-0009-primo-connettore.md)).
 >
 > **Ed è stata presa una decisione di prodotto**: la chiave del modello la porta
@@ -662,7 +672,7 @@ lo verifica. La stessa verifica ha già trovato una voce che indicava il file di
 sbagliato — esattamente la deriva che il catalogo esiste per impedire.
 
 **T5 è cominciato, e la dashboard adesso dice qualcosa che nessuno ha chiesto.**
-Il semaforo sulla salute dello sprint in corso valuta cinque segnali contro
+Il semaforo sulla salute dello sprint in corso valuta **sei** segnali contro
 soglie scritte, e il giudizio complessivo è **il peggiore, mai la media**: una
 media lascerebbe che tre indicatori sereni seppelliscano quello serio. Nessun
 modello linguistico lo tocca (R1) — può raccontarlo, non deciderlo.
@@ -914,9 +924,23 @@ marcate come **nostre, non del libro** (decisione del Product Owner). Per i sett
 segnali d'allarme della lavagna ogni voce porta la prova testuale che la sostiene
 e la propria solidità; per il mazzo di planning poker la ricostruzione è quasi
 forzata — tredici carte, nove nominate nel testo, e una sola successione che
-soddisfa tutti i vincoli. Cinque dei sette segnali hanno già un corrispettivo in
-`sprintHealth`, che però **avevamo scelto noi prima di leggere il libro**: è un
-buon segno, non una conferma.
+soddisfa tutti i vincoli.
+
+**Sei dei sette segnali sono ora implementati, e uno solo di essi viene davvero
+dal libro.** Cinque avevamo già un corrispettivo in `sprintHealth`, scelto da noi
+**prima** di leggere il libro: è un buon segno, non una conferma. Il sesto —
+`unowned`, un elemento in lavorazione che nessuno ha in carico — è l'unico che il
+testo enuncia per esteso (pag. 59), ed è stato scritto dopo averlo letto. Il
+settimo, «qualcuno non sa cosa fare», non lascia traccia nei dati e non sarà
+implementato: sta con le voci umane della checklist del capitolo 16.
+
+> **Il vincolo che ha guidato `unowned`, non solo la sua revisione.** «Chi ci sta
+> lavorando» è a un passo dal contare quanto fa ciascuno (§8.2). Il segnale dice
+> *«questo elemento non è in carico a nessuno»* — una proprietà dell'**elemento**
+> — e la sua versione per persona non esiste. E quando un progetto non compila
+> mai il campo dell'assegnatario la misura risponde «non lo so», **non 100 %**:
+> altrimenti sarebbe un semaforo rosso permanente che rimprovera a una squadra di
+> non usare un campo facoltativo.
 
 ---
 
