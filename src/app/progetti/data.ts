@@ -3,6 +3,8 @@ import {
   healthVerdictSchema,
   personSchema,
   projectSchema,
+  workingCalendarSchema,
+  DEFAULT_WORKING_CALENDAR,
   sprintSchema,
   sprintScopeEventSchema,
   sprintStatisticsSchema,
@@ -159,6 +161,7 @@ export async function loadProjectDashboard(
     statisticsRows,
     peopleRows,
     agentRows,
+    contextRows,
   ] = await Promise.all([
     scope.reads.sprintsByProject(project.id),
     scope.reads.workItemsByProject(project.id),
@@ -168,7 +171,19 @@ export async function loadProjectDashboard(
     scope.reads.sprintStatisticsByProject(project.id),
     scope.reads.peopleByProject(project.id),
     scope.reads.scrumAgentByProject(project.id),
+    scope.reads.projectContextByProject(project.id),
   ]);
+
+  /*
+   * Il calendario della squadra, non quello predefinito.
+   *
+   * Senza, il burndown saltava sempre e solo i fine settimana: per una squadra
+   * italiana Ferragosto e Pasquetta venivano disegnati come giornate di lavoro
+   * fermo, cioè l'allarme fabbricato che il libro descrive a pag. 62.
+   */
+  const calendar = contextRows[0]
+    ? workingCalendarSchema.parse(contextRows[0].workingCalendar)
+    : DEFAULT_WORKING_CALENDAR;
 
   const sprints: Sprint[] = sprintRows.map((row) => sprintSchema.parse(row));
   const items: WorkItem[] = itemRows.map((row) =>
@@ -204,6 +219,7 @@ export async function loadProjectDashboard(
       carryOver: carryOver(sprint, items, transitions, scopeEvents, estimateChanges),
       burndown: burndown(sprint, items, transitions, scopeEvents, asOf, {
         estimateChanges,
+        calendar,
       }),
       flow: summariseFlow(sprintItems, sprintTransitions, asOf),
       itemCount: sprintItems.length,

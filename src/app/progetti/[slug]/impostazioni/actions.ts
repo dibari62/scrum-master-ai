@@ -7,7 +7,12 @@ import { organizationIdSchema, projectIdSchema } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
-import { mayConfigureSettings, parseIdentityForm, parseSettingsForm } from "@/lib/projects/settings";
+import {
+  mayConfigureSettings,
+  parseCalendarForm,
+  parseIdentityForm,
+  parseSettingsForm,
+} from "@/lib/projects/settings";
 import { secretsAvailable } from "@/lib/secrets";
 
 /**
@@ -196,4 +201,81 @@ export async function saveIdentityAction(
   revalidatePath(`/progetti/${slug}/impostazioni`);
 
   redirect(`/progetti/${slug}/impostazioni?salvato=1&sezione=anagrafica`);
+}
+
+/**
+ * Salvataggio del calendario lavorativo.
+ *
+ * Azione a sé, come le altre due: chi corregge una festività non deve rimandare
+ * anche la configurazione di Jira.
+ */
+export async function saveCalendarAction(
+  _previous: SettingsFormState,
+  form: FormData,
+): Promise<SettingsFormState> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  if (typeof slug !== "string") {
+    return { status: "error", message: "Progetto non indicato.", fields: {} };
+  }
+
+  if (!mayConfigureSettings(session.role)) {
+    return {
+      status: "error",
+      message: "Solo il proprietario o un amministratore può cambiare il calendario.",
+      fields: {},
+    };
+  }
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) {
+    return { status: "error", message: "Progetto non trovato.", fields: {} };
+  }
+
+  const parsed = parseCalendarForm(form);
+  if (!parsed.ok) {
+    const fields: Record<string, string> = {};
+    for (const error of parsed.errors) fields[error.field] = error.message;
+
+    return { status: "error", message: "Il calendario non va bene.", fields };
+  }
+
+  const projectId = projectIdSchema.parse(project.id);
+  const updated = await scope.writes.setWorkingCalendar(projectId, parsed.calendar);
+
+  if (updated.length === 0) {
+    /*
+     * Nessuna riga aggiornata: il progetto non ha un contesto.
+     *
+     * Succede quando lo Scrum Master AI non è mai stato creato — il contesto
+     * nasce con lui. Dirlo è meglio che riportare «salvato» su una scrittura
+     * che non è avvenuta, che è il modo per far perdere fiducia in ogni
+     * salvataggio successivo.
+     */
+    return {
+      status: "error",
+      message:
+        "Questo progetto non ha ancora un contesto di lavoro: si crea insieme allo " +
+        "Scrum Master AI. Crealo prima, poi il calendario si potrà dichiarare.",
+      fields: {},
+    };
+  }
+
+  /*
+   * Anche la panoramica e gli sprint, non solo questa pagina.
+   *
+   * Il calendario cambia **il disegno del burndown**, che sta là. Rivalidare
+   * solo le impostazioni mostrerebbe il calendario nuovo qui e il grafico
+   * vecchio altrove.
+   */
+  revalidatePath(`/progetti/${slug}`);
+  revalidatePath(`/progetti/${slug}/sprint`);
+  revalidatePath(`/progetti/${slug}/impostazioni`);
+
+  redirect(`/progetti/${slug}/impostazioni?salvato=1&sezione=calendario`);
 }

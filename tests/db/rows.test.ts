@@ -191,6 +191,7 @@ describe("conversione del ProjectContext", () => {
     definitionOfDone: ["Test verdi", "Revisione approvata"],
     definitionOfReady: ["Stima concordata", "Come si dimostra scritto"],
     estimationScale: "planning-poker",
+    workingCalendar: { workingDays: ["monday", "tuesday"], holidays: ["2026-08-15"] },
     acceptanceThresholds: { must: 3, should: 2, later: 1 },
     workingAgreement: null,
     stakeholders: [{ role: "Direzione commerciale", audience: "stakeholder" }],

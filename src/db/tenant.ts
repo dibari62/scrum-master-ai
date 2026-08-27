@@ -13,6 +13,7 @@ import type {
   UpdateProjectInput,
   UserId,
   WorkItemId,
+  WorkingCalendar,
 } from "@/domain";
 
 import type { Database } from "./client";
@@ -692,6 +693,25 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
       db
         .update(projectContexts)
         .set({ acceptanceThresholds: thresholds, updatedAt: new Date() })
+        .where(
+          and(
+            eq(projectContexts.organizationId, organizationId),
+            eq(projectContexts.projectId, projectId),
+          ),
+        )
+        .returning(),
+
+    /**
+     * Declares which days the team actually works.
+     *
+     * A writer of its own rather than a general "update the context", following
+     * the two above: a form that saves one field must not be able to overwrite
+     * the others with whatever it happened not to send.
+     */
+    setWorkingCalendar: (projectId: ProjectId, calendar: WorkingCalendar) =>
+      db
+        .update(projectContexts)
+        .set({ workingCalendar: calendar, updatedAt: new Date() })
         .where(
           and(
             eq(projectContexts.organizationId, organizationId),

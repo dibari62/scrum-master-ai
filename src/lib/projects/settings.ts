@@ -1,13 +1,16 @@
 import {
+  calendarDateSchema,
   connectorChoiceSchema,
   brainProviderSchema,
   updateBrainInputSchema,
   updateConnectorInputSchema,
   updateProjectInputSchema,
+  workingCalendarSchema,
   type ConnectorChoice,
   type OrganizationRole,
   type UpdateProjectInput,
   type UpdateProjectSettingsInput,
+  type WorkingCalendar,
 } from "@/domain";
 import { jiraConfigSchema } from "@/connectors/jira";
 
@@ -92,6 +95,63 @@ function fieldOf(form: FormData, name: string): string | null {
 
   const trimmed = raw.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Il calendario lavorativo: quali giorni si lavora, e quali sono festivi.
+ *
+ * Le festività arrivano come testo, una data per riga. Una riga malformata è
+ * segnalata **con il suo numero**: «la riga 3 non è una data» è qualcosa su cui
+ * si può agire, «calendario non valido» no.
+ */
+export type ParsedCalendarForm =
+  | { readonly ok: true; readonly calendar: WorkingCalendar }
+  | { readonly ok: false; readonly errors: readonly SettingsFormError[] };
+
+export function parseCalendarForm(form: FormData): ParsedCalendarForm {
+  const errors: SettingsFormError[] = [];
+
+  const workingDays = form
+    .getAll("workingDays")
+    .filter((value): value is string => typeof value === "string");
+
+  const holidays: string[] = [];
+  const raw = fieldOf(form, "holidays");
+
+  for (const [index, line] of (raw ?? "").split("\n").entries()) {
+    const trimmed = line.trim();
+    if (trimmed === "") continue;
+
+    if (!calendarDateSchema.safeParse(trimmed).success) {
+      errors.push({
+        field: "holidays",
+        message: `Riga ${index + 1}: «${trimmed}» non è una data nella forma AAAA-MM-GG.`,
+      });
+      continue;
+    }
+
+    /*
+     * Una data ripetuta non è un errore, ma non va conservata due volte.
+     *
+     * Chi incolla due elenchi sovrapposti — le nazionali più quelle aziendali —
+     * lo fa senza pensarci, e rifiutare il salvataggio per questo sarebbe
+     * pedanteria. Contarla due volte invece non cambierebbe nessun calcolo ma
+     * gonfierebbe l'elenco a ogni salvataggio.
+     */
+    if (!holidays.includes(trimmed)) holidays.push(trimmed);
+  }
+
+  const parsed = workingCalendarSchema.safeParse({ workingDays, holidays });
+
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      errors.push({ field: String(issue.path[0] ?? ""), message: issue.message });
+    }
+  }
+
+  if (errors.length > 0 || !parsed.success) return { ok: false, errors };
+
+  return { ok: true, calendar: parsed.data };
 }
 
 export type ParsedSettingsForm =

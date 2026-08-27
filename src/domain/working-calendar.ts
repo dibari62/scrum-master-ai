@@ -38,6 +38,34 @@ export const dayOfWeekSchema = z.enum([
 export type DayOfWeek = z.infer<typeof dayOfWeekSchema>;
 
 /**
+ * I sette giorni in ordine di settimana, non alfabetico.
+ *
+ * `z.enum().options` li restituisce nell'ordine di dichiarazione, che è già
+ * questo — ma dipenderci significherebbe che riordinare l'enum riordina una
+ * schermata. Dichiarato a parte, l'ordine è una scelta di chi mostra i giorni.
+ */
+export const ORDERED_DAYS: readonly DayOfWeek[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+/** Come si chiamano a chi legge. Abbreviati: sette nomi interi non stanno in riga. */
+export const DAY_LABELS: Readonly<Record<DayOfWeek, string>> = {
+  monday: "lun",
+  tuesday: "mar",
+  wednesday: "mer",
+  thursday: "gio",
+  friday: "ven",
+  saturday: "sab",
+  sunday: "dom",
+};
+
+/**
  * `Date.getUTCDay()` returns 0 for Sunday, so the array starts there.
  *
  * This offset is the entire reason `DayOfWeek` is a name and not a number: the

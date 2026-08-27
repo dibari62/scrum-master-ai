@@ -1,4 +1,5 @@
 import {
+  DEFAULT_WORKING_CALENDAR,
   impedimentSchema,
   projectSchema,
   retrospectiveSchema,
@@ -6,6 +7,7 @@ import {
   sprintScopeEventSchema,
   sprintStatisticsSchema,
   stateTransitionSchema,
+  workingCalendarSchema,
   workItemSchema,
   type OrganizationId,
   type Project,
@@ -123,7 +125,7 @@ export async function loadProjectSprints(
    * elemento e sprint dice dove l'elemento si trova adesso, e un elemento
    * trascinato in avanti farebbe rimpicciolire uno sprint già chiuso.
    */
-  const [sprintRows, scopeRows, itemRows, transitionRows, estimateRows, impedimentRows, retroRows, statsRows] =
+  const [sprintRows, scopeRows, itemRows, transitionRows, estimateRows, impedimentRows, retroRows, statsRows, contextRows] =
     await Promise.all([
       scope.reads.sprintsByProject(project.id),
       scope.reads.scopeEventsByProject(project.id),
@@ -133,6 +135,7 @@ export async function loadProjectSprints(
       scope.reads.impedimentsByProject(project.id),
       scope.reads.retrospectivesByProject(project.id),
       scope.reads.sprintStatisticsByProject(project.id),
+      scope.reads.projectContextByProject(project.id),
     ]);
 
   const sprints = sprintRows.map((row) => sprintSchema.parse(row));
@@ -145,6 +148,23 @@ export async function loadProjectSprints(
   const impediments = impedimentRows.map((row) => impedimentSchema.parse(row));
   const retrospectives = retroRows.map((row) => retrospectiveSchema.parse(row));
   const statistics = statsRows.map((row) => sprintStatisticsSchema.parse(row));
+
+  /*
+   * Il calendario della squadra, non quello predefinito.
+   *
+   * Il burndown salta i giorni non lavorativi, e senza questa riga saltava
+   * sempre e solo i fine settimana. Per una squadra italiana significava
+   * disegnare Ferragosto e Pasquetta come giornate di lavoro fermo — che è
+   * esattamente l'allarme fabbricato di cui il libro dice: «this would make the
+   * burn down slightly confusing, since it would flatten out […] **which would
+   * look like a warning sign**» (pag. 62).
+   *
+   * Un progetto senza contesto dichiarato usa il predefinito, che è ciò che i
+   * dati sintetici già assumono.
+   */
+  const calendar = contextRows[0]
+    ? workingCalendarSchema.parse(contextRows[0].workingCalendar)
+    : DEFAULT_WORKING_CALENDAR;
 
   const rows = sprints.map((sprint): SprintRow => {
     /*
@@ -165,6 +185,7 @@ export async function loadProjectSprints(
       itemCount: sprintItemCount(sprint, scopeEvents, asOf),
       burndown: burndown(sprint, items, transitions, scopeEvents, asOf, {
         estimateChanges,
+        calendar,
       }),
       guidelines: planningGuidelines(sprintItems),
       checklist: scrumMasterChecklist({
