@@ -103,7 +103,7 @@ export function isNotableVerdict(verdict: HealthVerdict): boolean {
 }
 
 /**
- * The five signals, named once.
+ * The six signals, named once.
  *
  * A closed set, so a narration cannot anchor an observation to something that
  * does not exist. Written here rather than imported from `src/metrics` because
@@ -115,6 +115,7 @@ export const healthSignalIdSchema = z.enum([
   "review-wait",
   "wip-limit",
   "aging",
+  "unowned",
 ]);
 
 export type HealthSignalId = z.infer<typeof healthSignalIdSchema>;

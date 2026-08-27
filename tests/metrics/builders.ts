@@ -91,6 +91,7 @@ export function item(
     sprintId: string | null;
     backlogOrder: number | null;
     howToDemo: string | null;
+    assigneeId: string | null;
   }> = {},
 ): WorkItem {
   return workItemSchema.parse({
@@ -111,7 +112,7 @@ export function item(
     backlogOrder: overrides.backlogOrder ?? null,
     howToDemo: overrides.howToDemo ?? null,
     sprintId: overrides.sprintId ?? null,
-    assigneeId: null,
+    assigneeId: overrides.assigneeId ?? null,
     sourceCreatedAt: overrides.sourceCreatedAt ?? "2026-04-06T08:00:00.000Z",
     parentId: null,
     createdAt: overrides.sourceCreatedAt ?? "2026-04-06T08:00:00.000Z",

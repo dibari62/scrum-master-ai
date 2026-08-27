@@ -28,11 +28,13 @@ const BLOCKED = "\u26D4";
  *
  * 1. **R4 compare due volte**, nella sezione sulla previsione e in quella sul
  *    piano di rilascio, perché appartiene a entrambe. È una regola sola.
- * 2. **Tre righe non sono lavoro di sviluppo.** Y3 («nel dubbio prendi meno
+ * 2. **Quattro righe non sono lavoro di sviluppo.** Y3 («nel dubbio prendi meno
  *    storie») ed E4 («si stima il lavoro totale») sono regole per le persone;
- *    E3 è una conversione che il libro stesso dichiara superata. Sono marcate
- *    «—» nella mappa, e contarle come «da fare» direbbe che manca del software
- *    che non deve esistere.
+ *    E3 è una conversione che il libro stesso dichiara superata; **G3** è la
+ *    quota di tech story, che l'autore dice esplicitamente di non tracciare —
+ *    «no need for elaborate tracking schemes […] just use gut feel» (pag. 48).
+ *    Sono marcate «—» nella mappa, e contarle come «da fare» direbbe che manca
+ *    del software che non deve esistere.
  * 3. **S1-S7 non sono regole del libro.** Sono la *nostra* ricostruzione di una
  *    figura che il PDF non lascia leggere, dichiarata come tale nella mappa.
  */

@@ -181,6 +181,16 @@ export function presentSignal(signal: HealthSignal): PresentedSignal {
             : `Il ${formatPercent(measured)} degli elementi aperti è fermo da più di quanto questo progetto impieghi di solito.`,
         figures: `${formatPercent(measured)} degli elementi aperti · soglia ${formatPercent(threshold)}`,
       };
+
+    case "unowned":
+      return {
+        title,
+        explanation:
+          signal.status === "respected"
+            ? "Di ogni elemento in lavorazione si sa chi lo ha in carico."
+            : `Il ${formatPercent(measured)} del lavoro in corso è senza titolare da più di un giorno: sulla lavagna sono i cartellini che nessuno ricorda di aver preso.`,
+        figures: `${formatPercent(measured)} del lavoro in corso · soglia ${formatPercent(threshold)}`,
+      };
   }
 }
 

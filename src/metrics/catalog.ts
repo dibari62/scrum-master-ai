@@ -842,6 +842,72 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/sprint.test.ts",
   },
   {
+    id: "unowned-work",
+    name: "Lavoro in corso senza titolare",
+    question:
+      "Quanti elementi sono in lavorazione senza che nessuno li abbia presi in carico, e da abbastanza tempo perché sia un problema?",
+    formula:
+      "Fra gli elementi dello sprint che risultano «in lavorazione» o «in revisione» nell'istante richiesto, quelli senza assegnatario da almeno un giorno, divisi per il totale degli elementi in lavorazione.",
+    unit: "ratio",
+    excludes: [
+      "Gli elementi presi in carico da poco: sotto il giorno di soglia «non ancora assegnato» e «appena iniziato» sono la stessa immagine, e nessun dato le separa.",
+      "Tutto ciò che non è in lavorazione: un elemento fermo nel backlog non ha titolare per definizione, e contarlo renderebbe la misura priva di significato.",
+    ],
+    unavailableWhen:
+      "Lo sprint non ha lavoro in corso, oppure il progetto non registra mai chi prende in carico gli elementi.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads:
+          "il solo campo assigneeId, per sapere se l'elemento è in carico a qualcuno — mai a chi",
+      },
+      {
+        entity: "StateTransition",
+        reads: "la storia di ogni elemento, per sapere se è in lavorazione e da quando",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante richiesto, passato dal chiamante",
+    },
+    operation: "ratio",
+    summarisedBy: [],
+    sampleSizeMeaning:
+      "quanti elementi risultano in lavorazione, cioè il denominatore della quota — non quanti sono senza titolare",
+    referenceInstant: "parametro asOf",
+    edgeCases: [
+      {
+        situation: "Il progetto non compila mai il campo dell'assegnatario.",
+        outcome:
+          "Nessun valore, con motivo «no-qualifying-data». **Non il 100%**: un campo che il progetto non usa non è una lavagna bloccata, e segnalarlo in rosso significherebbe rimproverare a un team di non usare un campo facoltativo.",
+        verifiedBy: "non è disponibile se nessun elemento ha mai avuto un assegnatario",
+      },
+      {
+        situation: "Un elemento è stato messo in lavorazione un'ora fa e non è ancora assegnato.",
+        outcome:
+          "Non è contato: il libro dice «gets **stuck**», e un'ora non è essere fermi.",
+        verifiedBy: "non conta un elemento senza titolare da meno della soglia",
+      },
+      {
+        situation:
+          "Un elemento è passato in revisione e poi è tornato in lavorazione due ore fa.",
+        outcome:
+          "L'attesa si conta dal **ritorno**, non dal primo ingresso: l'elemento non è fermo da allora, ci è rientrato.",
+        verifiedBy: "conta dall'ultimo ingresso nello stato attuale",
+      },
+      {
+        situation: "Lo sprint non ha alcun elemento in lavorazione.",
+        outcome: "Nessun valore: non esiste il denominatore, e zero su zero non è zero.",
+        verifiedBy: "non è disponibile senza lavoro in corso",
+      },
+    ],
+    decision:
+      "Ricostruita, non citata. Il libro nomina questo segnale a pag. 59 («a task gets stuck in Checked out because nobody remembers who was working on it») ma l'elenco completo dei segnali di pag. 63 è un'immagine: la soglia di un giorno e le percentuali sono **nostre**. Vincolo §8.2: la misura è una proprietà dell'elemento — «nessuno lo ha in carico» — e non esiste né esisterà la sua versione per persona.",
+    sourceFile: "src/metrics/sprint.ts",
+    sourceSymbol: "unownedWorkInProgress",
+    testFile: "tests/metrics/sprint.test.ts",
+  },
+  {
     id: "items-by-state",
     name: "Elementi per stato",
     question: "Quanti elementi si trovano in ciascuno stato del flusso in questo momento?",
