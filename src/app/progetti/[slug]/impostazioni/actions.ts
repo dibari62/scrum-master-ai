@@ -5,14 +5,16 @@ import { redirect } from "next/navigation";
 
 import { organizationIdSchema, projectIdSchema } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
-import { writeProjectSettings } from "@/db/project-settings";
+import { readProjectSettings, writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import {
   mayConfigureSettings,
   parseCalendarForm,
   parseIdentityForm,
   parseSettingsForm,
+  submittedValues,
 } from "@/lib/projects/settings";
+import { describeReport, synchroniseProject } from "@/lib/projects/sync";
 import { secretsAvailable } from "@/lib/secrets";
 
 /**
@@ -34,7 +36,38 @@ export type SettingsFormState =
       readonly status: "error";
       readonly message: string;
       readonly fields: Readonly<Record<string, string>>;
+      /**
+       * Ciò che era stato scritto, per non farlo perdere.
+       *
+       * **Trovato provando, non da un test.** Sbagliare un campo su otto
+       * svuotava gli altri sette: il modulo non è controllato, quindi un
+       * ri-render dopo l'azione ripristinava i valori del server — che per una
+       * configurazione mai salvata sono vuoti. Chi aveva appena generato un
+       * token su Atlassian e compilato la board doveva ricominciare.
+       *
+       * **I segreti non tornano mai indietro**, e non è una svista: un `value`
+       * in un `input` finisce nell'HTML che il browser riceve, quindi
+       * rimandarlo sarebbe la stessa fuga che la cifratura evita, fatta un
+       * livello più in là. Se ne perde uno, e la schermata lo dice invece di
+       * lasciarlo scoprire al salvataggio successivo.
+       */
+      readonly values?: Readonly<Record<string, string>>;
+      /** Se fra i campi persi c'era una credenziale, così si può dirlo. */
+      readonly secretLost?: boolean;
     };
+
+/**
+ * L'esito di una lettura.
+ *
+ * Distinto da `SettingsFormState` perché non ha campi: un errore di
+ * sincronizzazione non si attacca a una casella del modulo, riguarda l'intera
+ * operazione. Riusare l'altro tipo avrebbe portato un `fields` sempre vuoto,
+ * cioè una promessa che nessuno mantiene.
+ */
+export type SyncFormState =
+  | { readonly status: "idle" }
+  | { readonly status: "error"; readonly message: string }
+  | { readonly status: "done"; readonly message: string; readonly at: string };
 
 export async function saveSettingsAction(
   _previous: SettingsFormState,
@@ -76,10 +109,14 @@ export async function saveSettingsAction(
     const fields: Record<string, string> = {};
     for (const error of parsed.errors) fields[error.field] = error.message;
 
+    const submitted = submittedValues(form);
+
     return {
       status: "error",
       message: "Alcuni campi non vanno bene. Sono segnalati qui sotto.",
       fields,
+      values: submitted.values,
+      secretLost: submitted.secretLost,
     };
   }
 
@@ -96,6 +133,8 @@ export async function saveSettingsAction(
     typeof parsed.input.brainApiKey === "string";
 
   if (bringsSecret && !secretsAvailable()) {
+    const submitted = submittedValues(form);
+
     return {
       status: "error",
       message:
@@ -103,6 +142,8 @@ export async function saveSettingsAction(
         "quindi non può conservare credenziali in modo sicuro. Le altre impostazioni " +
         "si salvano lo stesso: togli la credenziale e riprova.",
       fields: {},
+      values: submitted.values,
+      secretLost: submitted.secretLost,
     };
   }
 
@@ -278,4 +319,80 @@ export async function saveCalendarAction(
   revalidatePath(`/progetti/${slug}/impostazioni`);
 
   redirect(`/progetti/${slug}/impostazioni?salvato=1&sezione=calendario`);
+}
+
+/**
+ * «Leggi ora»: una sincronizzazione, su richiesta.
+ *
+ * Sottile come le altre — ogni decisione sta in `src/lib/projects/sync.ts` — ma
+ * con una differenza che vale la pena nominare: questa azione **non** rimanda
+ * con un redirect di conferma. Le altre salvano un modulo, e il redirect serve
+ * a far sopravvivere «salvato» al rimontaggio. Qui c'è un esito da leggere —
+ * quante righe, o perché no — e un redirect lo butterebbe via.
+ */
+export async function synchroniseAction(
+  _previous: SyncFormState,
+  form: FormData,
+): Promise<SyncFormState> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  if (typeof slug !== "string") {
+    return { status: "error", message: "Progetto non indicato." };
+  }
+
+  /*
+   * Lo stesso controllo di ruolo del salvataggio, e per una ragione in più.
+   *
+   * Una lettura consuma la quota di chiamate del cliente sul suo Jira. Un
+   * pulsante raggiungibile da chiunque sia entrato è un modo per spendere una
+   * risorsa altrui senza esserne responsabili.
+   */
+  if (!mayConfigureSettings(session.role)) {
+    return {
+      status: "error",
+      message: "Solo il proprietario o un amministratore può avviare una lettura.",
+    };
+  }
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const db = getDatabase();
+  const scope = forOrganization(db, organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) return { status: "error", message: "Progetto non trovato." };
+
+  const projectId = projectIdSchema.parse(project.id);
+  const settings = await readProjectSettings(organizationId, projectId, db);
+
+  const outcome = await synchroniseProject({
+    organizationId,
+    projectId,
+    settings,
+    asOf: new Date(),
+    db,
+  });
+
+  if (outcome.status !== "done") {
+    return { status: "error", message: outcome.message };
+  }
+
+  /*
+   * Tutto ciò che mostra numeri, non solo questa pagina.
+   *
+   * Una lettura riuscita cambia il burndown, la salute dello sprint e gli
+   * elenchi. Rivalidare solo le impostazioni direbbe «letti 340 elementi» sopra
+   * una dashboard che mostra ancora quelli di ieri.
+   */
+  revalidatePath(`/progetti/${slug}`);
+  revalidatePath(`/progetti/${slug}/sprint`);
+  revalidatePath(`/progetti/${slug}/elementi`);
+  revalidatePath(`/progetti/${slug}/impostazioni`);
+
+  return {
+    status: "done",
+    message: describeReport(outcome.report),
+    at: outcome.at.toISOString(),
+  };
 }

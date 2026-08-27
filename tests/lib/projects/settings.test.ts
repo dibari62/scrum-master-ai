@@ -7,6 +7,7 @@ import {
   parseSettingsForm,
   parseStateMapping,
   renderStateMapping,
+  submittedValues,
 } from "@/lib/projects/settings";
 
 /**
@@ -25,6 +26,61 @@ function form(values: Record<string, string>): FormData {
 }
 
 const MINIMO = { brainProvider: "fake", sezione: "modello" };
+
+describe("quello che si è scritto non si perde per un campo sbagliato", () => {
+  /*
+   * Il difetto che questi test bloccano è stato trovato **provando**, non da
+   * una verifica: sbagliare un campo su otto svuotava gli altri sette, incluso
+   * un token appena generato su Atlassian.
+   */
+
+  it("restituisce i campi inviati, per rimetterli nel modulo", () => {
+    const submitted = submittedValues(
+      form({
+        jiraSiteUrl: "https://esempio.atlassian.net",
+        jiraProjectKey: "SMAI",
+        jiraBoardId: "7",
+      }),
+    );
+
+    expect(submitted.values["jiraSiteUrl"]).toBe("https://esempio.atlassian.net");
+    expect(submitted.values["jiraProjectKey"]).toBe("SMAI");
+    expect(submitted.values["jiraBoardId"]).toBe("7");
+  });
+
+  it("non restituisce mai una credenziale", () => {
+    /*
+     * §8.3, un livello più in là della cifratura.
+     *
+     * Un `value` in un `input` finisce nell'HTML che il browser riceve:
+     * rimandare la chiave per ricompilare il modulo sarebbe la stessa fuga che
+     * la cifratura evita, fatta dove nessuno la cerca.
+     */
+    const submitted = submittedValues(
+      form({ jiraProjectKey: "SMAI", connectorSecret: "token-vero", brainApiKey: "chiave-vera" }),
+    );
+
+    expect(submitted.values).not.toHaveProperty("connectorSecret");
+    expect(submitted.values).not.toHaveProperty("brainApiKey");
+    expect(JSON.stringify(submitted.values)).not.toContain("token-vero");
+    expect(JSON.stringify(submitted.values)).not.toContain("chiave-vera");
+  });
+
+  it("dichiara che una credenziale è andata persa, invece di tacerlo", () => {
+    // Chi ha appena copiato un token deve sapere che va riscritto, non
+    // scoprirlo al salvataggio successivo quando la lettura fallisce.
+    const submitted = submittedValues(form({ connectorSecret: "token-vero" }));
+
+    expect(submitted.secretLost).toBe(true);
+  });
+
+  it("non dichiara una perdita quando non c'era nessuna credenziale", () => {
+    // Un avviso che compare sempre è un avviso che nessuno legge.
+    const submitted = submittedValues(form({ jiraProjectKey: "SMAI", connectorSecret: "" }));
+
+    expect(submitted.secretLost).toBe(false);
+  });
+});
 
 describe("le due metà si salvano senza toccarsi", () => {
   it("salvare il modello non nomina il connettore", () => {
@@ -60,6 +116,7 @@ describe("le due metà si salvano senza toccarsi", () => {
         jiraProjectKey: "SMAI",
         jiraBoardId: "7",
         jiraStateMapping: "To Do = todo",
+        jiraAccountEmail: "scrum@esempio.it",
       }),
     );
 
@@ -276,6 +333,7 @@ describe("la configurazione Jira", () => {
     jiraProjectKey: "SMAI",
     jiraBoardId: "7",
     jiraStateMapping: "To Do = todo\nDone = done",
+    jiraAccountEmail: "scrum@esempio.it",
     brainProvider: "fake",
   };
 
@@ -287,6 +345,33 @@ describe("la configurazione Jira", () => {
       expect(parsed.input.connector).toBe("jira");
       expect(parsed.input.connectorConfig?.["projectKey"]).toBe("SMAI");
       expect(parsed.input.connectorConfig?.["boardId"]).toBe(7);
+      expect(parsed.input.connectorConfig?.["accountEmail"]).toBe("scrum@esempio.it");
+    }
+  });
+
+  it("pretende l'indirizzo dell'account, che è metà della credenziale", () => {
+    /*
+     * Jira autentica con la coppia indirizzo + token.
+     *
+     * Senza, la configurazione sembrerebbe completa e la prima lettura
+     * tornerebbe 401 — mandando a controllare il token, che è l'unica cosa
+     * giusta. Chiederlo qui costa un campo; non chiederlo costa un pomeriggio.
+     */
+    const { jiraAccountEmail: _omesso, ...senzaEmail } = JIRA;
+    const parsed = parseSettingsForm(form(senzaEmail));
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((error) => error.field === "jiraAccountEmail")).toBe(true);
+    }
+  });
+
+  it("rifiuta un indirizzo di posta che non è un indirizzo", () => {
+    const parsed = parseSettingsForm(form({ ...JIRA, jiraAccountEmail: "scrum-chiocciola" }));
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.errors.some((error) => error.field === "jiraAccountEmail")).toBe(true);
     }
   });
 
