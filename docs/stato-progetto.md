@@ -14,6 +14,12 @@
 > voci già cominciate più una bloccata su una decisione. Ed è nato il **primo
 > connettore verso uno strumento reale**: Jira Cloud
 > ([ADR-0009](architecture/ADR-0009-primo-connettore.md)).
+>
+> **Ed è stata presa una decisione di prodotto**: la chiave del modello la porta
+> chi usa il portale ([ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md)).
+> Costo zero per noi, nessun legame con un fornitore — e in cambio l'obbligo di
+> custodire segreti altrui, che ora sono cifrati a riposo. La configurazione si
+> inserisce da `/progetti/<nome>/impostazioni`.
 
 ---
 
@@ -593,7 +599,8 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
-| **Jira Cloud** | 🟡 codice pronto, **nessuna istanza** | il connettore supera l'intera suite di conformità su una risposta registrata, e il client HTTP è scritto e provato con un `fetch` finto. Manca l'unica cosa che un agente non può fare: un account Atlassian gratuito e un token ([spec, questione aperta 1](../specs/connettore-jira/spec.md)) |
+| **Jira Cloud** | 🟡 codice pronto, **nessuna istanza** | il connettore supera l'intera suite di conformità su una risposta registrata, e il client HTTP è scritto e provato con un `fetch` finto. La configurazione ora si inserisce da `/progetti/<nome>/impostazioni`. Manca l'unica cosa che un agente non può fare: un account Atlassian gratuito e un token ([spec, questione aperta 1](../specs/connettore-jira/spec.md)) |
+| **Custodia dei segreti** | 🟡 attiva in locale, **non in produzione** | `SECRETS_KEY` esiste in `.env.local` e la cifratura è verificata sui dati veri — nel database ci sono solo valori `v1.…`. Su Vercel la variabile **non c'è**: il sito pubblicato accetta la configurazione ma rifiuta le credenziali, e lo dichiara in cima alla schermata invece di perderle in silenzio |
 
 > **Che cosa significa quel giallo, e perché non è verde.** Tutto ciò che
 > *decide* è scritto e verificato; ciò che manca è ciò che *telefona a un
@@ -1012,6 +1019,10 @@ Cose note e volutamente rimandate, non sviste:
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |
 | **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |
 | La previsione non si può registrare dall'interfaccia | — | oggi le righe arrivano solo dal connettore. Serve un'azione «registra la previsione» sullo sprint aperto, con il vincolo che vale la pena scrivere ora: **si registra all'inizio, e per uno sprint già chiuso non si registra affatto** — sarebbe inventare un piano che il team non ha mai fatto |
+| **Gemini e Groq non sono collegati ai loro SDK** | [ADR-0005](architecture/ADR-0005-provider-llm.md), `src/lib/llm/gateway.ts` | `defaultProviders` restituisce due segnaposto che si dichiarano non configurati, e il gateway li salta. La schermata delle impostazioni **lo dice**, perché tacerlo manderebbe qualcuno a generare una credenziale per scoprire poi che non succede nulla — e il sospetto cadrebbe sulla chiave, non su di noi. È il prossimo passo perché la scelta di ADR-0010 diventi utile |
+| La configurazione del progetto non alimenta ancora nulla | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | connettore e chiave si dichiarano, si cifrano e si conservano, ma nessuno le legge per sincronizzare davvero: manca l'azione «leggi ora» e il job che la richiama. `markSynchronised` esiste e non viene mai chiamata |
+| **Ruotare `SECRETS_KEY` richiede di riscrivere ogni riga cifrata** | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | lo strumento che ricifra **non esiste**. Perdere o cambiare la chiave principale significa perdere ogni segreto già conservato: vanno reinserite le credenziali, una per progetto. Scritto accanto alla variabile in `.env.example`, dove lo legge chi sta per toccarla |
+| `SECRETS_KEY` non è fra le variabili di Vercel | [messa-in-linea](messa-in-linea.md) | finché non c'è, il sito pubblicato accetta la configurazione ma **rifiuta le credenziali** e lo dichiara in cima alla schermata. Va generata **nuova**, diversa da quella di sviluppo, per la stessa ragione di `AUTH_SECRET` |
 | **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | traduzione e client sono scritti e provati su risposte registrate, e la conformità passa per intero. Manca l'unica cosa che un agente non può procurarsi: un account Atlassian gratuito e un token. Finché non c'è, «funziona» significa «funziona su ciò che abbiamo registrato noi» |
 | La configurazione Jira non si compila da nessuna parte | [spec](../specs/connettore-jira/spec.md) §9 | dominio, chiave del progetto, board e mappatura degli stati sono validati da uno schema Zod, ma nessuna tabella li conserva e nessuna schermata li chiede. Il connettore si costruisce oggi solo da codice |
 | La mappatura degli stati Jira va scritta a mano | [spec](../specs/connettore-jira/spec.md), questione aperta 2 | il ripiego su `statusCategory` copre tre stati; i nostri sono sei. Una coda di revisione arriva come «in corso» finché qualcuno non dichiara il contrario, e il portale lo **segnala** invece di tacerlo |

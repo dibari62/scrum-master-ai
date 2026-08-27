@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
-import { brainReady, connectorReady } from "@/domain";
+import { connectorReady } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 
@@ -49,11 +49,6 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
     connector: settings.connector,
     connectorConfig: settings.connectorConfig,
     connectorSecret: settings.connectorSecret.configured ? "v1.x.y.z" : null,
-  });
-
-  const modelReady = brainReady({
-    brainProvider: settings.brainProvider,
-    brainApiKey: settings.brainApiKey.configured ? "v1.x.y.z" : null,
   });
 
   return (
@@ -104,9 +99,7 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
               Modello:{" "}
               {settings.brainProvider === "fake"
                 ? "nessuno"
-                : modelReady
-                  ? "pronto"
-                  : "in attesa di una chiave"}
+                : "configurato, collegamento non ancora scritto"}
             </p>
             <p className="text-muted-foreground">{describeBrain(settings.brainProvider)}</p>
           </div>
@@ -191,5 +184,16 @@ function describeBrain(provider: string): string {
     );
   }
 
-  return "La chiave è tua: il consumo lo paghi tu, e puoi cambiare fornitore quando vuoi.";
+  /*
+   * La verità sullo stato del portale, non su quello del fornitore.
+   *
+   * Il collegamento verso Gemini e Groq è deciso (ADR-0005) e non ancora
+   * scritto: il gateway li salta. Scrivere «pronto» qui sarebbe la bugia più
+   * costosa della pagina, perché a crederla si smette di cercare la ragione per
+   * cui i testi restano segnaposto.
+   */
+  return (
+    "La chiave è tua e viene custodita cifrata, ma il collegamento verso questo fornitore " +
+    "non è ancora scritto: i testi restano segnaposto."
+  );
 }
