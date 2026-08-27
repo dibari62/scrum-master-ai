@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { PRICING } from "@/lib/llm";
+
 import {
   isKnownSkillKey,
   isSkillAvailable,
@@ -129,9 +131,29 @@ describe("insiemi chiusi del registro (criterio 13)", () => {
     expect([...triggerSchema.options].sort()).toEqual(["event", "on_demand", "scheduled"]);
   });
 
-  it("i fornitori includono quello fittizio, che non è un ripiego", () => {
-    // È ciò che permette a test ed eval di girare senza rete e senza chiave.
-    expect([...llmProviderSchema.options].sort()).toEqual(["fake", "gemini", "groq"]);
+  it("il fornitore fittizio esiste, e non è un ripiego", () => {
+    /*
+     * L'elenco cresce — con ADR-0010 la scelta è di chi usa il portale, non
+     * nostra — quindi il test non lo enumera più: sarebbe una seconda copia
+     * della stessa lista, da aggiornare a ogni fornitore aggiunto, cioè
+     * esattamente ciò che R4 vieta.
+     *
+     * Ciò che deve restare vero è che `fake` c'è: è quello che permette a test
+     * ed eval di girare senza rete e senza chiave.
+     */
+    expect(llmProviderSchema.options).toContain("fake");
+  });
+
+  it("ogni fornitore ha un prezzo dichiarato", () => {
+    /*
+     * `PRICING` è tipizzato `Record<LlmProvider, …>`, quindi il compilatore
+     * costringe già a dichiararlo. Questo test difende la cosa che il
+     * compilatore non vede: che la data di rilevazione sia scritta, così l'età
+     * di una cifra è visibile invece che presunta.
+     */
+    for (const provider of llmProviderSchema.options) {
+      expect(PRICING[provider].quotedOn.length, `${provider} senza data`).toBeGreaterThan(0);
+    }
   });
 });
 

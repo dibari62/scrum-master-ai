@@ -64,19 +64,20 @@ const CONNECTORS = [
  * What each model is, and what it costs the person choosing it.
  *
  * **`ready` dice la verità sullo stato del portale, non su quello del
- * fornitore.** Groq è deciso in ADR-0005 e dichiarato nel modello, ma non è
- * ancora collegato al proprio SDK: il gateway lo salta e la capacità fallisce
- * con «fornitore non collegato».
+ * fornitore**: un fornitore dichiarato nel modello ma non collegato al proprio
+ * adattatore verrebbe saltato dal gateway, e la capacità fallirebbe con
+ * «fornitore non collegato». Tacerlo manderebbe qualcuno a registrarsi su un
+ * sito e generare una credenziale per scoprire poi che non succede nulla — e il
+ * sospetto cadrebbe sulla chiave, non su di noi.
  *
- * Tacerlo qui sarebbe la cosa peggiore che questa pagina possa fare: manderebbe
- * qualcuno a registrarsi su un sito, generare una credenziale e incollarla, per
- * scoprire poi che non succede nulla — e a quel punto il sospetto cadrebbe sulla
- * chiave, non su di noi.
+ * L'ordine non è alfabetico: prima chi non chiede nulla, poi chi ha un piano
+ * gratuito, poi chi si paga. Chi legge un elenco lo legge dall'alto.
  */
 const BRAINS = [
   {
     value: "fake",
     label: "Nessuno — risposte finte",
+    badge: "gratis",
     ready: true,
     explanation:
       "Non chiama nessuno e non costa nulla. I numeri restano veri (li calcola il codice); " +
@@ -84,23 +85,74 @@ const BRAINS = [
       "procurarsi una chiave.",
   },
   {
-    value: "gemini",
-    label: "Google Gemini",
+    value: "ollama",
+    label: "Ollama — un modello che gira da te",
+    badge: "i dati non escono",
     ready: true,
     explanation:
-      "Ha un piano gratuito con un limite giornaliero, e la chiave si genera su " +
-      "aistudio.google.com. Se non indichi un modello viene usato gemini-2.0-flash, che è " +
-      "il più economico della famiglia.",
+      "L'unica scelta in cui il testo dei ticket non lascia la tua rete. Richiede Ollama " +
+      "installato e in esecuzione; nessuna chiave, nessun costo per chiamata. Più lento di " +
+      "un servizio in rete, e su una macchina senza scheda grafica anche parecchio.",
+  },
+  {
+    value: "gemini",
+    label: "Google Gemini",
+    badge: "piano gratuito",
+    ready: true,
+    explanation:
+      "Piano gratuito con un limite giornaliero. La chiave si genera su aistudio.google.com. " +
+      "Senza un modello indicato viene usato gemini-2.0-flash.",
   },
   {
     value: "groq",
-    label: "Groq (non ancora collegato)",
-    ready: false,
+    label: "Groq",
+    badge: "piano gratuito",
+    ready: true,
     explanation:
-      "Veloce, con un piano gratuito, e la chiave si genera su console.groq.com. La " +
-      "configurazione si conserva ma il collegamento non è ancora scritto.",
+      "Molto veloce, con un piano gratuito. La chiave si genera su console.groq.com. " +
+      "Predefinito: llama-3.3-70b-versatile.",
+  },
+  {
+    value: "openai",
+    label: "OpenAI",
+    badge: "a consumo",
+    ready: true,
+    explanation:
+      "Il più diffuso. La chiave si genera su platform.openai.com/api-keys e richiede un " +
+      "metodo di pagamento. Predefinito: gpt-4o-mini, il più economico della famiglia.",
+  },
+  {
+    value: "anthropic",
+    label: "Anthropic (Claude)",
+    badge: "a consumo",
+    ready: true,
+    explanation:
+      "La chiave si genera su console.anthropic.com. Predefinito: claude-3-5-haiku, il più " +
+      "economico della famiglia.",
+  },
+  {
+    value: "mistral",
+    label: "Mistral",
+    badge: "europeo",
+    ready: true,
+    explanation:
+      "Fornitore europeo: per un'azienda europea che ragiona su dove finiscono i propri dati " +
+      "non è un dettaglio di gusto. La chiave si genera su console.mistral.ai.",
+  },
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    badge: "una chiave, tutti i modelli",
+    ready: true,
+    explanation:
+      "Un intermediario: con una chiave sola si raggiungono i modelli di quasi tutti i " +
+      "fornitori, scegliendoli per nome nel campo qui sotto. Utile per provarne diversi senza " +
+      "aprire un conto per ciascuno. Il costo dipende dal modello scelto.",
   },
 ] as const;
+
+/** Providers that answer without a credential: asking for one would lock them out. */
+const KEYLESS = new Set<string>(["fake", "ollama"]);
 
 function errorOf(state: SettingsFormState, field: string): string | undefined {
   return state.status === "error" ? state.fields[field] : undefined;
@@ -110,10 +162,20 @@ export function SettingsForm({
   slug,
   settings,
   custodyReady,
+  sezione,
 }: {
   readonly slug: string;
   readonly settings: SafeProjectSettings;
   readonly custodyReady: boolean;
+  /**
+   * Quale metà mostra questo modulo.
+   *
+   * Due moduli e non uno, e la divisione arriva fino all'azione: salvare il
+   * connettore non deve toccare il modello. Il campo nascosto è ciò che dice al
+   * server quale metà è stata inviata — senza, l'altra arriverebbe vuota e
+   * verrebbe scritta come tale.
+   */
+  readonly sezione: "dati" | "modello";
 }) {
   const [state, action, pending] = useActionState(saveSettingsAction, INITIAL);
 
@@ -123,9 +185,13 @@ export function SettingsForm({
   const connectorNote = CONNECTORS.find((entry) => entry.value === connector)?.explanation;
   const chosenBrain = BRAINS.find((entry) => entry.value === brain);
 
+  /** L'avviso sulla custodia serve solo dove si può digitare una credenziale. */
+  const canTypeSecret = sezione === "dati" ? connector === "jira" : !KEYLESS.has(brain);
+
   return (
-    <form action={action} className="grid gap-8">
+    <form action={action} className="grid gap-6">
       <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="sezione" value={sezione} />
 
       {state.status === "error" ? (
         <p
@@ -136,12 +202,12 @@ export function SettingsForm({
         </p>
       ) : null}
 
-      {!custodyReady ? (
+      {!custodyReady && canTypeSecret ? (
         /*
          * Detto prima, non dopo il tentativo.
          *
-         * Scoprirlo al salvataggio significherebbe averla già copiata dal sito
-         * del fornitore per niente.
+         * Scoprirlo al salvataggio significherebbe aver già copiato la
+         * credenziale dal sito del fornitore per niente.
          */
         <p
           role="alert"
@@ -156,9 +222,9 @@ export function SettingsForm({
         </p>
       ) : null}
 
+      {sezione === "dati" ? (
       <section className="grid gap-4">
         <header className="grid gap-1">
-          <h2 className="text-lg font-semibold">Da dove arrivano i dati</h2>
           <p className="text-muted-foreground text-sm">
             Il portale non inventa nulla: sprint, elementi e la loro storia arrivano da qui.
             Senza un collegamento le schermate restano vuote — correttamente.
@@ -285,10 +351,11 @@ export function SettingsForm({
           </div>
         ) : null}
       </section>
+      ) : null}
 
+      {sezione === "modello" ? (
       <section className="grid gap-4">
         <header className="grid gap-1">
-          <h2 className="text-lg font-semibold">Il modello che scrive i testi</h2>
           <p className="text-muted-foreground text-sm">
             <strong>I numeri non passano mai di qui.</strong> Velocity, burndown, cycle time e
             tutto il resto li calcola il codice, e il modello li riceve già scritti: il suo
@@ -311,7 +378,7 @@ export function SettingsForm({
           >
             {BRAINS.map((entry) => (
               <option key={entry.value} value={entry.value}>
-                {entry.label}
+                {entry.label} · {entry.badge}
               </option>
             ))}
           </select>
@@ -338,9 +405,7 @@ export function SettingsForm({
           >
             <strong>Questo fornitore non è ancora collegato.</strong> Puoi salvare la
             configurazione e la chiave viene custodita cifrata, ma finché il collegamento non
-            è scritto lo Scrum Master AI continuerà a rispondere con testi segnaposto. Se
-            vuoi solo vedere come funziona il portale, lascia <em>Nessuno</em>: non cambia
-            nulla e non ti costa una chiave.
+            è scritto lo Scrum Master AI continuerà a rispondere con testi segnaposto.
           </p>
         ) : null}
 
@@ -349,31 +414,80 @@ export function SettingsForm({
             <Field
               name="brainModel"
               label="Modello (facoltativo)"
-              placeholder="gemini-2.0-flash"
-              hint="Lascia vuoto per usare quello predefinito del fornitore."
+              placeholder={modelPlaceholder(brain)}
+              hint={
+                brain === "openrouter"
+                  ? "Su OpenRouter il modello è la scelta principale: si scrive «fornitore/modello», per esempio anthropic/claude-3.5-sonnet."
+                  : "Lascia vuoto per usare quello predefinito del fornitore, che è anche il più economico."
+              }
               defaultValue={settings.brainModel ?? ""}
               error={errorOf(state, "brainModel")}
             />
 
-            <SecretField
-              name="brainApiKey"
-              label="Chiave API"
-              presence={settings.brainApiKey}
-              disabled={!custodyReady}
-              hint="Viene cifrata prima di essere conservata, e non viene mai rimandata al browser."
-              error={errorOf(state, "brainApiKey")}
-            />
+            {brain === "ollama" ? (
+              <Field
+                name="brainBaseUrl"
+                label="Indirizzo di Ollama (facoltativo)"
+                placeholder="http://localhost:11434/v1"
+                hint={
+                  "Lascia vuoto se Ollama gira sulla stessa macchina del portale. Indica un " +
+                  "indirizzo se è su un altro computer della rete, o se usi un gateway interno " +
+                  "che espone la stessa interfaccia."
+                }
+                defaultValue={settings.brainBaseUrl ?? ""}
+                error={errorOf(state, "brainBaseUrl")}
+              />
+            ) : null}
+
+            {KEYLESS.has(brain) ? (
+              /*
+               * Nessun campo per la chiave, e detto perché.
+               *
+               * Mostrare un campo vuoto per una credenziale che non serve
+               * lascerebbe il dubbio di aver dimenticato qualcosa, e prima o poi
+               * qualcuno ci incollerebbe dentro una chiave a caso.
+               */
+              <p className="text-muted-foreground text-sm">
+                Nessuna credenziale da inserire: il modello gira sulla tua macchina e non
+                c&apos;è un fornitore a cui autenticarsi.
+              </p>
+            ) : (
+              <SecretField
+                name="brainApiKey"
+                label="Chiave API"
+                presence={settings.brainApiKey}
+                disabled={!custodyReady}
+                hint="Viene cifrata prima di essere conservata, e non viene mai rimandata al browser."
+                error={errorOf(state, "brainApiKey")}
+              />
+            )}
           </div>
         ) : null}
       </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-3 border-t pt-6">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvataggio…" : "Salva le impostazioni"}
+          {pending ? "Salvataggio…" : "Salva"}
         </Button>
       </div>
     </form>
   );
+}
+
+/** The vendor's own default, shown as a hint of what «vuoto» will mean. */
+function modelPlaceholder(provider: string): string {
+  const defaults: Readonly<Record<string, string>> = {
+    gemini: "gemini-2.0-flash",
+    openai: "gpt-4o-mini",
+    anthropic: "claude-3-5-haiku-latest",
+    mistral: "mistral-small-latest",
+    groq: "llama-3.3-70b-versatile",
+    openrouter: "google/gemini-2.0-flash-001",
+    ollama: "llama3.1",
+  };
+
+  return defaults[provider] ?? "";
 }
 
 function Field({

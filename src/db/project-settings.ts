@@ -83,6 +83,7 @@ export async function readProjectSettings(
     lastSyncedAt: settings.lastSyncedAt,
     brainProvider: settings.brainProvider,
     brainModel: settings.brainModel,
+    brainBaseUrl: settings.brainBaseUrl,
     brainApiKey: presenceOf(settings.brainApiKey, settings.brainApiKeyUpdatedAt),
     brainApiKeyUpdatedAt: settings.brainApiKeyUpdatedAt,
     createdAt: settings.createdAt,
@@ -143,11 +144,16 @@ export async function revealProjectSecret(
  * modulo non restituisce mai una chiave a un browser, quindi un modulo non può
  * rimandarla indietro — e un campo assente che cancellasse la chiave farebbe
  * perdere la configurazione a ogni salvataggio.
+ *
+ * **Accetta metà input.** La schermata è divisa in schede, quindi arrivano invii
+ * che parlano solo del connettore o solo del modello: ciò che non è nominato
+ * resta com'è. Con un input intero obbligatorio, salvare una scheda cancellerebbe
+ * l'altra.
  */
 export async function writeProjectSettings(
   organizationId: OrganizationId,
   projectId: ProjectId,
-  input: UpdateProjectSettingsInput,
+  input: Partial<UpdateProjectSettingsInput>,
   now: Date,
   db: Database = getDatabase(),
 ): Promise<void> {
@@ -156,19 +162,26 @@ export async function writeProjectSettings(
   const connectorSecret = nextSecret(existing?.connectorSecret ?? null, input.connectorSecret);
   const brainApiKey = nextSecret(existing?.brainApiKey ?? null, input.brainApiKey);
 
+  /** Ciò che il modulo non ha nominato resta com'è, o assume il predefinito. */
+  const keep = <Value>(sent: Value | undefined, stored: Value | null, fallback: Value): Value =>
+    sent !== undefined ? sent : (stored ?? fallback);
+
   const values = {
     organizationId,
     projectId,
-    connector: input.connector,
-    connectorConfig: input.connectorConfig,
+    connector: input.connector !== undefined ? input.connector : (existing?.connector ?? null),
+    connectorConfig: keep(input.connectorConfig, existing?.connectorConfig ?? null, {}),
     connectorSecret: connectorSecret.value,
     connectorSecretUpdatedAt: connectorSecret.changed
       ? connectorSecret.value === null
         ? null
         : now
       : (existing?.connectorSecretUpdatedAt ?? null),
-    brainProvider: input.brainProvider,
-    brainModel: input.brainModel,
+    brainProvider: keep(input.brainProvider, existing?.brainProvider ?? null, "fake" as const),
+    brainModel:
+      input.brainModel !== undefined ? input.brainModel : (existing?.brainModel ?? null),
+    brainBaseUrl:
+      input.brainBaseUrl !== undefined ? input.brainBaseUrl : (existing?.brainBaseUrl ?? null),
     brainApiKey: brainApiKey.value,
     brainApiKeyUpdatedAt: brainApiKey.changed
       ? brainApiKey.value === null

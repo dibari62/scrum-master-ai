@@ -118,6 +118,16 @@ export const projectSettingsSchema = z.object({
    */
   brainModel: z.string().trim().min(1).max(120).nullable(),
 
+  /**
+   * Overrides the vendor's address: a local model, or a company gateway.
+   *
+   * `url()` and not a plain string: the value goes into a `fetch`, and a
+   * malformed one would produce a call to a relative address of the portal
+   * itself — surfacing as «the provider is not answering», which is the wrong
+   * place to look.
+   */
+  brainBaseUrl: z.url().max(300).nullable(),
+
   brainApiKey: sealedSecretSchema.nullable(),
   brainApiKeyUpdatedAt: timestampSchema.nullable(),
 
@@ -133,8 +143,14 @@ export type ProjectSettings = z.infer<typeof projectSettingsSchema>;
  * exist unencrypted, between a browser and a server action — and are sealed
  * before touching a column. Undefined means «leave what is there»: a form that
  * shows no key cannot send one back, so an absent field must not erase one.
+ *
+ * **Diviso in due metà, e non è pignoleria.** La schermata mostra il connettore
+ * e il modello in due schede, quindi arrivano due invii distinti. Con un unico
+ * schema, salvare il connettore manderebbe un modello vuoto — e cancellerebbe la
+ * configurazione dell'altra scheda senza che nessuno l'abbia chiesto. Sono due
+ * decisioni indipendenti e vanno scritte come tali.
  */
-export const updateProjectSettingsInputSchema = z.object({
+export const updateConnectorInputSchema = z.object({
   connector: connectorChoiceSchema.nullable(),
   connectorConfig: connectorConfigSchema,
 
@@ -146,11 +162,23 @@ export const updateProjectSettingsInputSchema = z.object({
    * sono richieste diverse e una sola delle due deve cancellare qualcosa.
    */
   connectorSecret: z.string().min(1).max(500).nullable().optional(),
+});
 
+export type UpdateConnectorInput = z.infer<typeof updateConnectorInputSchema>;
+
+export const updateBrainInputSchema = z.object({
   brainProvider: brainProviderSchema,
   brainModel: z.string().trim().min(1).max(120).nullable(),
+  brainBaseUrl: z.url().max(300).nullable(),
   brainApiKey: z.string().min(1).max(500).nullable().optional(),
 });
+
+export type UpdateBrainInput = z.infer<typeof updateBrainInputSchema>;
+
+/** Both halves at once, for a caller that genuinely has both. */
+export const updateProjectSettingsInputSchema = updateConnectorInputSchema.extend(
+  updateBrainInputSchema.shape,
+);
 
 export type UpdateProjectSettingsInput = z.infer<typeof updateProjectSettingsInputSchema>;
 
@@ -169,6 +197,7 @@ export const UNCONFIGURED_SETTINGS = {
   lastSyncedAt: null,
   brainProvider: "fake",
   brainModel: null,
+  brainBaseUrl: null,
   brainApiKey: null,
   brainApiKeyUpdatedAt: null,
 } as const satisfies Omit<
@@ -177,17 +206,31 @@ export const UNCONFIGURED_SETTINGS = {
 >;
 
 /**
+ * Providers that answer without a credential.
+ *
+ * `fake` because it calls nobody. `ollama` because it runs on the customer's own
+ * machine: demanding a key would lock out the one option in which the text of
+ * the tickets never leaves the company, which is also the option with the
+ * strongest reason to be chosen.
+ */
+const KEYLESS_PROVIDERS: ReadonlySet<BrainProvider> = new Set(["fake", "ollama"]);
+
+/**
  * Whether the project can actually reach a model.
  *
- * `fake` can: it answers without calling anyone. Every other provider needs the
- * key the customer brings, and saying so before a skill fails is the difference
- * between a screen that explains and one that breaks.
+ * Saying so before a skill fails is the difference between a screen that
+ * explains and one that breaks.
  */
 export function brainReady(settings: {
   readonly brainProvider: BrainProvider;
   readonly brainApiKey: string | null;
 }): boolean {
-  return settings.brainProvider === "fake" || settings.brainApiKey !== null;
+  return KEYLESS_PROVIDERS.has(settings.brainProvider) || settings.brainApiKey !== null;
+}
+
+/** Whether a provider needs a credential at all, for a form that must not demand one. */
+export function providerNeedsKey(provider: BrainProvider): boolean {
+  return !KEYLESS_PROVIDERS.has(provider);
 }
 
 /**
