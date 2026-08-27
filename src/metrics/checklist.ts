@@ -239,16 +239,22 @@ export function scrumMasterChecklist(input: ChecklistInput): readonly ChecklistE
       moment: "end",
       text: "Aggiornare le statistiche con velocity effettiva e punti chiave della retrospettiva.",
       /*
-       * Mezzo fatto, e si dichiara così.
+       * Entrambe le metà, e nessuna delle due si «aggiorna».
        *
-       * La velocity effettiva si ricalcola sempre dai dati — non va
-       * «aggiornata», è una proprietà derivata. I punti chiave della
-       * retrospettiva invece non confluiscono ancora nelle statistiche: è un
-       * debito registrato, e spuntare la voce lo nasconderebbe.
+       * La velocity effettiva si ricalcola sempre dai dati — è una proprietà
+       * derivata, non un campo da riempire. I punti chiave della retrospettiva
+       * ora compaiono accanto alle statistiche, letti dall'entità che li
+       * contiene invece che ricopiati: nel libro si trascrivono su un wiki, e
+       * una trascrizione diverge dall'originale alla prima correzione.
+       *
+       * Resta «da fare» finché la retrospettiva non è stata tenuta: è l'unica
+       * metà che qualcuno deve ancora fare.
        */
-      status: closed ? "todo" : "not-yet",
+      status: closed ? (retrospective ? "done" : "todo") : "not-yet",
       detail: closed
-        ? "La velocity effettiva si ricalcola da sé; i punti chiave della retrospettiva non confluiscono ancora nelle statistiche."
+        ? retrospective
+          ? "Velocity effettiva e punti chiave della retrospettiva compaiono entrambi nelle statistiche."
+          : "Manca la retrospettiva: senza, le statistiche restano senza i suoi punti chiave."
         : "Lo sprint non è ancora chiuso.",
     },
   ];

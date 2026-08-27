@@ -25,6 +25,7 @@ import { HealthNarration } from "./health-narration";
 import { DailyDigest } from "./daily-digest";
 import { ForecastTable } from "./forecast-table";
 import {
+  presentBurndown,
   presentCount,
   presentDuration,
   presentEstimates,
@@ -472,18 +473,39 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           ) : null}
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="grid gap-2 pt-6">
               {current.burndown.available ? (
-                <BurndownChart
-                  title="Burndown"
-                  unitLabel="punti"
-                  points={current.burndown.value.points.map((point) => ({
-                    at: point.at,
-                    remaining: point.remaining.points ?? 0,
-                  }))}
-                  committed={current.burndown.value.points[0]?.ideal ?? 0}
-                  totalDays={current.burndown.value.totalWorkingDays}
-                />
+                (() => {
+                  const drawn = presentBurndown(current.burndown.value);
+
+                  return (
+                    <>
+                      <BurndownChart
+                        title="Burndown"
+                        unitLabel={drawn.unitLabel}
+                        points={drawn.series}
+                        committed={drawn.committed}
+                        totalDays={current.burndown.value.totalWorkingDays}
+                      />
+                      {drawn.counted ? (
+                        /*
+                         * Detto, non lasciato indovinare.
+                         *
+                         * Un grafico che scende da 12 a 3 senza dire che sta
+                         * contando elementi verrebbe letto come punti, e il
+                         * confronto con lo sprint precedente sarebbe fra due
+                         * unità diverse.
+                         */
+                        <p className="text-muted-foreground text-xs">
+                          Nessuna stima su questo sprint, quindi il grafico{" "}
+                          <strong>conta gli elementi aperti</strong> invece dei punti — è
+                          l&apos;alternativa che il libro indica: «just count the tasks
+                          instead of adding up the hours».
+                        </p>
+                      ) : null}
+                    </>
+                  );
+                })()
               ) : (
                 <p className="text-muted-foreground text-sm">
                   Burndown non disponibile: nessun dato di perimetro per questo sprint.

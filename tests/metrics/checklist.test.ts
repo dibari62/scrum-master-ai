@@ -241,12 +241,16 @@ describe("scrumMasterChecklist — le voci di fine sprint", () => {
     expect(find(twoDaysBefore, "demo-notice")?.status).toBe("todo");
   });
 
-  it("le statistiche di fine restano da fare, e dicono che cosa manca davvero", () => {
+  it("senza retrospettiva le statistiche di fine restano da fare, e dicono perché", () => {
     /*
-     * La velocity effettiva si ricalcola sempre dai dati — non va
-     * «aggiornata». I punti chiave della retrospettiva invece non confluiscono
-     * ancora nelle statistiche, ed è un debito registrato: spuntare la voce lo
-     * nasconderebbe.
+     * Il significato di questo «da fare» è cambiato, ed è la ragione per cui il
+     * test è stato riscritto invece di lasciato passare.
+     *
+     * Prima diceva «il collegamento fra retrospettiva e statistiche non
+     * esiste»: era un debito nostro, e la voce restava rossa qualunque cosa
+     * facesse la squadra. Ora il collegamento c'è, quindi rosso significa
+     * l'unica cosa che dovrebbe significare — **manca la retrospettiva**, ed è
+     * un lavoro di chi legge la checklist, non nostro.
      */
     const entry = find(
       base({
@@ -257,6 +261,40 @@ describe("scrumMasterChecklist — le voci di fine sprint", () => {
     );
 
     expect(entry?.status).toBe("todo");
-    expect(entry?.detail).toContain("punti chiave");
+    expect(entry?.detail).toContain("Manca la retrospettiva");
+  });
+
+  it("con la retrospettiva tenuta, le statistiche di fine sono complete", () => {
+    /*
+     * > «Update the sprint statistics page with the actual velocity **and key
+     * > points from the retrospective**» (pag. 163)
+     *
+     * Entrambe le metà ci sono: la velocity effettiva si ricalcola dai dati, e
+     * i punti chiave compaiono accanto alle statistiche letti dall'entità che
+     * li contiene — non ricopiati, perché una trascrizione diverge
+     * dall'originale alla prima correzione.
+     */
+    const retrospectives = [
+      retrospectiveSchema.parse({
+        id: uuidFor("retro-completa"),
+        ...SCOPE,
+        sprintId: SPRINT_ID,
+        heldAt: "2026-04-17T16:00:00.000Z",
+        participantCount: 5,
+        createdAt: "2026-04-17T16:00:00.000Z",
+        updatedAt: "2026-04-17T16:00:00.000Z",
+      }),
+    ];
+
+    const entry = find(
+      base({
+        sprint: sprint({ completedAt: "2026-04-17T17:00:00.000Z" }),
+        retrospectives,
+        asOf: new Date("2026-04-20T09:00:00.000Z"),
+      }),
+      "statistics-end",
+    );
+
+    expect(entry?.status).toBe("done");
   });
 });

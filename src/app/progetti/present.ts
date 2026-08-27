@@ -194,3 +194,76 @@ export function presentSignal(signal: HealthSignal): PresentedSignal {
  */
 export { VERDICT_WORDS } from "@/lib/health-words";
 
+
+/**
+ * La serie da disegnare per un burndown, e in quale unità.
+ *
+ * **La regola viene dal libro, e il portale non la applicava.**
+ *
+ * > «If you don't have time estimates on the tasks, you can still do a burndown
+ * > — **just count the tasks instead of adding up the hours**» (pag. 66)
+ *
+ * Le due pagine che disegnano un burndown scrivevano `remaining.points ?? 0`.
+ * Su uno sprint senza stime in punti questo non produce «nessun grafico»:
+ * produce **una linea piatta a zero**, cioè uno sprint che sembra concluso il
+ * primo giorno. È peggio dell'assenza, perché ha l'aspetto di un'informazione.
+ *
+ * Dichiarata qui e non nelle due pagine perché è una decisione sola: duplicarla
+ * significherebbe che fra sei mesi la panoramica e la pagina sprint disegnano lo
+ * stesso sprint in due modi diversi.
+ *
+ * L'ordine delle preferenze è quello del libro: prima i punti, poi le ore, e in
+ * ultimo il conteggio — che è sempre disponibile, perché contare non richiede
+ * che qualcuno abbia stimato.
+ */
+export type BurndownPresentation = {
+  readonly series: readonly { readonly at: Date; readonly remaining: number }[];
+  readonly committed: number;
+  readonly unitLabel: string;
+  /** Vero quando si contano gli elementi: la schermata lo dichiara. */
+  readonly counted: boolean;
+};
+
+export function presentBurndown(burndown: {
+  readonly points: readonly {
+    readonly at: Date;
+    readonly remaining: { readonly points: number | null; readonly hours: number | null };
+    readonly openCount: number;
+    readonly ideal: number | null;
+  }[];
+}): BurndownPresentation {
+  const first = burndown.points[0];
+
+  const measuredIn =
+    first?.remaining.points !== null && first?.remaining.points !== undefined
+      ? "points"
+      : first?.remaining.hours !== null && first?.remaining.hours !== undefined
+        ? "hours"
+        : "count";
+
+  if (measuredIn === "count") {
+    return {
+      series: burndown.points.map((point) => ({ at: point.at, remaining: point.openCount })),
+      /*
+       * La linea ideale parte dal numero di elementi del primo giorno.
+       *
+       * `ideal` è calcolato in punti e qui sarebbe `null`: usarlo lascerebbe il
+       * grafico senza guida proprio nel caso in cui la guida è più utile, perché
+       * un conteggio non ha una scala che chi guarda già conosce.
+       */
+      committed: burndown.points[0]?.openCount ?? 0,
+      unitLabel: "elementi",
+      counted: true,
+    };
+  }
+
+  const value = (point: (typeof burndown.points)[number]): number =>
+    (measuredIn === "points" ? point.remaining.points : point.remaining.hours) ?? 0;
+
+  return {
+    series: burndown.points.map((point) => ({ at: point.at, remaining: value(point) })),
+    committed: burndown.points[0]?.ideal ?? value(burndown.points[0] ?? ({} as never)) ?? 0,
+    unitLabel: measuredIn === "points" ? "punti" : "ore",
+    counted: false,
+  };
+}

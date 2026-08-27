@@ -20,7 +20,7 @@ import {
 } from "@/metrics";
 import { cn } from "@/lib/utils";
 
-import { unavailableReason } from "../../../present";
+import { presentBurndown, unavailableReason } from "../../../present";
 import { loadProjectSprints, type SprintRow, type SprintStatus } from "../data";
 
 export const dynamic = "force-dynamic";
@@ -277,16 +277,28 @@ export default async function ProjectSprintsPage({ params }: PageProps) {  const
                * motore sapesse calcolarla da sempre.
                */}
               {row.burndown.available ? (
-                <BurndownChart
-                  title={`Burndown — ${row.sprint.name}`}
-                  unitLabel="punti"
-                  points={row.burndown.value.points.map((point) => ({
-                    at: point.at,
-                    remaining: point.remaining.points ?? 0,
-                  }))}
-                  committed={row.burndown.value.points[0]?.ideal ?? 0}
-                  totalDays={row.burndown.value.totalWorkingDays}
-                />
+                (() => {
+                  const drawn = presentBurndown(row.burndown.value);
+
+                  return (
+                    <>
+                      <BurndownChart
+                        title={`Burndown — ${row.sprint.name}`}
+                        unitLabel={drawn.unitLabel}
+                        points={drawn.series}
+                        committed={drawn.committed}
+                        totalDays={row.burndown.value.totalWorkingDays}
+                      />
+                      {drawn.counted ? (
+                        <p className="text-muted-foreground text-xs">
+                          Nessuna stima su questo sprint, quindi il grafico{" "}
+                          <strong>conta gli elementi aperti</strong> invece dei punti — è
+                          l&apos;alternativa che il libro indica a pag. 66.
+                        </p>
+                      ) : null}
+                    </>
+                  );
+                })()
               ) : (
                 <p className="text-muted-foreground text-xs">
                   Burndown non disponibile: nessun dato di perimetro per questo sprint.

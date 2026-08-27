@@ -469,10 +469,17 @@ export const ITEM_TITLES: readonly string[] = [
  * The estimates go up as the list goes down, which is what actually happens on
  * a groomed backlog: the next stories have been split, the far ones are still
  * blocks.
+ *
+ * **`notes` è la sesta colonna del backlog del libro**, e la sua descrizione dice
+ * già come vada riempita: «any other info, clarifications, references to other
+ * sources of info, etc. **Normally very brief**» (pag. 25). Sono chiarimenti e
+ * rimandi, non un secondo «come si dimostra»: dove non c'è nulla da chiarire
+ * resta `null`, che è la maggior parte delle righe.
  */
 export const BACKLOG_ITEMS: readonly {
   readonly title: string;
   readonly howToDemo: string | null;
+  readonly notes: string | null;
   readonly points: number;
   readonly kind: "story" | "bug";
 }[] = [
@@ -480,6 +487,7 @@ export const BACKLOG_ITEMS: readonly {
     title: "Carrello conservato fra due sessioni",
     howToDemo:
       "Aggiungi due articoli, chiudi il browser, rientra: il carrello contiene ancora i due articoli.",
+    notes: "Decidere se la conservazione vale anche per chi non ha fatto l'accesso.",
     points: 3,
     kind: "story",
   },
@@ -487,6 +495,7 @@ export const BACKLOG_ITEMS: readonly {
     title: "Articolo esaurito segnalato nel riepilogo",
     howToDemo:
       "Vai al riepilogo con un articolo esaurito: l'articolo è segnalato e il pulsante di pagamento resta disabilitato.",
+    notes: null,
     points: 2,
     kind: "story",
   },
@@ -494,6 +503,7 @@ export const BACKLOG_ITEMS: readonly {
     title: "Motivo del rifiuto mostrato al pagamento",
     howToDemo:
       "Paga con una carta rifiutata: compare il motivo del rifiuto e il carrello resta intatto.",
+    notes: "Il fornitore di pagamento restituisce codici, non testi: serve una tabella nostra.",
     points: 5,
     kind: "story",
   },
@@ -501,6 +511,7 @@ export const BACKLOG_ITEMS: readonly {
     title: "Rifiuto degli ordini verso paesi fuori copertura",
     howToDemo:
       "Ordina da un paese non servito: il checkout si ferma prima del pagamento e spiega perché.",
+    notes: "Elenco dei paesi serviti: chiedere all'ufficio logistica.",
     points: 3,
     kind: "story",
   },
@@ -508,15 +519,28 @@ export const BACKLOG_ITEMS: readonly {
     title: "Email di conferma con numero d'ordine",
     howToDemo:
       "Concludi un ordine: entro un minuto arriva l'email di conferma con il numero d'ordine.",
+    notes: null,
     points: 5,
     kind: "story",
   },
-  { title: "Ordine ricorrente con cadenza mensile", howToDemo: null, points: 13, kind: "story" },
-  { title: "Regalo con messaggio e destinatario diverso", howToDemo: null, points: 8, kind: "story" },
-  { title: "Verifica dell'età per prodotti soggetti a limite", howToDemo: null, points: 8, kind: "story" },
-  { title: "Addebito duplicato rilevato in riconciliazione", howToDemo: null, points: 20, kind: "bug" },
-  { title: "Quadratura fra ordini e incassi giornalieri", howToDemo: null, points: 13, kind: "story" },
-  { title: "Scelta della fascia oraria di consegna", howToDemo: null, points: 8, kind: "story" },
-  { title: "Punto di ritiro suggerito per codice postale", howToDemo: null, points: 13, kind: "story" },
+  {
+    title: "Ordine ricorrente con cadenza mensile",
+    howToDemo: null,
+    notes: "Dipende dal rinnovo automatico del metodo di pagamento.",
+    points: 13,
+    kind: "story",
+  },
+  { title: "Regalo con messaggio e destinatario diverso", howToDemo: null, notes: null, points: 8, kind: "story" },
+  { title: "Verifica dell'età per prodotti soggetti a limite", howToDemo: null, notes: null, points: 8, kind: "story" },
+  {
+    title: "Addebito duplicato rilevato in riconciliazione",
+    howToDemo: null,
+    notes: "Segnalato due volte dall'amministrazione a marzo.",
+    points: 20,
+    kind: "bug",
+  },
+  { title: "Quadratura fra ordini e incassi giornalieri", howToDemo: null, notes: null, points: 13, kind: "story" },
+  { title: "Scelta della fascia oraria di consegna", howToDemo: null, notes: null, points: 8, kind: "story" },
+  { title: "Punto di ritiro suggerito per codice postale", howToDemo: null, notes: null, points: 13, kind: "story" },
 ];
 

@@ -489,6 +489,26 @@ export default async function BacklogPage({ params }: PageProps) {
                     <span className="text-muted-foreground">da definire</span>
                   ),
               },
+              {
+                key: "note",
+                header: "Note",
+                className: "min-w-[18rem]",
+                /*
+                 * La sesta colonna del backlog del libro, e l'ultima che
+                 * mancava.
+                 *
+                 * > «Notes — any other info, clarifications, references to
+                 * > other sources of info, etc. **Normally very brief**»
+                 * > (pag. 25)
+                 *
+                 * Un trattino e non «da definire», al contrario della colonna
+                 * accanto: una nota assente non è un lavoro arretrato. La
+                 * maggior parte delle storie non ha nulla da chiarire, ed è
+                 * giusto così.
+                 */
+                cell: (item) =>
+                  item.description ?? <span className="text-muted-foreground">—</span>,
+              },
             ]}
           />
 

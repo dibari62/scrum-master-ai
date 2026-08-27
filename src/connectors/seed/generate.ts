@@ -432,7 +432,9 @@ function buildProductBacklog(input: {
         sourceId,
         kind: entry.kind,
         title: entry.title,
-        description: null,
+        // La colonna «Notes» del backlog del libro: chiarimenti e rimandi, non
+        // un secondo «come si dimostra».
+        description: entry.notes,
         state: "todo",
         estimate,
         backlogOrder: position,
