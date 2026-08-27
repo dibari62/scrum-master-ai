@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1162 test<br/>Playwright · 158 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1178 test<br/>Playwright · 168 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -62,6 +62,7 @@ graph TB
         U20["Soglie di accettazione<br/>quattro fasce di impegno<br/>con la loro conseguenza"]
         U21["Piano di rilascio<br/>backlog tagliato in sprint<br/>sulla velocity osservata"]
         U22["Pronti per uno sprint<br/>Definition of Ready,<br/>con ciò che manca a ciascuno"]
+        U23["Pagina informativa<br/>e checklist del cap. 16,<br/>con le voci umane dichiarate"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -72,7 +73,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21,U22 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21,U22,U23 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -118,6 +119,59 @@ che taciuti: è un fatto sulla squadra, e ometterlo lascerebbe sparire l'abitudi
 in silenzio.
 
 ---
+
+**Il capitolo 16 per intero: la checklist dello Scrum Master, e la pagina
+informativa che essa nomina.** Erano due voci separate nel nostro elenco, ma il
+libro le tratta come un solo flusso — la prima riga della checklist è «dopo la
+pianificazione, crea la sprint info page» — quindi sono state fatte insieme.
+
+**La pagina informativa esiste per una ragione precisa:** «It is important to
+keep the whole company informed about what is going on. Otherwise, people will
+complain or, even worse, **make false assumptions** about what is going on»
+(pag. 52). Nel libro la scrive a mano lo Scrum Master dopo la pianificazione, la
+mette sul wiki e la stampa.
+
+Qui è **generata**, ed è l'unica cosa in cui questa versione batte quella di
+carta: una pagina scritta una volta descrive lo sprint com'era quel giorno, e uno
+sprint che si muove la rende silenziosamente falsa. Questa non può invecchiare.
+
+**La checklist ha tutte e quattordici le voci**, nei tre momenti del libro — e la
+parte che conta è la colonna a destra. Sui dati veri, sullo sprint in corso:
+
+| | |
+|---|---|
+| ✅ fatto | pagina informativa · previsione registrata · 3 ingressi dopo l'inizio · lavagna aggiornata ieri |
+| ⬜ da fare | 1 impedimento ancora aperto |
+| 👤 lo sa solo chi c'era | 6 voci |
+| non ancora | demo, retrospettiva e statistiche di fine: lo sprint è aperto |
+
+**Metà delle voci nessun portale può spuntarle**, e restano visibili marcate come
+umane. Spuntare da sola «il daily scrum inizia in orario» sarebbe una bugia;
+ometterla farebbe sembrare il mestiere dello Scrum Master più piccolo di quanto
+sia. Il libro chiude la checklist proprio così: «over time, try to make yourself
+**redundant**».
+
+Anche il riassunto rispetta la distinzione: dice «4 su 5 **verificabili**», non
+«4 su 14». Mettere le voci umane nel denominatore produrrebbe un numero che si
+legge come una squadra indietro, mentre quelle dieci non sono in ritardo — solo,
+nessun database sa se siano state fatte.
+
+> **Un difetto mio, trovato da un test.** «Avvisare della demo un giorno o due
+> prima» contava millisecondi: il 15 aprile alle 9, uno sprint che finisce il 17
+> alle 17 è a 2,33 giorni, e arrotondando diventa «3». Ma una persona che guarda
+> un calendario dice «dopodomani», che è due. La regola del libro è espressa in
+> giorni umani, quindi l'aritmetica dev'essere in giorni umani — altrimenti il
+> promemoria scatta la mattina sbagliata.
+
+> **E un punto cieco nella guardia del catalogo.** Il test che verifica «ogni
+> entità dichiarata compare davvero nella firma» seguiva solo `export type`, non
+> `export interface`. Non era che rifiutasse qualcosa di valido: **accettava
+> senza guardare**. Una metrica che riceveva un'interfaccia passava il controllo
+> con le sue entità mai verificate. Stessa classe del buco in `pr-merge` di ieri,
+> e chiuso allo stesso modo.
+
+---
+
 
 **La Definition of Ready, e la parte di essa che il portale sa verificare da
 solo.** Il libro la introduce in coppia con la Definition of Done: «definition of

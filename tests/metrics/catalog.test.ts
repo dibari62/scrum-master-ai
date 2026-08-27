@@ -232,10 +232,23 @@ describe("catalogo delle metriche", () => {
       let declared = signature;
 
       for (const [, typeName] of signature.matchAll(/:\s*([A-Z]\w+)/g)) {
-        const declaration = source.indexOf(`export type ${typeName} = {`);
-        if (declaration < 0) continue;
+        /*
+         * Segue sia `type` sia `interface`, e la seconda è stata aggiunta dopo
+         * che la mancanza si è vista.
+         *
+         * Sono due modi ugualmente legittimi di dichiarare la stessa forma, e
+         * la guardia ne conosceva uno solo: una metrica che riceveva un
+         * `interface` passava il controllo **senza che le sue entità venissero
+         * verificate affatto**. Il difetto non era che rifiutava qualcosa di
+         * valido — era che accettava senza guardare.
+         */
+        const declaration = ["export type", "export interface"]
+          .map((keyword) => source.indexOf(`${keyword} ${typeName}`))
+          .find((index) => index >= 0);
 
-        const end = source.indexOf("\n};", declaration);
+        if (declaration === undefined) continue;
+
+        const end = source.indexOf("\n}", declaration);
         declared += source.slice(declaration, end < 0 ? undefined : end);
       }
 

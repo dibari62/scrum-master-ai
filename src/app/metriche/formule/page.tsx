@@ -48,6 +48,9 @@ const ENTITY_LABELS: Readonly<Record<MetricInputEntity, string>> = {
   ImprovementAction: "Azione di miglioramento",
   Sprint: "Sprint",
   SprintScopeEvent: "Movimento di perimetro",
+  Impediment: "Impedimento",
+  Retrospective: "Retrospettiva",
+  SprintStatistics: "Statistiche di sprint",
 };
 
 /**

@@ -9,15 +9,19 @@ import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatNumber } from "@/lib/format";
 import {
+  CHECKLIST_MOMENTS,
+  CHECKLIST_MOMENT_LABELS,
+  CHECKLIST_STATUS_LABELS,
   MAX_STORIES_PER_SPRINT,
   MAX_STORY_POINTS,
   MIN_STORIES_PER_SPRINT,
   MIN_STORY_POINTS,
+  type ChecklistEntry,
 } from "@/metrics";
 import { cn } from "@/lib/utils";
 
-import { unavailableReason } from "../../present";
-import { loadProjectSprints, type SprintRow, type SprintStatus } from "./data";
+import { unavailableReason } from "../../../present";
+import { loadProjectSprints, type SprintRow, type SprintStatus } from "../data";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +121,25 @@ function guidelineNotes(row: SprintRow): readonly string[] {
   }
 
   return notes;
+}
+
+/**
+ * Il riassunto che compare accanto alla checklist chiusa.
+ *
+ * Conta **solo ciò che il portale può verificare**: mettere nel denominatore
+ * anche le voci umane produrrebbe un «4 su 14» che si legge come una squadra
+ * indietro, mentre le dieci restanti non sono in ritardo — semplicemente
+ * nessun database sa se siano state fatte.
+ */
+function checklistSummary(entries: readonly ChecklistEntry[]): string {
+  const verifiable = entries.filter(
+    (entry) => entry.status === "done" || entry.status === "todo",
+  );
+  const done = verifiable.filter((entry) => entry.status === "done").length;
+
+  if (verifiable.length === 0) return "nulla di verificabile in questo momento";
+
+  return `${formatNumber(done)} su ${formatNumber(verifiable.length)} verificabili`;
 }
 
 export default async function ProjectSprintsPage({ params }: PageProps) {  const session = await auth();
@@ -270,14 +293,81 @@ export default async function ProjectSprintsPage({ params }: PageProps) {  const
                 </p>
               )}
 
-              <p className="text-sm">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <Link
+                  href={`/progetti/${project.slug}/sprint/${row.sprint.id}`}
+                  className="hover:text-foreground underline underline-offset-4"
+                >
+                  Pagina informativa dello sprint
+                </Link>
                 <Link
                   href={`/progetti/${project.slug}/elementi?sprint=${row.sprint.id}`}
                   className="hover:text-foreground underline underline-offset-4"
                 >
                   Elementi che oggi risultano in questo sprint
                 </Link>
-              </p>
+              </div>
+
+              {/*
+               * La checklist del capitolo 16, per questo sprint.
+               *
+               * Sta dentro lo sprint e non su una pagina a sé perché le sue
+               * voci parlano di *questa* iterazione: «crea la pagina
+               * informativa», «tieni la retrospettiva». Una checklist di
+               * progetto non avrebbe nulla contro cui essere verificata.
+               */}
+              <details className="border-t pt-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Checklist dello Scrum Master · {checklistSummary(row.checklist)}
+                </summary>
+
+                <div className="grid gap-3 pt-3">
+                  {CHECKLIST_MOMENTS.map((moment) => (
+                    <div key={moment} className="grid gap-1">
+                      <h3 className="text-xs font-semibold tracking-wide uppercase">
+                        {CHECKLIST_MOMENT_LABELS[moment]}
+                      </h3>
+                      <ul className="grid gap-1">
+                        {row.checklist
+                          .filter((entry) => entry.moment === moment)
+                          .map((entry) => (
+                            <li
+                              key={entry.id}
+                              data-checklist-entry={entry.status}
+                              className="text-sm"
+                            >
+                              <span
+                                className={
+                                  entry.status === "todo"
+                                    ? "font-medium"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {entry.text}
+                              </span>{" "}
+                              <span className="text-muted-foreground text-xs">
+                                — {CHECKLIST_STATUS_LABELS[entry.status]}: {entry.detail}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  ))}
+
+                  {/*
+                   * Il libro chiude la checklist così, ed è la parte che
+                   * conta più delle spunte.
+                   */}
+                  <p className="text-muted-foreground border-t pt-2 text-xs">
+                    Metà di queste voci <strong>nessun portale può spuntarle</strong>: sono
+                    conversazioni, riunioni, un foglio appeso a un muro. Restano scritte
+                    perché sono lavoro, e ometterle farebbe sembrare il mestiere dello Scrum
+                    Master più piccolo di quanto sia. Il libro chiude proprio dicendo di
+                    allenare la squadra a farle senza di lui: «over time, try to make
+                    yourself redundant».
+                  </p>
+                </div>
+              </details>
             </li>
           ))}
         </ul>
