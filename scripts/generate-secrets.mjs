@@ -19,6 +19,14 @@ const FILE = ".env.local";
 const SECRETS = new Map([
   ["AUTH_SECRET", () => randomBytes(32).toString("base64")],
   ["JOB_SECRET", () => randomBytes(32).toString("base64url")],
+  /*
+   * Base64 e non base64url, e esattamente 32 byte.
+   *
+   * AES-256 vuole 32 byte: il modulo che la legge rifiuta qualunque altra
+   * lunghezza invece di allungarla, perché una chiave stirata a forza sembra
+   * lunga e porta la robustezza dell'originale (ADR-0010).
+   */
+  ["SECRETS_KEY", () => randomBytes(32).toString("base64")],
 ]);
 
 if (!existsSync(FILE)) {
