@@ -60,11 +60,24 @@ const CONNECTORS = [
   },
 ] as const;
 
-/** What each model is, and what it costs the person choosing it. */
+/**
+ * What each model is, and what it costs the person choosing it.
+ *
+ * **`ready` dice la verità sullo stato del portale, non su quello del
+ * fornitore.** Gemini e Groq sono decisi in ADR-0005 e dichiarati nel modello,
+ * ma nessuno dei due è ancora collegato al proprio SDK: il gateway li salta e la
+ * capacità fallisce con «fornitore non collegato».
+ *
+ * Tacerlo qui sarebbe la cosa peggiore che questa pagina possa fare: manderebbe
+ * qualcuno a registrarsi su un sito, generare una credenziale e incollarla, per
+ * scoprire poi che non succede nulla — e a quel punto il sospetto cadrebbe sulla
+ * chiave, non su di noi.
+ */
 const BRAINS = [
   {
     value: "fake",
     label: "Nessuno — risposte finte",
+    ready: true,
     explanation:
       "Non chiama nessuno e non costa nulla. I numeri restano veri (li calcola il codice); " +
       "i testi che li accompagnano sono segnaposto. È il modo di provare il portale senza " +
@@ -72,15 +85,20 @@ const BRAINS = [
   },
   {
     value: "gemini",
-    label: "Google Gemini",
+    label: "Google Gemini (non ancora collegato)",
+    ready: false,
     explanation:
-      "Ha un piano gratuito con un limite giornaliero. La chiave si genera su " +
-      "aistudio.google.com.",
+      "Ha un piano gratuito con un limite giornaliero, e la chiave si genera su " +
+      "aistudio.google.com. La configurazione si salva e la chiave viene custodita cifrata, " +
+      "ma il portale non sa ancora parlare con Gemini.",
   },
   {
     value: "groq",
-    label: "Groq",
-    explanation: "Veloce, con un piano gratuito. La chiave si genera su console.groq.com.",
+    label: "Groq (non ancora collegato)",
+    ready: false,
+    explanation:
+      "Veloce, con un piano gratuito, e la chiave si genera su console.groq.com. Come per " +
+      "Gemini, la configurazione si conserva ma il collegamento non è ancora scritto.",
   },
 ] as const;
 
@@ -103,7 +121,7 @@ export function SettingsForm({
   const [brain, setBrain] = useState<string>(settings.brainProvider);
 
   const connectorNote = CONNECTORS.find((entry) => entry.value === connector)?.explanation;
-  const brainNote = BRAINS.find((entry) => entry.value === brain)?.explanation;
+  const chosenBrain = BRAINS.find((entry) => entry.value === brain);
 
   return (
     <form action={action} className="grid gap-8">
@@ -297,11 +315,34 @@ export function SettingsForm({
               </option>
             ))}
           </select>
-          {brainNote ? <p className="text-muted-foreground text-sm">{brainNote}</p> : null}
+          {chosenBrain ? (
+            <p className="text-muted-foreground text-sm">{chosenBrain.explanation}</p>
+          ) : null}
           {errorOf(state, "brainProvider") ? (
             <p className="text-destructive text-sm">{errorOf(state, "brainProvider")}</p>
           ) : null}
         </div>
+
+        {chosenBrain && !chosenBrain.ready ? (
+          /*
+           * Detto qui e non in un documento.
+           *
+           * La configurazione si salva davvero e la chiave viene custodita
+           * cifrata: non è finta. Ma finché il gateway non sa parlare con questo
+           * fornitore, una capacità dello Scrum Master AI fallirebbe — e senza
+           * questo avviso il sospetto cadrebbe sulla chiave appena incollata.
+           */
+          <p
+            role="note"
+            className="border-muted-foreground/40 rounded-md border px-3 py-2 text-sm"
+          >
+            <strong>Questo fornitore non è ancora collegato.</strong> Puoi salvare la
+            configurazione e la chiave viene custodita cifrata, ma finché il collegamento non
+            è scritto lo Scrum Master AI continuerà a rispondere con testi segnaposto. Se
+            vuoi solo vedere come funziona il portale, lascia <em>Nessuno</em>: non cambia
+            nulla e non ti costa una chiave.
+          </p>
+        ) : null}
 
         {brain !== "fake" ? (
           <div className="grid gap-5 rounded-md border p-4">
