@@ -1801,6 +1801,66 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/release-plan.test.ts",
   },
   {
+    id: "readiness-check",
+    name: "Pronti per uno sprint",
+    question: "Gli elementi in cima al backlog sono pronti per essere presi?",
+    formula:
+      "Sui primi elementi del backlog ordinato, si verifica che stima, «come si dimostra» e posizione siano compilati, e si elenca ciò che manca a ciascuno.",
+    unit: "count",
+    excludes: [
+      "Gli elementi oltre la profondità considerata: il libro controlla le storie «che hanno abbastanza importanza da essere prese in questo sprint», e segnalare l'intero backlog produrrebbe avvisi su cui nessuno può agire.",
+      "Tutto ciò che un database non può sapere — se la squadra abbia davvero capito la storia — che resta nella Definition of Ready dichiarata dal progetto.",
+    ],
+    unavailableWhen: "Il backlog è vuoto o la profondità richiesta è zero.",
+    inputs: [
+      {
+        entity: "WorkItem",
+        reads: "la stima, il testo «come si dimostra» e la posizione in backlog",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "il backlog così come risulta ora",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi in cima al backlog sono stati controllati",
+    referenceInstant: null,
+    edgeCases: [
+      {
+        situation: "Una storia non ha stima.",
+        outcome: "Non pronta: è l'esempio con cui il libro spiega la Definition of Ready.",
+        verifiedBy: "una storia senza stima non è pronta, ed è l'esempio del libro",
+      },
+      {
+        situation: "A una storia mancano più campi.",
+        outcome:
+          "Elencati tutti: dirne uno solo costringerebbe a due passaggi per un lavoro solo.",
+        verifiedBy: "elenca tutto ciò che manca, non solo la prima cosa",
+      },
+      {
+        situation: "Il backlog contiene elementi grezzi in fondo.",
+        outcome: "Ignorati: si guarda solo la cima, che è ciò che verrebbe preso.",
+        verifiedBy: "guarda solo la cima del backlog, non tutto",
+      },
+      {
+        situation: "La profondità richiesta è zero o negativa.",
+        outcome: "Nulla viene considerato, e il conteggio lo dichiara.",
+        verifiedBy: "una profondità di zero non considera nulla, e lo dice",
+      },
+      {
+        situation: "Il backlog è più corto della profondità richiesta.",
+        outcome: "Si guarda ciò che c'è, senza errori.",
+        verifiedBy: "una profondità maggiore del backlog guarda ciò che c'è, senza errori",
+      },
+    ],
+    decision:
+      "Si verifica solo la parte verificabile, e si dichiara il resto. Il libro dà la tecnica più semplice — «make sure that all the fields are filled in» — ed è un fatto controllabile; che una squadra abbia *capito* una storia non lo è, e una spunta verde su quello sarebbe una bugia.",
+    sourceFile: "src/metrics/readiness.ts",
+    sourceSymbol: "readinessCheck",
+    testFile: "tests/metrics/readiness.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

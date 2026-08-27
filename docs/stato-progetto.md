@@ -18,7 +18,7 @@ graph TB
     subgraph SCH["🦴 Scheletro"]
         S1["Next.js 16 + TypeScript strict"]
         S2["Tailwind + shadcn/ui"]
-        S3["Vitest · 1151 test<br/>Playwright · 155 test e2e<br/>Eval · 5 casi dorati"]
+        S3["Vitest · 1162 test<br/>Playwright · 158 test e2e<br/>Eval · 5 casi dorati"]
         S4["Confini architetturali<br/>verificati da script"]
     end
 
@@ -61,6 +61,7 @@ graph TB
         U19["Backlog di prodotto<br/>ordinato, con<br/>«come si dimostra»"]
         U20["Soglie di accettazione<br/>quattro fasce di impegno<br/>con la loro conseguenza"]
         U21["Piano di rilascio<br/>backlog tagliato in sprint<br/>sulla velocity osservata"]
+        U22["Pronti per uno sprint<br/>Definition of Ready,<br/>con ciò che manca a ciascuno"]
     end
 
     classDef fatto fill:#16a34a,stroke:#15803d,color:#fff
@@ -71,7 +72,7 @@ graph TB
     class I1,I2,I3 fatto
     class I4 corso
     class D1,D2,D3,D4,D5,D6,D7 fatto
-    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21 fatto
+    class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21,U22 fatto
 ```
 
 **Come leggerlo:** tutto ciò che si vede è stato verificato in un browser, non solo
@@ -118,7 +119,46 @@ in silenzio.
 
 ---
 
-**Le interruzioni non si confondono più con le aggiunte volute.** Era l'unica
+**La Definition of Ready, e la parte di essa che il portale sa verificare da
+solo.** Il libro la introduce in coppia con la Definition of Done: «definition of
+done is a checklist for when a story is **done**, and definition of ready is a
+checklist for when a story is **ready to be pulled into a sprint**».
+
+Sarebbe stato facile fermarsi lì — un secondo elenco di frasi accanto al primo.
+Ma il libro dà anche la tecnica, ed è quella che rende la cosa utile invece che
+decorativa:
+
+> «The simplest technique is simply to make sure that **all the fields are
+> filled in** for each story (or more specifically, for each story that has high
+> enough importance to be considered for this sprint).»
+
+E il suo esempio è esattamente un campo mancante: «This story named "Add user",
+there is **no estimate** for that. Let's estimate!»
+
+Quei campi il portale li conosce — stima, «come si dimostra», posizione — quindi
+li **controlla**, e per ciascun elemento non pronto dice *che cosa* manca. «Non
+pronta» da sola manderebbe a riaprire l'elemento per scoprirlo.
+
+**Guarda solo la cima del backlog**, ed è il libro a dirlo: «for each story that
+has high enough importance to be considered for this sprint». Quanto in
+profondità non è un numero scelto da noi — è il primo sprint del piano di
+rilascio, cioè esattamente ciò che verrebbe preso. Segnalare l'intero backlog
+produrrebbe avvisi su cui nessuno può agire, e un avviso inagibile insegna a
+saltare gli avvisi.
+
+Sui dati veri il risultato è istruttivo da solo: la testa affinata del backlog è
+di 5 elementi, il prossimo sprint ne prenderebbe **6**, quindi esattamente una
+storia entrerebbe senza sapere come si dimostra. È il caso che il libro descrive,
+riprodotto senza averlo costruito apposta.
+
+**E dichiara ciò che non può controllare.** Che una squadra abbia davvero
+*capito* una storia non è deducibile da una riga di database: quella parte resta
+nella Definition of Ready dichiarata dal progetto, e la pagina lo dice invece di
+lasciar credere che una spunta verde copra tutto.
+
+---
+
+
 voce rimasta che riguardava la *correttezza* di una metrica esistente, non una
 funzione nuova — e per la regola R1 vale più di una funzione nuova.
 

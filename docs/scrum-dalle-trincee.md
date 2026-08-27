@@ -172,7 +172,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Elemento | Capitolo | Stato |
 |---|---|---|
 | Definition of Done | 4 | ✅ `projectContextSchema.definitionOfDone` |
-| Definition of Ready | 4 (2ª ed.) | ⬜ |
+| Definition of Ready | 4 (2ª ed.) | ✅ `definitionOfReady` sul contesto, e `readinessCheck` verifica i tre campi che il libro nomina |
 | Calendario delle cerimonie | 4, 8 | ✅ `ceremonySchedule` |
 | Sprint info page | 5 | ⬜ |
 | Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |

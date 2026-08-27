@@ -1,5 +1,6 @@
 import {
   acceptanceThresholdsSchema,
+  definitionOfReadySchema,
   productBacklog,
   projectSchema,
   sprintSchema,
@@ -15,11 +16,14 @@ import { forOrganization, getDatabase } from "@/db";
 import { toEstimateChange, workItemEstimate } from "@/db/rows";
 import {
   acceptanceCoverage,
+  MIN_STORIES_PER_SPRINT,
+  readinessCheck,
   releasePlan,
   totalEstimates,
   yesterdaysWeather,
   type AcceptanceCoverage,
   type EstimateTotals,
+  type ReadinessCheck,
   type ReleasePlan,
 } from "@/metrics";
 
@@ -79,6 +83,20 @@ export type BacklogList = {
 
   /** Whether this reader may change the thresholds. */
   readonly canConfigure: boolean;
+
+  /**
+   * How much of the top of the backlog is ready to be pulled into a sprint.
+   *
+   * Only the top, because the book is explicit: the check is for the stories
+   * «that ha[ve] high enough importance to be considered for this sprint».
+   * Running it over a whole backlog would report a hundred unready stories
+   * nobody was going to start, and an alert nobody can act on is one people
+   * learn to skip.
+   */
+  readonly readiness: ReadinessCheck;
+
+  /** What the team itself requires before pulling a story in. */
+  readonly definitionOfReady: readonly string[];
 };
 
 export async function loadBacklog(
@@ -167,6 +185,28 @@ export async function loadBacklog(
     velocitySource: observed.available
       ? `media dei punti conclusi negli ultimi ${formatCount(observed.sampleSize)} sprint chiusi`
       : null,
+    /*
+     * Quanto in profondità guardare: uno sprint di lavoro.
+     *
+     * «for each story that has high enough importance to be considered for this
+     * sprint». La velocity osservata dice quante storie sono uno sprint, ma
+     * conta i **punti**, non gli elementi — e la profondità è in elementi.
+     * Il piano di rilascio ha già fatto quel taglio: il primo sprint del piano
+     * è esattamente «ciò che verrebbe preso», ed è il numero giusto.
+     *
+     * Senza piano si ripiega sul minimo del libro, 5 storie per sprint
+     * (pag. 43), invece di guardare tutto: è un numero dichiarato, non uno
+     * inventato.
+     */
+    readiness: readinessCheck(
+      items,
+      observed.available
+        ? (releasePlan(items, observed.value).sprints[0]?.items.length ?? MIN_STORIES_PER_SPRINT)
+        : MIN_STORIES_PER_SPRINT,
+    ),
+    definitionOfReady: contextRows[0]
+      ? definitionOfReadySchema.parse(contextRows[0].definitionOfReady ?? [])
+      : [],
     canConfigure,
   };
 }

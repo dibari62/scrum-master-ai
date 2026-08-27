@@ -204,6 +204,58 @@ test.describe("backlog di prodotto", () => {
     await expect(page.locator("#velocity")).toHaveCount(0);
   });
 
+  test("dice quali elementi in cima non sono pronti, e che cosa manca", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    await expect(page.getByRole("heading", { name: "Pronti per uno sprint" })).toBeVisible();
+
+    /*
+     * > «This story named "Add user", there is **no estimate** for that. Let's
+     * > estimate!» (cap. 4, 2ª ed.)
+     *
+     * L'avviso deve dire *che cosa* manca, non solo che qualcosa manca: «non
+     * pronta» da sola manda a riaprire l'elemento per scoprirlo.
+     */
+    const rows = page.locator("[data-not-ready]");
+
+    for (const text of await rows.allInnerTexts()) {
+      expect(text).toMatch(/senza (stima|«come si dimostra»|posizione in backlog)/);
+    }
+  });
+
+  test("il controllo guarda la cima, non l'intero backlog", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    const considered = /guarda i primi (\d+) elementi/.exec(
+      await page.locator("main").innerText(),
+    )?.[1];
+
+    expect(considered, "la pagina deve dire quanti elementi controlla").toBeDefined();
+
+    const total = await page.locator("[data-backlog-item]").count();
+
+    /*
+     * «for each story that has high enough importance to be considered for
+     * this sprint». Segnalare l'intero backlog produrrebbe avvisi su cui
+     * nessuno può agire, e un avviso inagibile insegna a saltare gli avvisi.
+     */
+    expect(Number(considered)).toBeLessThan(total);
+    expect(Number(considered)).toBeGreaterThan(0);
+  });
+
+  test("dichiara ciò che non può controllare, invece di tacerlo", async ({ page }) => {
+    await page.goto(`/progetti/${PROJECT}/backlog`);
+
+    /*
+     * Il libro dà la tecnica più semplice — «make sure that all the fields are
+     * filled in» — ed è un fatto controllabile. Che una squadra abbia *capito*
+     * una storia non lo è, e una spunta verde su quello sarebbe una bugia.
+     */
+    const body = await page.locator("main").innerText();
+
+    expect(body).toMatch(/il portale non può pronunciarsi|un database non può sapere/);
+  });
+
   test("un elemento del backlog si apre e mostra la sua storia", async ({ page }) => {
     await page.goto(`/progetti/${PROJECT}/backlog`);
 
