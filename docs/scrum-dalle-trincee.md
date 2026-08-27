@@ -177,7 +177,7 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Sprint info page | 5 | ✅ generata dai dati: obiettivo, elementi con «come si dimostra», date e cerimonie |
 | Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |
 | Elementi non pianificati | 6 | ✅ `SprintScopeEvent.reason` distingue interruzione, aggiunta voluta e **non dichiarato**; `scopeChange` li conta separatamente |
-| Checklist della demo | 9 | ⬜ |
+| Checklist della demo | 9 | ✅ le sei regole di pag. 82, e la **scaletta divisa in due**: storie da mostrare, correzioni e task da nominare soltanto |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
 | Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; i punti chiave della retrospettiva non vi confluiscono ancora |
 | Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ✅ tutte e quattordici, con lo stato di ciascuna e **le umane dichiarate tali** |

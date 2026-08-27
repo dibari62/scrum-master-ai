@@ -1943,6 +1943,131 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/checklist.test.ts",
   },
   {
+    id: "demo-agenda",
+    name: "Scaletta della demo",
+    question: "Che cosa si mostra alla demo di questo sprint, e che cosa si nomina soltanto?",
+    formula:
+      "Gli elementi che risultavano a «done» all'istante di chiusura dello sprint, in ordine di backlog, divisi in due: storie ed epiche da mostrare, correzioni, task e spike da nominare.",
+    unit: "count",
+    excludes: [
+      "Tutto ciò che non era a «done» alla chiusura: la demo mostra la stessa cosa che la velocity conta, altrimenti i due numeri raccontano sprint diversi.",
+      "Gli elementi tolti dallo sprint prima della chiusura.",
+    ],
+    unavailableWhen: "Mai: uno sprint senza elementi finiti produce due elenchi vuoti, che è un'informazione.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "obiettivo, data di fine e istante di chiusura",
+      },
+      {
+        entity: "WorkItem",
+        reads: "titolo, tipo, «come si dimostra» e posizione in backlog",
+      },
+      {
+        entity: "StateTransition",
+        reads: "lo stato all'istante di chiusura",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "quali elementi appartenevano allo sprint alla chiusura",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di chiusura dello sprint, o la data di fine se non è stato chiuso",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quanti elementi finiti entrano in scaletta",
+    referenceInstant: "istante di chiusura dello sprint",
+    edgeCases: [
+      {
+        situation: "Lo sprint ha chiuso soltanto correzioni di difetti.",
+        outcome:
+          "La scaletta da mostrare è vuota e tutto finisce fra le cose da nominare: il libro dice di non dimostrare una sfilza di correzioni minori.",
+        verifiedBy: "uno sprint di sole correzioni non produce nulla da mostrare",
+      },
+      {
+        situation: "Una storia è arrivata a «done» e poi è stata riaperta prima della chiusura.",
+        outcome: "Non entra in scaletta: alla chiusura non era finita.",
+        verifiedBy: "una storia riaperta prima della chiusura non entra in scaletta",
+      },
+      {
+        situation: "Una storia in scaletta non ha scritto come si dimostra.",
+        outcome:
+          "Compare lo stesso, elencata a parte: è la storia che alla demo verrà raccontata a parole invece che mostrata.",
+        verifiedBy: "una storia senza «come si dimostra» viene segnalata",
+      },
+      {
+        situation: "Un elemento è stato tolto dallo sprint prima della fine.",
+        outcome: "Non entra in scaletta, anche se nel frattempo è stato finito altrove.",
+        verifiedBy: "un elemento tolto dallo sprint non entra in scaletta",
+      },
+    ],
+    decision:
+      "La scaletta si divide in due invece di ordinare per importanza. «Mention them but don't demo them» non è una questione di ordine: sono due comportamenti diversi in sala, e un unico elenco ordinato lascerebbe a chi conduce la decisione che il libro dice di prendere prima.",
+    sourceFile: "src/metrics/demo.ts",
+    sourceSymbol: "demoAgenda",
+    testFile: "tests/metrics/demo.test.ts",
+  },
+  {
+    id: "demo-checklist",
+    name: "Checklist della demo",
+    question: "La demo di questo sprint è pronta?",
+    formula:
+      "Le sei regole di pagina 82, più il controllo sul «come si dimostra» che nasce dal dialogo che le segue. Ciascuna è «fatta», «da fare», «non ancora» oppure dichiarata non verificabile.",
+    unit: "count",
+    excludes: [
+      "Tutto ciò che riguarda il modo di condurre la demo - ritmo, taglio, linguaggio - che compare comunque, marcato come umano.",
+    ],
+    unavailableWhen: "Mai: le voci compaiono sempre, con lo stato che compete a ciascuna.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "l'obiettivo, che il libro chiede di presentare per primo",
+      },
+      {
+        entity: "WorkItem",
+        reads: "tipo e «come si dimostra» degli elementi finiti",
+      },
+      {
+        entity: "StateTransition",
+        reads: "lo stato all'istante di chiusura",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "quali elementi appartenevano allo sprint alla chiusura",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di chiusura dello sprint, o la data di fine se non è stato chiuso",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quante voci il portale è in grado di verificare da solo",
+    referenceInstant: "istante di chiusura dello sprint",
+    edgeCases: [
+      {
+        situation: "Lo sprint non ha un obiettivo scritto.",
+        outcome:
+          "La prima voce risulta da fare: senza obiettivo la demo non ha nulla da presentare per prima.",
+        verifiedBy: "senza obiettivo la prima voce risulta da fare",
+      },
+      {
+        situation: "Nessun elemento minore è stato finito.",
+        outcome:
+          "La voce sulle correzioni è «non ancora», non «fatta»: non c'è nulla su cui la regola si applichi.",
+        verifiedBy: "senza elementi minori la regola sulle correzioni non si applica",
+      },
+    ],
+    decision:
+      "Le quattro regole sul modo di condurre restano visibili e marcate come umane, esattamente come nella checklist del capitolo 16. Una checklist della demo che mostrasse solo le voci verificabili farebbe sembrare la demo un adempimento, mentre il libro la tratta come il momento in cui la squadra riceve il credito del proprio lavoro.",
+    sourceFile: "src/metrics/demo.ts",
+    sourceSymbol: "demoChecklist",
+    testFile: "tests/metrics/demo.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

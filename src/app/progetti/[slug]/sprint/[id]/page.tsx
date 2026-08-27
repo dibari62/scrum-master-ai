@@ -3,13 +3,14 @@ import { notFound, redirect } from "next/navigation";
 
 import { DataTable } from "@/components/charts/data-table";
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { organizationIdSchema, scrumEventSchema, type ScrumEvent } from "@/domain";
 import { auth } from "@/lib/auth";
 import { formatDate, formatEstimate, formatNumber } from "@/lib/format";
+import { CHECKLIST_STATUS_LABELS, type DemoAgendaEntry } from "@/metrics";
 import { STATE_LABELS } from "@/lib/state-words";
 
-import { loadSprintInfo } from "./data";
+import { loadSprintInfo, type SprintInfo } from "./data";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export default async function SprintInfoPage({ params }: PageProps) {
 
   if (!info) notFound();
 
-  const { project, sprint, items, total, ceremonies, describedCount } = info;
+  const { project, sprint, items, total, ceremonies, describedCount, demo, demoChecks } = info;
 
   const scheduled = scrumEventSchema.options
     .map((event) => ({ event, slot: ceremonies[event] }))
@@ -197,6 +198,8 @@ export default async function SprintInfoPage({ params }: PageProps) {
         </>
       )}
 
+      <DemoAgendaSection slug={project.slug} demo={demo} checks={demoChecks} />
+
       <p className="text-muted-foreground text-xs">
         Questa pagina è <strong>generata dai dati</strong>. Nel libro la scrive a mano lo
         Scrum Master dopo la pianificazione e la appende al muro — ed è l&apos;unica cosa in
@@ -205,5 +208,115 @@ export default async function SprintInfoPage({ params }: PageProps) {
         silenziosamente falsa. Questa non può invecchiare.
       </p>
     </main>
+  );
+}
+
+const KIND_LABELS: Readonly<Record<DemoAgendaEntry["kind"], string>> = {
+  story: "storia",
+  epic: "epica",
+  bug: "difetto",
+  task: "task",
+  spike: "spike",
+};
+
+const DEMO_COLUMNS = [
+  {
+    key: "titolo",
+    header: "Elemento",
+    className: "min-w-[18rem]",
+    cell: (entry: DemoAgendaEntry) => <span className="font-medium">{entry.title}</span>,
+  },
+  {
+    key: "tipo",
+    header: "Tipo",
+    className: "min-w-[7rem]",
+    cell: (entry: DemoAgendaEntry) => KIND_LABELS[entry.kind],
+  },
+  {
+    key: "demo",
+    header: "Come si dimostra",
+    className: "min-w-[22rem]",
+    cell: (entry: DemoAgendaEntry) =>
+      entry.howToDemo ?? <span className="text-muted-foreground">da definire</span>,
+  },
+];
+
+/**
+ * La scaletta della demo (cap. 9).
+ *
+ * Due elenchi e non uno, perché il libro dà due comportamenti diversi: le storie
+ * si mostrano, le correzioni minori si nominano. Un unico elenco ordinato
+ * lascerebbe a chi conduce la demo la decisione che il libro dice di prendere
+ * prima di entrare in sala.
+ */
+function DemoAgendaSection({
+  slug,
+  demo,
+  checks,
+}: {
+  readonly slug: string;
+  readonly demo: SprintInfo["demo"];
+  readonly checks: SprintInfo["demoChecks"];
+}) {
+  return (
+    <Card data-demo-agenda>
+      <CardHeader>
+        <CardTitle>Scaletta della demo</CardTitle>
+      </CardHeader>
+
+      <CardContent className="grid gap-4">
+        {demo.toDemo.length === 0 ? (
+          <p className="text-muted-foreground text-sm" data-demo-empty>
+            Nessun elemento finito da mostrare in questo sprint.
+          </p>
+        ) : (
+          <DataTable
+            caption="Da mostrare, in ordine di backlog"
+            rows={demo.toDemo}
+            getKey={(entry) => entry.itemId}
+            getHref={(entry) => `/progetti/${slug}/elementi/${entry.itemId}`}
+            rowAttribute="data-demo-show"
+            minWidth="min-w-[46rem]"
+            columns={DEMO_COLUMNS}
+          />
+        )}
+
+        {demo.toMention.length > 0 ? (
+          <DataTable
+            caption="Da nominare soltanto: correzioni, task e spike"
+            rows={demo.toMention}
+            getKey={(entry) => entry.itemId}
+            getHref={(entry) => `/progetti/${slug}/elementi/${entry.itemId}`}
+            rowAttribute="data-demo-mention"
+            minWidth="min-w-[46rem]"
+            columns={DEMO_COLUMNS}
+          />
+        ) : null}
+
+        <ul className="grid gap-1 border-t pt-3">
+          {checks.map((entry) => (
+            <li key={entry.id} data-demo-check={entry.status} className="text-sm">
+              <span className={entry.status === "todo" ? "font-medium" : "text-muted-foreground"}>
+                {entry.text}
+              </span>{" "}
+              <span className="text-muted-foreground text-xs">
+                — {CHECKLIST_STATUS_LABELS[entry.status]}: {entry.detail}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="text-muted-foreground text-xs">
+          La divisione fra ciò che si mostra e ciò che si nomina viene dal libro:{" "}
+          <em>
+            «Don&apos;t demonstrate a bunch of minor bug fixes and trivial features. Mention
+            them but don&apos;t demo them, since that generally takes too long and detracts
+            focus from the more important stories.»
+          </em>{" "}
+          In scaletta entra ciò che risultava finito alla chiusura dello sprint: la stessa
+          cosa che conta la velocity, o i due numeri racconterebbero sprint diversi.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

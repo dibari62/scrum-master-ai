@@ -3,6 +3,7 @@ import {
   projectSchema,
   sprintSchema,
   sprintScopeEventSchema,
+  stateTransitionSchema,
   UNSCHEDULED_CEREMONIES,
   workItemSchema,
   type CeremonySchedule,
@@ -13,7 +14,15 @@ import {
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { workItemEstimate } from "@/db/rows";
-import { membershipAt, totalEstimates, type EstimateTotals } from "@/metrics";
+import {
+  demoAgenda,
+  demoChecklist,
+  membershipAt,
+  totalEstimates,
+  type DemoAgenda,
+  type DemoChecklistEntry,
+  type EstimateTotals,
+} from "@/metrics";
 
 /**
  * The sprint info page: what the whole company is told about a sprint.
@@ -53,6 +62,17 @@ export type SprintInfo = {
    * hiding the gap or complaining about it.
    */
   readonly describedCount: number;
+
+  /**
+   * What to show at the demo, and what to name without showing (cap. 9).
+   *
+   * On the same page as the sprint contents on purpose: the book's rule about
+   * demos — «mention them but don't demo them» — is a decision about the same
+   * list of items, and splitting it onto its own page would mean deciding it
+   * away from the stories it applies to.
+   */
+  readonly demo: DemoAgenda;
+  readonly demoChecks: readonly DemoChecklistEntry[];
 };
 
 export async function loadSprintInfo(
@@ -68,11 +88,12 @@ export async function loadSprintInfo(
 
   const project = projectSchema.parse(projectRow);
 
-  const [sprintRows, itemRows, scopeRows, contextRows] = await Promise.all([
+  const [sprintRows, itemRows, scopeRows, contextRows, transitionRows] = await Promise.all([
     scope.reads.sprintsByProject(project.id),
     scope.reads.workItemsByProject(project.id),
     scope.reads.scopeEventsByProject(project.id),
     scope.reads.projectContextByProject(project.id),
+    scope.reads.transitionsByProject(project.id),
   ]);
 
   const sprint = sprintRows.map((row) => sprintSchema.parse(row)).find((one) => one.id === sprintId);
@@ -95,6 +116,9 @@ export async function loadSprintInfo(
   const membership = membershipAt(scopeEvents, sprint, instant);
   const items = all.filter((item) => membership.has(item.id));
 
+  const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
+  const demoInput = { sprint, items: all, transitions, scopeEvents };
+
   return {
     project,
     sprint,
@@ -106,5 +130,7 @@ export async function loadSprintInfo(
         // «non ci sono riunioni», è «nessuno le ha ancora scritte qui».
         UNSCHEDULED_CEREMONIES,
     describedCount: items.filter((item) => item.howToDemo !== null).length,
+    demo: demoAgenda(demoInput),
+    demoChecks: demoChecklist(demoInput),
   };
 }
