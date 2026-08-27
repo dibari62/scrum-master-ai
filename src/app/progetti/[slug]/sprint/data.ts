@@ -1,7 +1,10 @@
 import {
+  impedimentSchema,
   projectSchema,
+  retrospectiveSchema,
   sprintSchema,
   sprintScopeEventSchema,
+  sprintStatisticsSchema,
   stateTransitionSchema,
   workItemSchema,
   type OrganizationId,
@@ -14,8 +17,10 @@ import {
   burndown,
   membershipAt,
   planningGuidelines,
+  scrumMasterChecklist,
   sprintItemCount,
   type Burndown,
+  type ChecklistEntry,
   type MetricResult,
   type PlanningGuidelines,
 } from "@/metrics";
@@ -74,6 +79,15 @@ export type SprintRow = {
    * guideline was never about.
    */
   readonly guidelines: PlanningGuidelines;
+
+  /**
+   * The Scrum Master's checklist for this sprint (cap. 16).
+   *
+   * Per sprint, because the entries are about *this* iteration: «create a
+   * sprint info page», «hold the retrospective». A project-wide checklist
+   * would have nothing to be checked against.
+   */
+  readonly checklist: readonly ChecklistEntry[];
 };
 
 export type ProjectSprints = {
@@ -109,13 +123,17 @@ export async function loadProjectSprints(
    * elemento e sprint dice dove l'elemento si trova adesso, e un elemento
    * trascinato in avanti farebbe rimpicciolire uno sprint già chiuso.
    */
-  const [sprintRows, scopeRows, itemRows, transitionRows, estimateRows] = await Promise.all([
-    scope.reads.sprintsByProject(project.id),
-    scope.reads.scopeEventsByProject(project.id),
-    scope.reads.workItemsByProject(project.id),
-    scope.reads.transitionsByProject(project.id),
-    scope.reads.estimateChangesByProject(project.id),
-  ]);
+  const [sprintRows, scopeRows, itemRows, transitionRows, estimateRows, impedimentRows, retroRows, statsRows] =
+    await Promise.all([
+      scope.reads.sprintsByProject(project.id),
+      scope.reads.scopeEventsByProject(project.id),
+      scope.reads.workItemsByProject(project.id),
+      scope.reads.transitionsByProject(project.id),
+      scope.reads.estimateChangesByProject(project.id),
+      scope.reads.impedimentsByProject(project.id),
+      scope.reads.retrospectivesByProject(project.id),
+      scope.reads.sprintStatisticsByProject(project.id),
+    ]);
 
   const sprints = sprintRows.map((row) => sprintSchema.parse(row));
   const scopeEvents = scopeRows.map((row) => sprintScopeEventSchema.parse(row));
@@ -124,6 +142,9 @@ export async function loadProjectSprints(
   );
   const transitions = transitionRows.map((row) => stateTransitionSchema.parse(row));
   const estimateChanges = estimateRows.map((row) => toEstimateChange(row));
+  const impediments = impedimentRows.map((row) => impedimentSchema.parse(row));
+  const retrospectives = retroRows.map((row) => retrospectiveSchema.parse(row));
+  const statistics = statsRows.map((row) => sprintStatisticsSchema.parse(row));
 
   const rows = sprints.map((sprint): SprintRow => {
     /*
@@ -146,6 +167,15 @@ export async function loadProjectSprints(
         estimateChanges,
       }),
       guidelines: planningGuidelines(sprintItems),
+      checklist: scrumMasterChecklist({
+        sprint,
+        transitions,
+        scopeEvents,
+        impediments,
+        retrospectives,
+        statistics,
+        asOf,
+      }),
     };
   });
 

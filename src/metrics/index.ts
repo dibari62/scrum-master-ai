@@ -16,6 +16,7 @@ export * from "./estimates";
 export * from "./estimation";
 export * from "./acceptance";
 export * from "./readiness";
+export * from "./checklist";
 export * from "./release-plan";
 export * from "./guidelines";
 export * from "./flow";

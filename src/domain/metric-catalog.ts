@@ -67,6 +67,17 @@ export const metricInputEntitySchema = z.enum([
   "ImprovementAction",
   "Sprint",
   "SprintScopeEvent",
+  /*
+   * Le tre entità che la checklist del capitolo 16 legge.
+   *
+   * Aggiunte qui e non altrove: l'enumerazione è la fonte unica di ciò che una
+   * metrica può dichiarare di leggere, e il test del catalogo verifica che
+   * un'entità dichiarata compaia davvero nella firma della funzione. È il
+   * motivo per cui questo elenco esiste invece di una stringa libera.
+   */
+  "Impediment",
+  "Retrospective",
+  "SprintStatistics",
 ]);
 
 export type MetricInputEntity = z.infer<typeof metricInputEntitySchema>;

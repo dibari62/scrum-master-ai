@@ -1861,6 +1861,88 @@ export const METRIC_CATALOG: MetricCatalog = metricCatalogSchema.parse([
     testFile: "tests/metrics/readiness.test.ts",
   },
   {
+    id: "scrum-master-checklist",
+    name: "Checklist dello Scrum Master",
+    question: "Che cosa resta da fare per questo sprint, e che cosa non si può sapere?",
+    formula:
+      "Le quattordici voci del capitolo 16, in tre momenti. Ciascuna è «fatta», «da fare», «non ancora» oppure dichiarata non verificabile, secondo ciò che i dati dello sprint dicono.",
+    unit: "count",
+    excludes: [
+      "Tutto ciò che non lascia traccia in un database — riunioni in orario, fogli appesi al muro, conversazioni con il Product Owner — che compare comunque, marcato come umano.",
+      "Le voci di fine sprint su uno sprint ancora aperto: «non ancora» non è «da fare», e segnalarle insegnerebbe a ignorare la checklist per metà dei giorni.",
+    ],
+    unavailableWhen: "Mai: le quattordici voci compaiono sempre, con lo stato che compete a ciascuna.",
+    inputs: [
+      {
+        entity: "Sprint",
+        reads: "obiettivo, date di inizio e fine, istante di chiusura",
+      },
+      {
+        entity: "StateTransition",
+        reads: "l'istante dell'ultimo movimento, per dire se la lavagna è ferma",
+      },
+      {
+        entity: "SprintScopeEvent",
+        reads: "ingressi e uscite dopo l'inizio",
+      },
+      {
+        entity: "Impediment",
+        reads: "quali risultano ancora aperti",
+      },
+      {
+        entity: "Retrospective",
+        reads: "se sia stata tenuta, quando e con quanti partecipanti",
+      },
+      {
+        entity: "SprintStatistics",
+        reads: "se la previsione d'inizio sia stata registrata",
+      },
+    ],
+    observation: {
+      kind: "at",
+      instant: "l'istante di riferimento passato dal chiamante",
+    },
+    operation: "count",
+    summarisedBy: [],
+    sampleSizeMeaning: "quante voci il portale è in grado di verificare da solo",
+    referenceInstant: "parametro asOf",
+    edgeCases: [
+      {
+        situation: "Una voce riguarda qualcosa che nessun dato registra.",
+        outcome:
+          "Compare marcata come umana: ometterla farebbe sembrare il lavoro dello Scrum Master più piccolo di quanto sia.",
+        verifiedBy: "mostra anche ciò che non può verificare, invece di ometterlo",
+      },
+      {
+        situation: "Lo sprint è ancora aperto e si guarda la retrospettiva.",
+        outcome: "«Non ancora», non «da fare»: guarderebbe indietro a qualcosa che non è successo.",
+        verifiedBy: "non chiede la retrospettiva di uno sprint ancora aperto",
+      },
+      {
+        situation: "La lavagna non si muove da giorni.",
+        outcome: "La voce sul backlog aggiornato risulta da fare.",
+        verifiedBy: "una lavagna ferma da giorni non risulta aggiornata",
+      },
+      {
+        situation: "Fra l'ultimo movimento e oggi c'è un fine settimana.",
+        outcome:
+          "La lavagna resta aggiornata: due giorni di tolleranza, perché il calendario non è una colpa della squadra.",
+        verifiedBy: "il fine settimana non fa sembrare ferma una lavagna che non lo è",
+      },
+      {
+        situation: "Mancano più di due giorni alla fine dello sprint.",
+        outcome:
+          "L'avviso della demo è «non ancora»: un avviso acceso per due settimane insegna a ignorarlo.",
+        verifiedBy: "l'avviso della demo compare solo quando è il momento",
+      },
+    ],
+    decision:
+      "Le voci non verificabili restano visibili e marcate come umane. Spuntarle da sole sarebbe una bugia; ometterle nasconderebbe metà del mestiere. Il libro chiude la checklist dicendo allo Scrum Master di rendersi superfluo — «over time, try to make yourself redundant» — e quella metà è proprio ciò che va insegnato alla squadra.",
+    sourceFile: "src/metrics/checklist.ts",
+    sourceSymbol: "scrumMasterChecklist",
+    testFile: "tests/metrics/checklist.test.ts",
+  },
+  {
     id: "improvement-follow-up",
     name: "Seguito dei miglioramenti",
     question: "I miglioramenti decisi in retrospettiva sono poi avvenuti?",

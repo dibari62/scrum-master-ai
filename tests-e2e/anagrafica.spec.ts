@@ -114,9 +114,16 @@ test.describe("persone e sprint", () => {
     // sa: mai uno zero muto al posto di una lacuna (`MetricResult`).
     expect(text).toMatch(/\d+ element[oi] (alla chiusura|alla data di fine|finora)|non disponibili/);
 
-    // E porta agli elementi, così il numero si può controllare invece che
-    // credere.
-    await first.getByRole("link").first().click();
+    /*
+     * E porta agli elementi, così il numero si può controllare invece che
+     * credere.
+     *
+     * Il collegamento si nomina, non si prende «il primo»: da quando ogni
+     * sprint ha anche la sua pagina informativa, «il primo» ha smesso di
+     * identificare una cosa sola — e un selettore che dipende dall'ordine è un
+     * test che fallirà alla prossima aggiunta, dicendo la cosa sbagliata.
+     */
+    await first.getByRole("link", { name: /Elementi che oggi risultano/ }).click();
     await page.waitForURL("**/elementi**");
   });
 

@@ -174,42 +174,44 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 | Definition of Done | 4 | ✅ `projectContextSchema.definitionOfDone` |
 | Definition of Ready | 4 (2ª ed.) | ✅ `definitionOfReady` sul contesto, e `readinessCheck` verifica i tre campi che il libro nomina |
 | Calendario delle cerimonie | 4, 8 | ✅ `ceremonySchedule` |
-| Sprint info page | 5 | ⬜ |
+| Sprint info page | 5 | ✅ generata dai dati: obiettivo, elementi con «come si dimostra», date e cerimonie |
 | Segnali d'allarme della lavagna | 6 | 🟡 [ricostruiti](#ricostruzione-a--i-segnali-dallarme-della-lavagna-pag-63): 5 dei 7 hanno già un corrispettivo in `sprintHealth`, scelto da noi prima di leggere il libro |
 | Elementi non pianificati | 6 | ✅ `SprintScopeEvent.reason` distingue interruzione, aggiunta voluta e **non dichiarato**; `scopeChange` li conta separatamente |
 | Checklist della demo | 9 | ⬜ |
 | Retrospettiva a tre colonne, voto, azioni | 10 | ✅ tre colonne del libro, voto aggregato, azioni con esito e seguito verificato |
 | Statistiche di sprint | 16 | 🟡 la previsione si registra e si confronta con l'effettivo; i punti chiave della retrospettiva non vi confluiscono ancora |
-| Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ⬜ **è l'ossatura**, vedi sotto |
+| Checklist dello Scrum Master (inizio / ogni giorno / fine) | 16 | ✅ tutte e quattordici, con lo stato di ciascuna e **le umane dichiarate tali** |
 
 > **La checklist del capitolo 16 non è una voce fra le altre: ne nomina quattro.**
 > Trascritta dal testo (pag. 163), dice letteralmente di creare la *sprint info page*,
 > di aggiornare le *statistiche di sprint* con velocity stimata e dimensione della
 > squadra, di aggiungervi a fine sprint «the actual velocity **and key points from the
-> retrospective**», e di avvisare della demo «**a day or two before**». Sono quattro
-> voci del nostro elenco di cose da fare che il libro tratta come **un solo flusso**.
+> retrospective**», e di avvisare della demo «**a day or two before**».
 >
-> | Momento | Voce del libro | Il portale può spuntarla da solo? |
+> **Implementata per intero**, e la colonna a destra è la parte che conta: metà delle
+> voci **nessun portale può spuntarle**, e restano visibili marcate come umane.
+>
+> | Momento | Voce del libro | Il portale la verifica da solo? |
 > |---|---|---|
-> | Inizio | Creare la sprint info page | sì, se la generiamo |
-> | Inizio | Link alla pagina dalla bacheca | no — vive su un wiki esterno |
-> | Inizio | Stamparla e appenderla al muro | **no**, e va detto invece di fingere |
-> | Inizio | Email a tutti con obiettivo e link | solo se il portale manda email |
-> | Inizio | Aggiornare le statistiche: velocity stimata, dimensione squadra, durata | ✅ già fatto (`sprint_statistics`) |
-> | Ogni giorno | Daily scrum inizia e finisce in orario | no — nessun dato lo dice |
-> | Ogni giorno | Storie aggiunte/tolte per tenere il ritmo | sì, dagli eventi di perimetro |
-> | Ogni giorno | Il Product Owner è informato dei cambi | no — è una conversazione |
-> | Ogni giorno | Backlog e burndown aggiornati | sì: si vede se ci sono transizioni recenti |
-> | Ogni giorno | Impedimenti risolti o segnalati | sì, dagli impedimenti aperti e dalla loro durata |
-> | Fine | Fare una demo aperta | no |
-> | Fine | Avvisare della demo un giorno o due prima | sì, come promemoria calcolato dalle date |
-> | Fine | Retrospettiva con squadra e Product Owner | ✅ già fatto |
-> | Fine | Statistiche: velocity effettiva e punti chiave della retrospettiva | 🟡 la velocity sì, i punti chiave sono debito registrato |
+> | Inizio | Creare la sprint info page | ✅ generata dai dati |
+> | Inizio | Link alla pagina dalla bacheca | 👤 vive su un wiki esterno |
+> | Inizio | Stamparla e appenderla al muro | 👤 **no**, e va detto invece di fingere |
+> | Inizio | Email a tutti con obiettivo e link | 👤 il portale non manda posta |
+> | Inizio | Aggiornare le statistiche: velocity stimata, dimensione squadra, durata | ✅ |
+> | Ogni giorno | Daily scrum inizia e finisce in orario | 👤 nessun dato lo registra |
+> | Ogni giorno | Storie aggiunte/tolte per tenere il ritmo | ✅ dagli eventi di perimetro |
+> | Ogni giorno | Il Product Owner è informato dei cambi | 👤 è una conversazione |
+> | Ogni giorno | Backlog e burndown aggiornati | ✅ dall'ultimo movimento sulla lavagna |
+> | Ogni giorno | Impedimenti risolti o segnalati | ✅ dagli impedimenti aperti |
+> | Fine | Fare una demo aperta | 👤 |
+> | Fine | Avvisare della demo un giorno o due prima | ✅ calcolato dalle date |
+> | Fine | Retrospettiva con squadra e Product Owner | ✅ |
+> | Fine | Statistiche: velocity effettiva e punti chiave della retrospettiva | 🟡 la velocity si ricalcola da sé, i punti chiave sono debito registrato |
 >
-> Metà delle voci **non è automatizzabile**, ed è una proprietà del lavoro dello Scrum
-> Master, non un limite del portale. Una checklist che spuntasse da sola «daily scrum in
-> orario» starebbe mentendo. Vanno mostrate lo stesso, marcate come umane: il libro
-> chiude proprio dicendo di allenare la squadra a farle senza lo Scrum Master.
+> Una checklist che spuntasse da sola «daily scrum in orario» starebbe **mentendo**;
+> una che omettesse quelle voci farebbe sembrare il mestiere dello Scrum Master più
+> piccolo di quanto sia. Il libro chiude proprio dicendo di allenare la squadra a farle
+> senza di lui: «over time, try to make yourself redundant».
 
 ---
 
