@@ -3,11 +3,17 @@
 > Fotografia aggiornata a ogni fine sviluppo. Se una casella è verde, esiste **ed è
 > stata verificata**; se è gialla è in corso; se è grigia non è ancora iniziata.
 >
-> Ultimo aggiornamento: **25/08/2026** — T0→T5 (primo incremento) in `main`,
+> Ultimo aggiornamento: **27/08/2026** — T0→T5 (primo incremento) in `main`,
 > applicazione online. Ogni entità del modello canonico che contiene dati ha una
 > schermata, e la dashboard dice come sta andando lo sprint **aperto**. Le formule
 > dei calcoli sono ora ancorate a un libro dichiarato, non a scelte nostre
 > ([ADR-0008](architecture/ADR-0008-fedelta-al-libro.md)).
+>
+> **Due cose sono cambiate oggi.** Il libro non ha più voci completamente aperte:
+> `npm run libro` dice **84,2 % fatto per intero**, e ciò che resta sono cinque
+> voci già cominciate più una bloccata su una decisione. Ed è nato il **primo
+> connettore verso uno strumento reale**: Jira Cloud
+> ([ADR-0009](architecture/ADR-0009-primo-connettore.md)).
 
 ---
 
@@ -587,6 +593,15 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
+| **Jira Cloud** | 🟡 codice pronto, **nessuna istanza** | il connettore supera l'intera suite di conformità su una risposta registrata, e il client HTTP è scritto e provato con un `fetch` finto. Manca l'unica cosa che un agente non può fare: un account Atlassian gratuito e un token ([spec, questione aperta 1](../specs/connettore-jira/spec.md)) |
+
+> **Che cosa significa quel giallo, e perché non è verde.** Tutto ciò che
+> *decide* è scritto e verificato; ciò che manca è ciò che *telefona a un
+> indirizzo vero*. Non c'è modo di rendere quella casella verde scrivendo altro
+> codice: si rende verde creando un progetto Jira con due sprint chiusi e uno
+> aperto, e confrontando la velocity che calcoliamo noi con quella che Jira
+> mostra nel suo rapporto. È il controllo che vale più di tutti gli altri messi
+> insieme, e finché non è stato fatto la casella mentirebbe.
 
 ### Come guardarci dentro
 
@@ -990,13 +1005,17 @@ Cose note e volutamente rimandate, non sviste:
 | **La carta più piccola del mazzo sarebbe stata raddoppiata** | [mappa](scrum-dalle-trincee.md) E1-E2 | ~~le colonne delle stime sono `integer` e troncherebbero 0,5 a zero~~ **fatto**: le tre colonne sono `numeric(8,2)` dalla migrazione 0010. La supposizione sul troncamento era **sbagliata**, e verificarla contro il database vero è servito: Postgres arrotonda, e `0.5::integer` vale **1** — una storia da mezzo punto sarebbe diventata una da un punto. Insieme è arrivata la scala di stima: `estimationScale` sul contesto di progetto, dichiarata da una persona, con le deviazioni elencate fra gli elementi (5 su 44 sui dati veri) |
 | Il calendario lavorativo non è configurabile per progetto | [ADR-0008](architecture/ADR-0008-fedelta-al-libro.md) | esiste nel modello canonico con il predefinito lunedì-venerdì, ma nessuna schermata permette di dichiarare le festività. Una squadra con un ponte lo vedrà come un giorno di lavoro fermo |
 | **Non si può dire che un elemento serve al codice e non a una persona** | [mappa](scrum-dalle-trincee.md) G3 | il libro consiglia che le *tech story* occupino il 10–20% della capacità, e la linea guida **non è implementata** perché il modello canonico non ha il campo. `WorkItemKind` distingue storia, bug, task, epic e spike, e nessuno di questi è una storia tecnica: dedurla dal tipo produrrebbe un numero convincente e sbagliato. Serve una decisione — un tipo nuovo, oppure un'etichetta — e quindi un ADR |
-| Dieci formule del libro non sono ancora implementate | [mappa](scrum-dalle-trincee.md) | capacità del team, velocity stimata, focus factor, statistiche di sprint, retrospettiva, checklist dello Scrum Master, Definition of Ready. Ognuna ha già la citazione e l'esempio numerico su cui verrà verificata |
+| Dieci formule del libro non erano implementate | [mappa](scrum-dalle-trincee.md) | ~~capacità del team, velocity stimata, focus factor, statistiche di sprint, retrospettiva, checklist dello Scrum Master, Definition of Ready~~ **fatte**, ciascuna verificata sull'esempio numerico stampato nel libro. `npm run libro` ricalcola la percentuale dalla mappa invece di fidarsi di questa riga |
 | La variante a intervallo del piano si calcola ma non si vede | [mappa](scrum-dalle-trincee.md) R3 | `rangeForecast` esiste, è testata sull'esempio del libro e nessuna schermata la mostra. Serve un intervallo di velocity dichiarato — «30–50» — e finché quello non c'è, mostrarla vorrebbe dire inventare i due estremi |
 | Il backlog non si riordina dall'interfaccia | — | l'ordine arriva dal connettore e la schermata lo mostra, ma non c'è modo di trascinare un elemento più in alto. È il gesto centrale del Product Owner, e va fatto insieme alle soglie di accettazione, che si appoggiano proprio a quest'ordine |
 | **Retrospettiva e statistiche di sprint non si parlano** | [mappa](scrum-dalle-trincee.md), capitolo 16 | la checklist del libro vuole che a fine sprint le statistiche si aggiornino con «i punti chiave della retrospettiva». Le due entità esistono, il collegamento no: oggi si leggono su due schermate diverse |
 | Retrospettive e miglioramenti non si scrivono dall'interfaccia | — | le righe arrivano solo dal connettore. Serve un modulo per registrarne una e per segnare un miglioramento come fatto o lasciato cadere — che è anche il gesto che rende vera la colonna «seguito» |
 | **La previsione si calcolava ma nessuno la vedeva** | [mappa](scrum-dalle-trincee.md) C1, F1-F3, Y1-Y2 | ~~mancano tabella e schermata~~ **fatto**: `sprint_statistics` conserva la previsione, il seed la popola e la dashboard mostra previsto / effettivo / scostamento. Restano fuori le **disponibilità**, quindi il metodo `focus-factor` non è ancora usabile su dati veri: il seed registra sempre «meteo di ieri» |
 | La previsione non si può registrare dall'interfaccia | — | oggi le righe arrivano solo dal connettore. Serve un'azione «registra la previsione» sullo sprint aperto, con il vincolo che vale la pena scrivere ora: **si registra all'inizio, e per uno sprint già chiuso non si registra affatto** — sarebbe inventare un piano che il team non ha mai fatto |
+| **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | traduzione e client sono scritti e provati su risposte registrate, e la conformità passa per intero. Manca l'unica cosa che un agente non può procurarsi: un account Atlassian gratuito e un token. Finché non c'è, «funziona» significa «funziona su ciò che abbiamo registrato noi» |
+| La configurazione Jira non si compila da nessuna parte | [spec](../specs/connettore-jira/spec.md) §9 | dominio, chiave del progetto, board e mappatura degli stati sono validati da uno schema Zod, ma nessuna tabella li conserva e nessuna schermata li chiede. Il connettore si costruisce oggi solo da codice |
+| La mappatura degli stati Jira va scritta a mano | [spec](../specs/connettore-jira/spec.md), questione aperta 2 | il ripiego su `statusCategory` copre tre stati; i nostri sono sei. Una coda di revisione arriva come «in corso» finché qualcuno non dichiara il contrario, e il portale lo **segnala** invece di tacerlo |
+| Sprint Jira sovrapposti farebbero fallire la conformità | [conformità](../tests/connectors/conformance.ts) | una board con due squadre in parallelo ha sprint che si accavallano, e la suite pretende che non si sovrappongano. Sui nostri dati non succede. Va deciso guardando una board vera: o la pretesa è troppo forte, o quei progetti non sono leggibili come uno solo |
 
 ---
 
