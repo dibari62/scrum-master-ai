@@ -13,6 +13,7 @@ import {
   type OrganizationId,
   type ProjectId,
   type ScrumAgent,
+  type LlmProvider,
   type SkillRunFailureCause,
 } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
@@ -87,7 +88,7 @@ export async function runSprintHealthNarration(input: {
   const record = async (fields: {
     readonly status: "succeeded" | "failed";
     readonly failureCause: SkillRunFailureCause | null;
-    readonly provider: "gemini" | "groq" | "fake" | null;
+    readonly provider: LlmProvider | null;
     readonly model: string | null;
     readonly inputTokens: number;
     readonly outputTokens: number;
