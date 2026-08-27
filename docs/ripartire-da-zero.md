@@ -228,6 +228,7 @@ Tutti versionati, quindi disponibili su qualunque macchina.
 | `npm run gh -- <comando>` | pull request, stato della CI, deploy e verifica del sito |
 | `npm run qstash -- <comando>` | schedulazioni del controllo automatico su Upstash |
 | `npm run db:duplicates` | cerca dati duplicati e incoerenti, in sola lettura |
+| `npm run libro` | quanto del libro è implementato, contato dalla mappa |
 | `npm run test:e2e` | Playwright su Chrome (richiede `RUN_E2E=1`) |
 
 **Il ruolo dell'account temporaneo non è un dettaglio.** Senza argomento,

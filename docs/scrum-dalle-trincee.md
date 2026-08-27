@@ -14,6 +14,28 @@ Stato di una riga:
 - 🟡 implementata in parte, o implementata senza l'esempio del libro fra i test
 - ⬜ non ancora implementata
 - ⚠️ implementata **in modo divergente** dal libro — è un difetto, non una scelta
+- ⛔ **non implementabile** con il modello di oggi, con la ragione dichiarata
+- — non è lavoro di sviluppo: una regola per le persone, o qualcosa che il libro
+  stesso dichiara superato
+
+## Quanto ne resta
+
+Non c'è una percentuale scritta qui, di proposito: una cifra a mano invecchia al
+primo lavoro finito, e nessuno si ricorda di aggiornarla — diventa un numero che
+sembra un fatto e non lo è più. Si conta invece dalle righe qui sotto, che si
+aggiornano comunque:
+
+```powershell
+npm run libro
+```
+
+Il conteggio scarta tre cose che un conto ingenuo sbaglia: **R4** compare in due
+sezioni ed è una regola sola; **Y3, E3 ed E4** non sono software; **S1-S7** non
+sono del libro ma una nostra ricostruzione.
+
+E dichiara **due** percentuali invece di una, perché una voce «parziale» non è né
+fatta né da fare, e schiacciarla su un lato produce un numero più preciso di
+quanto sia.
 
 ---
 
@@ -140,8 +162,8 @@ I sei campi che il libro dichiara di aver usato «sprint after sprint» (pag. 6-
 |---|---|---|
 | ID | `id` | ✅ |
 | Name | `title` | ✅ |
-| Importance | `backlogOrder` | l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementato come **ordine**, non come punteggio |
-| Initial estimate | ✅ | `EstimateChange` conserva la storia; `estimate` resta la corrente |
+| Importance | `backlogOrder` | ✅ l'autore la **ritratta**: «there's no importance column. Instead, I just order the list». Implementato come **ordine**, non come punteggio |
+| Initial estimate | `estimate` + `EstimateChange` | ✅ la storia è conservata; `estimate` resta la corrente |
 | How to demo | `howToDemo` | ✅ «essentially a simple test spec»; il seed lo riempie per la **testa** del backlog, come il libro |
 | Notes | `description` | 🟡 |
 
