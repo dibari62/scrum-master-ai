@@ -37,6 +37,7 @@ export const pullRequestIdSchema = identifier<"PullRequestId">();
 
 export const scrumAgentIdSchema = identifier<"ScrumAgentId">();
 export const projectContextIdSchema = identifier<"ProjectContextId">();
+export const projectSettingsIdSchema = identifier<"ProjectSettingsId">();
 export const skillRunIdSchema = identifier<"SkillRunId">();
 export const sprintHealthCheckIdSchema = identifier<"SprintHealthCheckId">();
 export const sprintStatisticsIdSchema = identifier<"SprintStatisticsId">();
