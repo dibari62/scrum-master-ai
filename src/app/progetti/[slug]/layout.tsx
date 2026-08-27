@@ -34,6 +34,15 @@ export default async function ProjectLayout({
     { label: "Impedimenti", href: `${base}/impedimenti` },
     { label: "Retrospettive", href: `${base}/retrospettive` },
     { label: "Scrum Master AI", href: `${base}/scrum-master` },
+    /*
+     * Ultima, e non è un ripensamento.
+     *
+     * Le altre voci sono cose da guardare; questa è una cosa da *fare*, e si fa
+     * una volta. Metterla in mezzo la offrirebbe ogni giorno a chi l'ha già
+     * fatta, e in fondo la trova comunque chi la cerca — perché è dove ci si
+     * aspetta che stiano le impostazioni.
+     */
+    { label: "Impostazioni", href: `${base}/impostazioni` },
   ];
 
   return (
