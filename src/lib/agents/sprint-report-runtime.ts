@@ -26,6 +26,8 @@ import {
 } from "@/agents/sprint-report";
 import {
   carryOver,
+  demoAgenda,
+  forecastVariance,
   scopeChange,
   summariseFlow,
   throughput,
@@ -202,11 +204,12 @@ export async function runSprintReport(input: {
 
   const project = projectSchema.parse(projectRow);
 
-  const [itemRows, transitionRows, estimateRows, scopeRows] = await Promise.all([
+  const [itemRows, transitionRows, estimateRows, scopeRows, statisticsRows] = await Promise.all([
     scope.reads.workItemsByProject(input.projectId),
     scope.reads.transitionsByProject(input.projectId),
     scope.reads.estimateChangesByProject(input.projectId),
     scope.reads.scopeEventsByProject(input.projectId),
+    scope.reads.sprintStatisticsByProject(input.projectId),
   ]);
 
   const items = itemRows.map((row) =>
@@ -222,6 +225,30 @@ export async function runSprintReport(input: {
   const scopeResult = scopeChange(sprint, items, scopeEvents, estimateChanges);
   const carryResult = carryOver(sprint, items, transitions, scopeEvents, estimateChanges);
   const throughputResult = throughput(transitions, sprint.startsAt, asOf);
+
+  /*
+   * Previsto contro effettivo, ma **solo se una previsione era stata scritta**.
+   *
+   * È la voce di fine sprint della checklist del capitolo 16, e senza di essa il
+   * resoconto raccontava quanto è stato fatto senza mai dire quanto era stato
+   * promesso. Una previsione però è un artefatto che una squadra *scrive*: se
+   * nessuno l'ha registrata, non se ne calcola una — sarebbe misurare uno sprint
+   * contro un piano inventato dopo.
+   */
+  const forecastRow = statisticsRows.find((row) => row.sprintId === sprint.id);
+
+  const varianceResult = forecastRow
+    ? forecastVariance(
+        sprint,
+        items,
+        transitions,
+        scopeEvents,
+        Number(forecastRow.forecastPoints),
+        estimateChanges,
+      )
+    : undefined;
+
+  const demo = demoAgenda({ sprint, items, transitions, scopeEvents });
 
   const carried = new Set<WorkItemId>(carryResult.available ? carryResult.value.items : []);
   const added = new Set<WorkItemId>(
@@ -256,6 +283,8 @@ export async function runSprintReport(input: {
     scopeChange: scopeResult,
     carryOver: carryResult,
     throughput: throughputResult,
+    forecastVariance: varianceResult,
+    demo,
     evidence: evidence.items,
     evidenceTruncated: evidence.truncated,
   });
