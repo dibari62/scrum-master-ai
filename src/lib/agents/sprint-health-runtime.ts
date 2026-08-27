@@ -30,7 +30,9 @@ import {
 import { sprintHealth } from "@/metrics";
 import { formatDate } from "@/lib/format";
 import { VERDICT_WORDS } from "@/lib/health-words";
-import { createGateway, selectedProvider, type Gateway } from "@/lib/llm";
+import { selectedProvider, type Gateway } from "@/lib/llm";
+
+import { gatewayForProject } from "./project-gateway";
 
 /**
  * Explaining the health of the running sprint, and writing down what it cost.
@@ -73,7 +75,10 @@ export async function runSprintHealthNarration(input: {
 }): Promise<HealthNarrationOutcome> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
-  const gateway = options.gateway ?? createGateway();
+  const gateway =
+    options.gateway ??
+    // La chiave e del progetto, non dell'applicazione (ADR-0010).
+    (await gatewayForProject(input.organizationId, input.projectId));
 
   const startedAt = now();
   const runId = randomUUID();

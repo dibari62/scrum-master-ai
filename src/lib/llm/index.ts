@@ -9,3 +9,4 @@ export * from "./types";
 export * from "./gateway";
 export * from "./pricing";
 export { FAKE_MODEL, countTokens, createFakeProvider, renderRequest } from "./fake";
+export { createGoogleProvider, DEFAULT_GEMINI_MODEL } from "./google";

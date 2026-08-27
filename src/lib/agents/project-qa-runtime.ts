@@ -19,7 +19,9 @@ import {
   selectSources,
   type ScoredSource,
 } from "@/agents/project-qa";
-import { createGateway, selectedProvider, type Gateway } from "@/lib/llm";
+import { selectedProvider, type Gateway } from "@/lib/llm";
+
+import { gatewayForProject } from "./project-gateway";
 
 /**
  * Answering a question about a project.
@@ -76,7 +78,10 @@ export async function runProjectQuestion(input: {
 }): Promise<ProjectAnswerOutcome> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
-  const gateway = options.gateway ?? createGateway();
+  const gateway =
+    options.gateway ??
+    // La chiave e del progetto, non dell'applicazione (ADR-0010).
+    (await gatewayForProject(input.organizationId, input.projectId));
 
   const startedAt = now();
   const runId = randomUUID();

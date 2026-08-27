@@ -23,7 +23,9 @@ import {
 import type { NarrationOrigin } from "@/agents/sprint-health";
 import { dailyActivity, summariseFlow, type Milliseconds } from "@/metrics";
 import { formatDate } from "@/lib/format";
-import { createGateway, selectedProvider, type Gateway } from "@/lib/llm";
+import { selectedProvider, type Gateway } from "@/lib/llm";
+
+import { gatewayForProject } from "./project-gateway";
 
 /**
  * Writing up a day of the project.
@@ -79,7 +81,10 @@ export async function runDailyDigest(input: {
 }): Promise<DigestOutcomeSummary> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
-  const gateway = options.gateway ?? createGateway();
+  const gateway =
+    options.gateway ??
+    // La chiave e del progetto, non dell'applicazione (ADR-0010).
+    (await gatewayForProject(input.organizationId, input.projectId));
 
   const startedAt = now();
   const runId = randomUUID();

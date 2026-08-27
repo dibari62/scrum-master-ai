@@ -5,6 +5,7 @@ import {
 } from "@/domain";
 
 import { countTokens, createFakeProvider, renderRequest } from "./fake";
+import { createGoogleProvider } from "./google";
 import { estimateCostUsd } from "./pricing";
 import {
   LlmProviderError,
@@ -75,6 +76,15 @@ export type GatewayOptions = {
   /** Injectable clock: a duration measured from the wall clock is not testable. */
   readonly now?: (() => number) | undefined;
   readonly env?: EnvironmentSlice | undefined;
+
+  /**
+   * The project's own credentials, when it has them (ADR-0010).
+   *
+   * When present they **win over the environment**: a project that declared a
+   * provider must be served by that one, or its report would be written on
+   * somebody else's quota — ours.
+   */
+  readonly credentials?: ProjectCredentials | undefined;
 };
 
 export type Gateway = {
@@ -137,20 +147,66 @@ function createUnimplementedProvider(name: LlmProvider): LlmProviderAdapter {
 }
 
 /**
+ * The credentials of a **project**, when it brings its own (ADR-0010).
+ *
+ * Passed in rather than read from the environment, and the direction matters:
+ * the environment holds *our* key for local development, while this holds *a
+ * customer's*. Confusing the two would mean one company's report being written
+ * on another company's quota.
+ */
+export type ProjectCredentials = {
+  readonly provider: LlmProvider;
+  /** `null` for `fake`, which answers without calling anyone. */
+  readonly apiKey: string | null;
+  readonly model?: string | null | undefined;
+};
+
+/**
  * The chain the gateway will try, primary first.
  *
  * `fake` is never mixed with real providers: a demonstration that quietly
  * degraded to invented text would be indistinguishable from one that worked.
+ *
+ * **Con le credenziali di un progetto non c'è riserva, ed è voluto.** La riserva
+ * di ADR-0005 esisteva perché le chiavi erano nostre e le avevamo entrambe. La
+ * chiave di un cliente è una sola: dirottare il suo lavoro su un fornitore che
+ * non ha scelto significherebbe spendere una quota che non ci ha dato, o
+ * fallire con un messaggio che parla di un servizio di cui non sa nulla.
  */
 export function defaultProviders(
   env: EnvironmentSlice = process.env,
+  credentials?: ProjectCredentials | undefined,
 ): readonly LlmProviderAdapter[] {
+  if (credentials) {
+    if (credentials.provider === "fake") return [createFakeProvider()];
+
+    if (credentials.provider === "gemini") {
+      return [
+        createGoogleProvider({
+          apiKey: credentials.apiKey ?? "",
+          model: credentials.model,
+        }),
+      ];
+    }
+
+    return [createUnimplementedProvider(credentials.provider)];
+  }
+
   const selected = selectedProvider(env);
 
   if (selected === "fake") return [createFakeProvider()];
 
-  const backup: LlmProvider = selected === "gemini" ? "groq" : "gemini";
-  return [createUnimplementedProvider(selected), createUnimplementedProvider(backup)];
+  if (selected === "gemini") {
+    return [
+      createGoogleProvider({
+        apiKey: env["GEMINI_API_KEY"] ?? "",
+        model: env["LLM_MODEL"] ?? null,
+      }),
+      createUnimplementedProvider("groq"),
+    ];
+  }
+
+  return [createUnimplementedProvider(selected), createUnimplementedProvider("gemini")];
 }
 
 /** Tokens the request will cost before anything is sent. */
@@ -168,7 +224,7 @@ function classify(error: unknown): LlmProviderError {
 export function createGateway(options: GatewayOptions = {}): Gateway {
   const env = options.env ?? process.env;
   const now = options.now ?? (() => Date.now());
-  const providers = options.providers ?? defaultProviders(env);
+  const providers = options.providers ?? defaultProviders(env, options.credentials);
 
   return {
     async complete(request: LlmRequest): Promise<GatewayOutcome> {

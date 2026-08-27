@@ -12,7 +12,9 @@ import {
 } from "@/domain";
 import { getDatabase } from "@/db";
 import { skillRuns } from "@/db/schema";
-import { createGateway, type Gateway } from "@/lib/llm";
+import type { Gateway } from "@/lib/llm";
+
+import { gatewayForProject } from "./project-gateway";
 
 /**
  * Running a skill and writing down what it cost.
@@ -77,7 +79,10 @@ export async function runConfigurationCheck(input: {
 }): Promise<RunOutcome> {
   const options = input.options ?? {};
   const now = options.now ?? (() => new Date());
-  const gateway = options.gateway ?? createGateway();
+  const gateway =
+    options.gateway ??
+    // La chiave e del progetto, non dell'applicazione (ADR-0010).
+    (await gatewayForProject(input.organizationId, input.projectId));
 
   const startedAt = now();
   const id = randomUUID();

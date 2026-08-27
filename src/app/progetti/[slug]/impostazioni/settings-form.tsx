@@ -64,9 +64,9 @@ const CONNECTORS = [
  * What each model is, and what it costs the person choosing it.
  *
  * **`ready` dice la verità sullo stato del portale, non su quello del
- * fornitore.** Gemini e Groq sono decisi in ADR-0005 e dichiarati nel modello,
- * ma nessuno dei due è ancora collegato al proprio SDK: il gateway li salta e la
- * capacità fallisce con «fornitore non collegato».
+ * fornitore.** Groq è deciso in ADR-0005 e dichiarato nel modello, ma non è
+ * ancora collegato al proprio SDK: il gateway lo salta e la capacità fallisce
+ * con «fornitore non collegato».
  *
  * Tacerlo qui sarebbe la cosa peggiore che questa pagina possa fare: manderebbe
  * qualcuno a registrarsi su un sito, generare una credenziale e incollarla, per
@@ -85,20 +85,20 @@ const BRAINS = [
   },
   {
     value: "gemini",
-    label: "Google Gemini (non ancora collegato)",
-    ready: false,
+    label: "Google Gemini",
+    ready: true,
     explanation:
       "Ha un piano gratuito con un limite giornaliero, e la chiave si genera su " +
-      "aistudio.google.com. La configurazione si salva e la chiave viene custodita cifrata, " +
-      "ma il portale non sa ancora parlare con Gemini.",
+      "aistudio.google.com. Se non indichi un modello viene usato gemini-2.0-flash, che è " +
+      "il più economico della famiglia.",
   },
   {
     value: "groq",
     label: "Groq (non ancora collegato)",
     ready: false,
     explanation:
-      "Veloce, con un piano gratuito, e la chiave si genera su console.groq.com. Come per " +
-      "Gemini, la configurazione si conserva ma il collegamento non è ancora scritto.",
+      "Veloce, con un piano gratuito, e la chiave si genera su console.groq.com. La " +
+      "configurazione si conserva ma il collegamento non è ancora scritto.",
   },
 ] as const;
 
