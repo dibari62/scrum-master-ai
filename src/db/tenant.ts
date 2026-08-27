@@ -1,5 +1,4 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
 import type {
   AcceptanceThresholdCutoffs,
@@ -86,35 +85,6 @@ export const MAX_SPRINT_REPORT_PAGE_SIZE = 10;
  * project's whole history.
  */
 export const MAX_HEALTH_CHECK_PAGE_SIZE = 30;
-
-/**
- * The most rows a single table export may carry.
- *
- * An export is the one feature whose purpose *is* the whole table, so the
- * ceiling is not editorial: it is the runtime. The handler runs as a serverless
- * function with a wall-clock limit and a fixed amount of memory, and a request
- * that materialises an unbounded result set fails at the worst possible moment —
- * after the reader has already waited for it.
- *
- * Ten thousand rows is far above anything this product holds today and far
- * below what a request cannot survive. When a table exceeds it the interface
- * says so, in words, rather than handing over a shorter file that looks
- * complete.
- */
-export const MAX_EXPORT_ROWS = 10_000;
-
-/**
- * A table carrying both tenant keys.
- *
- * Structural on purpose: `exportRowCounts` counts ten different tables with one
- * statement, and the only thing it needs to know about each is that it can be
- * filtered by organization and by project. A table without those two columns
- * fails to compile rather than producing an unfiltered count.
- */
-type ProjectScopedTable = PgTable & {
-  readonly organizationId: PgColumn;
-  readonly projectId: PgColumn;
-};
 
 /**
  * Tenant-scoped access to the database.
@@ -449,26 +419,6 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         )
         .orderBy(comments.postedAt),
 
-    /**
-     * Every comment of a project, oldest first.
-     *
-     * Exists for the export, where the unit is the table and not the thread.
-     * Capped, because this is one of the two tables that grow with the volume
-     * of conversation rather than with the size of the team.
-     */
-    commentsByProject: (projectId: ProjectId) =>
-      db
-        .select()
-        .from(comments)
-        .where(
-          and(
-            eq(comments.organizationId, organizationId),
-            eq(comments.projectId, projectId),
-          ),
-        )
-        .orderBy(comments.postedAt)
-        .limit(MAX_EXPORT_ROWS),
-
     impedimentsByProject: (projectId: ProjectId) =>
       db
         .select()
@@ -600,88 +550,6 @@ export function forOrganization(db: Database, organizationId: OrganizationId) {
         )
         .orderBy(sprintHealthChecks.takenAt)
         .limit(Math.min(Math.max(Math.trunc(limit), 1), MAX_HEALTH_CHECK_PAGE_SIZE)),
-
-    /*
-     * The two registers, read for an export rather than for a card.
-     *
-     * Deliberately separate from `skillRunsByProject` and
-     * `sprintReportsByProject` instead of sharing them with a larger argument.
-     * Those two are capped at a page because a card shows the head of a list,
-     * and their cap is a protection that must not be talked out of by a caller.
-     * An export answers a different question — «dammi la tabella» — so it gets
-     * its own read, with its own ceiling and its own reason for having one.
-     *
-     * Ascending, unlike the registers: a file is read forwards, and a history
-     * that starts from the end has to be reversed by whoever opens it.
-     */
-
-    skillRunsForExport: (projectId: ProjectId) =>
-      db
-        .select()
-        .from(skillRuns)
-        .where(
-          and(
-            eq(skillRuns.organizationId, organizationId),
-            eq(skillRuns.projectId, projectId),
-          ),
-        )
-        .orderBy(skillRuns.startedAt)
-        .limit(MAX_EXPORT_ROWS),
-
-    sprintReportsForExport: (projectId: ProjectId) =>
-      db
-        .select()
-        .from(sprintReports)
-        .where(
-          and(
-            eq(sprintReports.organizationId, organizationId),
-            eq(sprintReports.projectId, projectId),
-          ),
-        )
-        .orderBy(sprintReports.generatedAt)
-        .limit(MAX_EXPORT_ROWS),
-
-    /**
-     * How many rows each exportable table holds, in a single round trip.
-     *
-     * The export page states, per table, how much is in it — including that a
-     * table is empty, which is the one thing a download button cannot say. Ten
-     * separate counts would be ten round trips to a database that sleeps after
-     * five minutes, so they are ten scalar sub-selects instead, all resolved by
-     * one statement.
-     *
-     * The outer query reads `projects` filtered by tenant **and** by
-     * identifier, so a project belonging to another company yields no row at
-     * all: the caller cannot distinguish "not yours" from "does not exist",
-     * because at this level they are the same thing (§8.4). Each sub-select
-     * carries the tenant predicate too — the outer filter is not what protects
-     * them, their own is.
-     *
-     * `count(*)` is `bigint`, which the driver hands back as a string; the cast
-     * to `int` is what makes the declared `number` true rather than hopeful.
-     */
-    exportRowCounts: (projectId: ProjectId) => {
-      const rowsIn = (table: ProjectScopedTable) =>
-        sql<number>`(select count(*)::int from ${table} where ${table.organizationId} = ${organizationId} and ${table.projectId} = ${projectId})`;
-
-      return db
-        .select({
-          sprints: rowsIn(sprints),
-          workItems: rowsIn(workItems),
-          stateTransitions: rowsIn(stateTransitions),
-          sprintScopeEvents: rowsIn(sprintScopeEvents),
-          people: rowsIn(people),
-          comments: rowsIn(comments),
-          impediments: rowsIn(impediments),
-          pullRequests: rowsIn(pullRequests),
-          skillRuns: rowsIn(skillRuns),
-          sprintReports: rowsIn(sprintReports),
-        })
-        .from(projects)
-        .where(
-          and(eq(projects.organizationId, organizationId), eq(projects.id, projectId)),
-        );
-    },
   } as const;
 
   const writes = {
