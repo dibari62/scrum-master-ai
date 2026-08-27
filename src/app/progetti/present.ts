@@ -196,24 +196,24 @@ export { VERDICT_WORDS } from "@/lib/health-words";
 
 
 /**
- * La serie da disegnare per un burndown, e in quale unità.
+ * La serie da disegnare per un burndown, e in quale unitÃ .
  *
  * **La regola viene dal libro, e il portale non la applicava.**
  *
- * > «If you don't have time estimates on the tasks, you can still do a burndown
- * > — **just count the tasks instead of adding up the hours**» (pag. 66)
+ * > Â«If you don't have time estimates on the tasks, you can still do a burndown
+ * > Â— **just count the tasks instead of adding up the hours**Â» (pag. 66)
  *
  * Le due pagine che disegnano un burndown scrivevano `remaining.points ?? 0`.
- * Su uno sprint senza stime in punti questo non produce «nessun grafico»:
- * produce **una linea piatta a zero**, cioè uno sprint che sembra concluso il
- * primo giorno. È peggio dell'assenza, perché ha l'aspetto di un'informazione.
+ * Su uno sprint senza stime in punti questo non produce Â«nessun graficoÂ»:
+ * produce **una linea piatta a zero**, cioÃ¨ uno sprint che sembra concluso il
+ * primo giorno. Ãˆ peggio dell'assenza, perchÃ© ha l'aspetto di un'informazione.
  *
- * Dichiarata qui e non nelle due pagine perché è una decisione sola: duplicarla
+ * Dichiarata qui e non nelle due pagine perchÃ© Ã¨ una decisione sola: duplicarla
  * significherebbe che fra sei mesi la panoramica e la pagina sprint disegnano lo
  * stesso sprint in due modi diversi.
  *
- * L'ordine delle preferenze è quello del libro: prima i punti, poi le ore, e in
- * ultimo il conteggio — che è sempre disponibile, perché contare non richiede
+ * L'ordine delle preferenze Ã¨ quello del libro: prima i punti, poi le ore, e in
+ * ultimo il conteggio Â— che Ã¨ sempre disponibile, perchÃ© contare non richiede
  * che qualcuno abbia stimato.
  */
 export type BurndownPresentation = {
@@ -247,9 +247,9 @@ export function presentBurndown(burndown: {
       /*
        * La linea ideale parte dal numero di elementi del primo giorno.
        *
-       * `ideal` è calcolato in punti e qui sarebbe `null`: usarlo lascerebbe il
-       * grafico senza guida proprio nel caso in cui la guida è più utile, perché
-       * un conteggio non ha una scala che chi guarda già conosce.
+       * `ideal` Ã¨ calcolato in punti e qui sarebbe `null`: usarlo lascerebbe il
+       * grafico senza guida proprio nel caso in cui la guida Ã¨ piÃ¹ utile, perchÃ©
+       * un conteggio non ha una scala che chi guarda giÃ  conosce.
        */
       committed: burndown.points[0]?.openCount ?? 0,
       unitLabel: "elementi",

@@ -301,6 +301,38 @@ prima no, il codice funziona e a mentire è la sonda.
 
 ---
 
+### 5.ter `Add-Content` corrompe gli accenti, e il typecheck non se ne accorge
+
+`Add-Content` senza `-Encoding utf8` scrive nella **codifica di sistema**, non in
+UTF-8. Su un file che era UTF-8 il risultato è un file misto: la parte vecchia
+valida, la nuova no. Ogni `è`, `à`, `—` aggiunto diventa un byte solo che UTF-8
+non sa leggere.
+
+**La parte insidiosa è chi se ne accorge e chi no.**
+
+| Strumento | Reazione |
+|---|---|
+| `npm run typecheck` | **passa**: TypeScript sostituisce i byte illeggibili e va avanti |
+| `npm run test` | **passa**, per la stessa ragione |
+| `npm run lint` | **passa** |
+| `npm run build` | **fallisce**: `failed to convert rope into string` |
+
+Quindi `npm run verify` resta verde e la CI si rompe — ed è successo, con un
+messaggio che non nomina il vero problema: parla di *rope*, non di accenti.
+
+Due regole che lo evitano:
+
+- per **aggiungere** testo a un file, usare gli strumenti di modifica, non
+  `Add-Content`. Se proprio serve PowerShell: `Add-Content -Encoding utf8`;
+- prima di aprire una PR che tocca file con accenti, `npm run build` — è l'unico
+  dei quattro comandi che se ne accorge.
+
+Per trovarli dopo, la prova è il **giro di andata e ritorno**: si decodifica il
+file come UTF-8, lo si ricodifica, e si confrontano i byte. Se non coincidono, il
+file è misto.
+
+---
+
 ## 6. Il vincolo che vale più di tutti
 
 > Un'applicazione funzionante che il Product Owner non ha capito è un
