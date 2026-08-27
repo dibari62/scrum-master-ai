@@ -72,6 +72,7 @@ function added(workItemId: string, occurredAt: string = START, sprintId = SPRINT
     sprintId,
     workItemId,
     kind: "added",
+    reason: null,
     occurredAt,
     createdAt: occurredAt,
     updatedAt: occurredAt,

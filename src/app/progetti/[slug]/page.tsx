@@ -59,6 +59,43 @@ function sprintLabel(entry: SprintMetrics): string {
   return entry.sprint.name.replace(/^Sprint \d+ — /, "");
 }
 
+/**
+ * Says how many of the mid-sprint additions were interruptions.
+ *
+ * > «We've had three **unplanned items** … this is useful to remember when you
+ * > do the sprint retrospective.» (pag. 60)
+ *
+ * The total alone cannot tell a team that accepted more work from a team that
+ * was interrupted, and those are two different conversations to have at the
+ * retrospective.
+ *
+ * When nothing is declared it says so, rather than implying everything was
+ * planned: `null` on a scope event means the source has no field for it, which
+ * is the normal state of most tools.
+ */
+function unplannedHint(result: SprintMetrics["scopeChange"]): string {
+  const base = "Elementi entrati a sprint iniziato.";
+  if (!result.available || result.value.addedCount === 0) return base;
+
+  const { unplannedAdditions, undeclaredAdditions, addedCount } = result.value;
+
+  if (unplannedAdditions === 0 && undeclaredAdditions === addedCount) {
+    return `${base} Nessuno dichiara se sia stato un'interruzione.`;
+  }
+
+  // «1 non lo dichiarano» fa sembrare generato un testo che invece è scritto.
+  const interruptions =
+    unplannedAdditions === 1 ? "1 è un'interruzione" : `${unplannedAdditions} sono interruzioni`;
+  const silent =
+    undeclaredAdditions === 1
+      ? "1 non lo dichiara"
+      : `${undeclaredAdditions} non lo dichiarano`;
+
+  return undeclaredAdditions === 0
+    ? `${base} Di questi, ${interruptions}.`
+    : `${base} Di questi, ${interruptions}; ${silent}.`;
+}
+
 export default async function ProjectDashboardPage({ params }: PageProps) {
   const session = await auth();
   if (!session) redirect("/accedi");
@@ -465,7 +502,16 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
                   ? "warning"
                   : "normal"
               }
-              hint="Elementi entrati a sprint iniziato."
+              /*
+               * Quante di quelle aggiunte sono state interruzioni.
+               *
+               * «We've had three unplanned items … this is useful to remember
+               * when you do the sprint retrospective» (pag. 60). Il totale da
+               * solo non distingue una squadra che ha accettato altro lavoro
+               * da una che è stata interrotta, e sono due conversazioni
+               * diverse in retrospettiva.
+               */
+              hint={unplannedHint(current.scopeChange)}
               href={`${elementi}?sprint=${current.sprint.id}`}
             />
             <MetricCard

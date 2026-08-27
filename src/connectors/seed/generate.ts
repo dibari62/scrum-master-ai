@@ -718,6 +718,21 @@ function generateSprintItems(input: SprintGenerationInput): SprintGenerationResu
     const reEstimated = !addedMidSprint && reEstimatedRemaining > 0 && random.chance(0.5);
     if (reEstimated) reEstimatedRemaining -= 1;
 
+    /*
+     * Quante delle aggiunte in corsa sono dichiarate interruzioni.
+     *
+     * Non tutte, di proposito. Il piano di sprint dice quante lo sono, e le
+     * restanti restano `null` — «la fonte non lo dice» — perché è così che si
+     * presenta un progetto vero: una parte delle interruzioni non viene
+     * registrata da nessuno.
+     *
+     * Un dato di prova in cui ogni evento è classificato mostrerebbe la
+     * funzione al lavoro in una condizione che su dati veri non si verifica
+     * quasi mai, e nasconderebbe proprio il caso che il portale deve saper
+     * dichiarare.
+     */
+    const unplanned = addedMidSprint && position - plan.plannedItems < plan.unplannedItems;
+
     const title = ITEM_TITLES[titleCursor % ITEM_TITLES.length] ?? "Attività";
     titleCursor += 1;
 
@@ -731,6 +746,7 @@ function generateSprintItems(input: SprintGenerationInput): SprintGenerationResu
       sourceSuffix: `${sprint.sourceId}-${position + 1}`,
       enteredAt,
       addedMidSprint,
+      unplanned,
       blocked,
       reopened,
       finishes,
@@ -762,6 +778,15 @@ type BuildItemInput = {
   readonly sourceSuffix: string;
   readonly enteredAt: Date;
   readonly addedMidSprint: boolean;
+
+  /**
+   * Whether this mid-sprint arrival was an interruption rather than a
+   * deliberate extension of the plan.
+   *
+   * Only meaningful together with `addedMidSprint`: what was there at the start
+   * is the commitment, not a change to it.
+   */
+  readonly unplanned: boolean;
   readonly blocked: boolean;
   readonly reopened: boolean;
   readonly finishes: boolean;
@@ -900,6 +925,20 @@ function buildItem(input: BuildItemInput): GeneratedItem {
       sprintId: sprint.id,
       workItemId: itemId,
       kind: "added",
+      /*
+       * Solo le aggiunte a sprint iniziato hanno un perché.
+       *
+       * Ciò che c'era alla partenza è l'impegno, non un cambiamento: dargli un
+       * motivo suggerirebbe che qualcuno abbia deciso qualcosa in corsa.
+       *
+       * Fra le aggiunte in corsa, lo scenario dichiara **interruzione** quelle
+       * che il piano di sprint marca come tali e lascia `null` le altre: è
+       * così che si presenta un progetto vero, dove una parte delle
+       * interruzioni non viene registrata da nessuno. Un dato di prova in cui
+       * ogni evento è classificato dimostrerebbe una funzione che su dati veri
+       * non si vedrebbe mai lavorare.
+       */
+      reason: input.addedMidSprint ? (input.unplanned ? "unplanned" : null) : null,
       occurredAt: input.enteredAt,
       createdAt: input.enteredAt,
       updatedAt: input.enteredAt,
@@ -1096,6 +1135,9 @@ function continueCarriedItem(input: ContinueInput): GeneratedItem {
     sprintId: previous.scopeEvents[0]?.sprintId ?? sprint.id,
     workItemId: previous.item.id,
     kind: "removed",
+    // Un'uscita non ha un «perché» in questo senso: la distinzione del libro è
+    // fra un piano esteso e un piano interrotto, ed è sulle entrate.
+    reason: null,
     occurredAt: sprint.startsAt,
     createdAt: sprint.startsAt,
     updatedAt: sprint.startsAt,
@@ -1108,6 +1150,9 @@ function continueCarriedItem(input: ContinueInput): GeneratedItem {
     sprintId: sprint.id,
     workItemId: previous.item.id,
     kind: "added",
+    // Un elemento trascinato entra all'inizio dello sprint: è impegno, non
+    // un'aggiunta in corsa.
+    reason: null,
     occurredAt: sprint.startsAt,
     createdAt: sprint.startsAt,
     updatedAt: sprint.startsAt,

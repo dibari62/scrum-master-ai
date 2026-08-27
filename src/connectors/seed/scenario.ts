@@ -30,6 +30,20 @@ export type SprintPlan = {
   readonly addedMidSprint: number;
 
   /**
+   * How many of those additions the team recorded as **interruptions**.
+   *
+   * > «We've had three unplanned items, as you can see down to the right. This
+   * > is useful to remember when you do the sprint retrospective.» (pag. 60)
+   *
+   * Always fewer than `addedMidSprint`, deliberately: the remainder stays
+   * undeclared, because on a real project part of the interruptions never gets
+   * recorded by anyone. Data where every event is classified would show the
+   * feature working in a condition that hardly ever occurs, and would hide the
+   * very case the portal has to be able to state.
+   */
+  readonly unplannedItems: number;
+
+  /**
    * Share of planned work that does not finish.
    *
    * Rising across the four sprints, which is what makes `carryOver` tell a
@@ -178,6 +192,7 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     goal: "Il carrello conserva gli articoli fra una sessione e l'altra.",
     plannedItems: 9,
     addedMidSprint: 0,
+    unplannedItems: 0,
     incompleteShare: 0.11,
     reviewWaitHours: [2, 8],
     blockedItems: 0,
@@ -217,6 +232,9 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     goal: "Si paga con carta e con PayPal.",
     plannedItems: 10,
     addedMidSprint: 4,
+    // Tre dichiarate interruzioni su quattro aggiunte: la quarta resta non
+    // dichiarata, com'è normale.
+    unplannedItems: 3,
     incompleteShare: 0.2,
     reviewWaitHours: [4, 12],
     blockedItems: 1,
@@ -256,6 +274,7 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     goal: "L'utente sceglie indirizzo e modalità di spedizione.",
     plannedItems: 11,
     addedMidSprint: 2,
+    unplannedItems: 1,
     incompleteShare: 0.36,
     reviewWaitHours: [36, 96],
     blockedItems: 2,
@@ -294,6 +313,7 @@ export const SPRINT_PLANS: readonly SprintPlan[] = [
     goal: "L'ordine si conclude e arriva la conferma via email.",
     plannedItems: 12,
     addedMidSprint: 3,
+    unplannedItems: 2,
     incompleteShare: 0.42,
     reviewWaitHours: [48, 120],
     blockedItems: 3,
