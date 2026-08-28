@@ -196,17 +196,53 @@ export type DeploymentFacts = {
   readonly branch: string | null;
   /** Se stiamo girando su Vercel affatto. */
   readonly onVercel: boolean;
+  /** L'indirizzo di *questo* deploy: dice a quale progetto appartiene. */
+  readonly url: string | null;
+
+  /**
+   * Quante variabili vede il processo, in tutto.
+   *
+   * **Un numero, non un elenco**, e serve a distinguere due guasti che si
+   * assomigliano. Su Vercel un processo ne vede diverse decine — la piattaforma
+   * ne inietta molte per conto suo. Se qui comparisse un numero piccolo, il
+   * problema non sarebbe «manca quella variabile» ma «a questo processo non
+   * arriva quasi niente», che è una diagnosi completamente diversa e porta a
+   * guardare altrove.
+   */
+  readonly variableCount: number;
+
+  /**
+   * I nomi che riguardano l'applicazione, fra quelli presenti.
+   *
+   * **Nomi, mai valori.** Un nome non è un segreto: Vercel stessa li mostra nel
+   * proprio pannello, ed è esattamente il confronto che serve — «nel pannello
+   * ne vedo sei, il server ne vede due» è una frase che chiude una diagnosi.
+   *
+   * Filtrati per prefisso noto: l'elenco completo conterrebbe decine di
+   * variabili della piattaforma, e quelle non ci riguardano.
+   */
+  readonly applicationNames: readonly string[];
 };
+
+/** I prefissi che appartengono a questa applicazione, non alla piattaforma. */
+const APPLICATION_PREFIXES = ["AUTH_", "DATABASE_", "SECRETS_", "JOB_", "QSTASH_", "LOG_", "LLM_"];
 
 export function deploymentFacts(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): DeploymentFacts {
   const sha = env["VERCEL_GIT_COMMIT_SHA"]?.trim();
 
+  const names = Object.keys(env)
+    .filter((name) => APPLICATION_PREFIXES.some((prefix) => name.startsWith(prefix)))
+    .sort();
+
   return {
     environment: env["VERCEL_ENV"]?.trim() ?? null,
     commit: sha ? sha.slice(0, 7) : null,
     branch: env["VERCEL_GIT_COMMIT_REF"]?.trim() ?? null,
     onVercel: Boolean(env["VERCEL"]?.trim()),
+    url: env["VERCEL_URL"]?.trim() ?? null,
+    variableCount: Object.keys(env).length,
+    applicationNames: names,
   };
 }

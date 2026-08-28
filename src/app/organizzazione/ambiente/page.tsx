@@ -123,12 +123,45 @@ export default async function EnvironmentPage() {
                   <span className="text-muted-foreground">Ramo</span>
                   <code className="font-mono">{deploy.branch ?? "sconosciuto"}</code>
                 </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">Indirizzo del deploy</span>
+                  <code className="font-mono text-xs">{deploy.url ?? "sconosciuto"}</code>
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">Variabili viste in tutto</span>
+                  <code className="font-mono">{deploy.variableCount}</code>
+                </div>
               </>
             ) : (
               <p className="text-muted-foreground">
                 Non su Vercel: questo server gira in locale, e le variabili vengono da{" "}
                 <code className="font-mono">.env.local</code>.
               </p>
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-3">
+          <h2 className="text-sm font-medium">
+            Nomi che il server vede davvero ({deploy.applicationNames.length})
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Solo i <strong>nomi</strong>, mai i valori, e solo quelli che riguardano
+            l&apos;applicazione. Serve al confronto che chiude una diagnosi: «nel pannello
+            ne vedo sei, il server ne vede due».
+          </p>
+
+          <div className="rounded-md border p-3">
+            {deploy.applicationNames.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nessuna.</p>
+            ) : (
+              <ul className="grid gap-1">
+                {deploy.applicationNames.map((name) => (
+                  <li key={name}>
+                    <code className="font-mono text-sm">{name}</code>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </section>
