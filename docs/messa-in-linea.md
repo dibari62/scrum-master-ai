@@ -156,17 +156,31 @@ password.
    per gli ambienti *Production*, *Preview* e *Development*.
 
    Genera `AUTH_SECRET` e `SECRETS_KEY` nuovi, senza riusare quelli locali.
-   Entrambi sono 32 byte casuali in base64, e si generano **uno alla volta**:
 
    ```powershell
-   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))" | Set-Clipboard
+   npm run chiave
    ```
 
-   Il valore finisce negli **appunti** e non a schermo. Non è pignoleria: un
-   segreto stampato resta nella cronologia della shell, nello scrollback del
-   terminale e — quando alla tastiera c'è un agente — nella trascrizione di una
-   conversazione inviata a terzi. Incollalo su Vercel e genera il successivo, che
-   sovrascrive gli appunti.
+   Il comando genera 32 byte casuali, li mette **negli appunti** e stampa dove
+   incollarli. Il valore non finisce a schermo: un segreto stampato resta nella
+   cronologia della shell, nello scrollback e — quando alla tastiera c'è un
+   agente — nella trascrizione di una conversazione inviata a terzi. Con
+   `npm run chiave -- --mostra` lo si vede comunque, ed è una scelta che spetta
+   a chi possiede il segreto.
+
+   > **⚠️ Il tipo va scelto «Config», non «Secret».** Vercel propone due tipi, e
+   > la descrizione di *Secret* nomina esattamente questo caso d'uso —
+   > «passwords, API keys, and tokens». È la scelta che chiunque farebbe, ed è
+   > quella che **non funziona**: una variabile *Secret* raggiunge il runtime
+   > con il **nome presente e il valore vuoto**, quindi il portale la vede come
+   > mancante e rifiuta di conservare credenziali.
+   >
+   > Il sintomo non somiglia alla causa e costa ore: nel pannello la variabile è
+   > lì, su *Production*, aggiunta pochi minuti prima. Dettagli e diagnosi in
+   > [`ripartire-da-zero.md`](ripartire-da-zero.md) §5.quinquies.
+   >
+   > *Config* non significa pubblica: resta visibile solo a chi ha accesso al
+   > progetto Vercel. Una chiave che non arriva non protegge nulla.
 
    Un segreto condiviso fra il portatile di uno sviluppatore e la produzione
    significa che un portatile compromesso permette di falsificare le sessioni

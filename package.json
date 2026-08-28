@@ -20,6 +20,7 @@
     "dev:user": "node node_modules/tsx/dist/cli.mjs scripts/dev-user.ts",
     "gh": "node scripts/github.mjs",
     "libro": "node scripts/book-progress.mjs",
+    "chiave": "node scripts/genera-chiave.mjs",
     "qstash": "node scripts/qstash.mjs",
     "diagnose:tls": "node scripts/diagnose-tls.mjs",
     "build": "node node_modules/next/dist/bin/next build",
