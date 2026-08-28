@@ -13,6 +13,7 @@ import {
 import { forOrganization, getDatabase } from "@/db";
 import { organizationIdSchema, type OrganizationRole } from "@/domain";
 import { auth } from "@/lib/auth";
+import { mayConfigureSettings } from "@/lib/projects/settings";
 
 import { signOutAction } from "../(auth)/actions";
 
@@ -118,6 +119,18 @@ export default async function OrganizationPage() {
           <Button asChild variant="outline">
             <Link href="/metriche">Come si calcolano le metriche</Link>
           </Button>
+
+          {/*
+           * Visibile solo a chi può agire, e per la stessa ragione per cui la
+           * pagina esiste: una variabile mancante si manifesta lontano da dove
+           * si corregge, e senza un posto dove guardare si finisce per provare
+           * a caso.
+           */}
+          {mayConfigureSettings(session.role) ? (
+            <Button asChild variant="outline">
+              <Link href="/organizzazione/ambiente">Stato dell&apos;ambiente del server</Link>
+            </Button>
+          ) : null}
         </div>
 
         <form action={signOutAction}>
