@@ -258,7 +258,7 @@ describe("fornitore di riserva (criterio 21)", () => {
 });
 
 describe("nessun fornitore configurato", () => {
-  it("nomina la variabile mancante, mai il suo valore (§8.3)", async () => {
+  it("per le valutazioni nomina la variabile mancante, mai il suo valore (§8.3)", async () => {
     const gateway = createGateway({
       providers: [
         failingProvider("gemini", new LlmProviderError("timeout", "mai", true), false),
@@ -275,6 +275,33 @@ describe("nessun fornitore configurato", () => {
       // Un messaggio è un posto da cui un segreto finisce nei log e negli
       // screenshot: deve dire quale variabile manca, non cosa contiene.
       expect(outcome.message).not.toMatch(/sk-|AIza|gsk_/);
+    }
+  });
+
+  it("per un progetto manda dove la chiave si inserisce davvero", async () => {
+    /*
+     * Il difetto che questo test blocca.
+     *
+     * Il messaggio con il nome della variabile era corretto quando il modello
+     * era nostro. Dopo ADR-0010 manderebbe chi usa il portale a cercare una
+     * `GEMINI_API_KEY` che non controlla e che non avrebbe alcun effetto: la
+     * sua chiave si incolla nelle impostazioni del progetto.
+     *
+     * Una direzione sbagliata costa più di un messaggio generico, perché
+     * sembra precisa.
+     */
+    const gateway = createGateway({
+      providers: [failingProvider("gemini", new LlmProviderError("timeout", "mai", true), false)],
+      credentials: { provider: "gemini", apiKey: null },
+    });
+
+    const outcome = await gateway.complete(aRequest());
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.failureCause).toBe("provider_not_configured");
+      expect(outcome.message).toContain("Modello");
+      expect(outcome.message).not.toContain("GEMINI_API_KEY");
     }
   });
 
