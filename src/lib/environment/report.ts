@@ -170,3 +170,43 @@ export function custodyDetail(
     "anziché base64."
   );
 }
+
+/**
+ * Quale deploy sta rispondendo, e in quale ambiente.
+ *
+ * **Senza questo, la diagnosi resta ambigua**, e la storia che ha portato a
+ * scriverlo lo dimostra: tre variabili presenti nel pannello di Vercel
+ * risultavano assenti al server. Guardando solo l'elenco non c'era modo di
+ * distinguere fra «il deploy è vecchio», «sto guardando le variabili di un
+ * altro progetto» e «questo server gira come *preview*, dove quelle variabili
+ * non sono state messe».
+ *
+ * Sono tre cause con lo stesso sintomo, e ognuna richiede un gesto diverso.
+ *
+ * Vercel popola queste variabili da sé a ogni build. Nessuna è segreta: il
+ * commit è pubblico su GitHub, e l'ambiente è ciò che l'indirizzo già lascia
+ * intuire. Fuori da Vercel — in locale — non esistono, e la sezione lo dice
+ * invece di inventare valori.
+ */
+export type DeploymentFacts = {
+  /** `production`, `preview`, `development`, oppure `null` fuori da Vercel. */
+  readonly environment: string | null;
+  /** I primi sette caratteri del commit, come li scrive git. */
+  readonly commit: string | null;
+  readonly branch: string | null;
+  /** Se stiamo girando su Vercel affatto. */
+  readonly onVercel: boolean;
+};
+
+export function deploymentFacts(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): DeploymentFacts {
+  const sha = env["VERCEL_GIT_COMMIT_SHA"]?.trim();
+
+  return {
+    environment: env["VERCEL_ENV"]?.trim() ?? null,
+    commit: sha ? sha.slice(0, 7) : null,
+    branch: env["VERCEL_GIT_COMMIT_REF"]?.trim() ?? null,
+    onVercel: Boolean(env["VERCEL"]?.trim()),
+  };
+}
