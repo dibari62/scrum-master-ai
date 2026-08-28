@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { custodyDetail, environmentReport } from "@/lib/environment/report";
+import { custodyDetail, deploymentFacts, environmentReport } from "@/lib/environment/report";
 
 /**
  * Il rapporto sull'ambiente del server.
@@ -122,5 +122,47 @@ describe("il dettaglio sulla chiave incollata male", () => {
   it("non riporta il valore nemmeno qui", () => {
     const chiave = Buffer.alloc(20, 3).toString("base64");
     expect(custodyDetail({ SECRETS_KEY: chiave })).not.toContain(chiave);
+  });
+});
+
+describe("quale deploy sta rispondendo", () => {
+  /*
+   * Nato da un caso vero: tre variabili presenti nel pannello di Vercel
+   * risultavano assenti al server. Guardando solo l'elenco non c'era modo di
+   * distinguere fra «il deploy è precedente», «sto guardando un altro
+   * progetto» e «questo server gira come preview». Tre cause, un sintomo, tre
+   * gesti diversi per risolverle.
+   */
+
+  it("riporta ambiente, commit e ramo quando gira su Vercel", () => {
+    const facts = deploymentFacts({
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+      VERCEL_GIT_COMMIT_SHA: "fe84df4172af8aa26f4fe48ed182928890491e56",
+      VERCEL_GIT_COMMIT_REF: "main",
+    });
+
+    expect(facts.onVercel).toBe(true);
+    expect(facts.environment).toBe("production");
+    expect(facts.branch).toBe("main");
+  });
+
+  it("accorcia il commit come fa git, invece di stampare quaranta caratteri", () => {
+    const facts = deploymentFacts({
+      VERCEL: "1",
+      VERCEL_GIT_COMMIT_SHA: "fe84df4172af8aa26f4fe48ed182928890491e56",
+    });
+
+    expect(facts.commit).toBe("fe84df4");
+  });
+
+  it("dichiara di non essere su Vercel invece di inventare valori", () => {
+    // In locale queste variabili non esistono. Restituire «production» per
+    // difetto renderebbe la pagina una bugia proprio dove serve la verità.
+    const facts = deploymentFacts({});
+
+    expect(facts.onVercel).toBe(false);
+    expect(facts.environment).toBeNull();
+    expect(facts.commit).toBeNull();
   });
 });

@@ -11,7 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
-import { custodyDetail, environmentReport, type EnvironmentEntry } from "@/lib/environment/report";
+import {
+  custodyDetail,
+  deploymentFacts,
+  environmentReport,
+  type EnvironmentEntry,
+} from "@/lib/environment/report";
 import { mayConfigureSettings } from "@/lib/projects/settings";
 
 export const metadata: Metadata = {
@@ -63,6 +68,7 @@ export default async function EnvironmentPage() {
 
   const report = environmentReport();
   const detail = custodyDetail();
+  const deploy = deploymentFacts();
 
   const required = report.entries.filter((entry) => entry.severity === "required");
   const optional = report.entries.filter((entry) => entry.severity === "optional");
@@ -92,6 +98,40 @@ export default async function EnvironmentPage() {
             ? "Tutte le variabili necessarie sono presenti."
             : `Mancano o non sono valide ${report.problems} variabili necessarie. Il dettaglio è qui sotto.`}
         </p>
+
+        <section className="grid gap-3">
+          <h2 className="text-sm font-medium">Questo deploy</h2>
+          <p className="text-muted-foreground text-sm">
+            Serve a capire <strong>a chi</strong> stai guardando le variabili. Una
+            variabile presente nel pannello e assente qui sotto significa quasi sempre
+            che il deploy è precedente, oppure che questo server gira in un ambiente
+            diverso da quello in cui l&apos;hai messa.
+          </p>
+
+          <div className="grid gap-1 rounded-md border p-3 text-sm">
+            {deploy.onVercel ? (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">Ambiente</span>
+                  <code className="font-mono">{deploy.environment ?? "sconosciuto"}</code>
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">Commit</span>
+                  <code className="font-mono">{deploy.commit ?? "sconosciuto"}</code>
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">Ramo</span>
+                  <code className="font-mono">{deploy.branch ?? "sconosciuto"}</code>
+                </div>
+              </>
+            ) : (
+              <p className="text-muted-foreground">
+                Non su Vercel: questo server gira in locale, e le variabili vengono da{" "}
+                <code className="font-mono">.env.local</code>.
+              </p>
+            )}
+          </div>
+        </section>
 
         <section className="grid gap-3">
           <h2 className="text-sm font-medium">Necessarie</h2>
@@ -124,6 +164,11 @@ export default async function EnvironmentPage() {
             Verifica anche che sia stata aggiunta all&apos;ambiente{" "}
             <strong>Production</strong>: una variabile presente solo su Preview non
             raggiunge il sito pubblicato.
+          </p>
+          <p>
+            <strong>E che sia il progetto giusto.</strong> Un account può avere più
+            progetti su Vercel, e le variabili appartengono a uno solo: il ramo e il
+            commit qui sopra dicono quale sta rispondendo davvero a questo indirizzo.
           </p>
         </div>
 
