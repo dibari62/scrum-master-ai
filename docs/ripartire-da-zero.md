@@ -331,6 +331,64 @@ Per trovarli dopo, la prova è il **giro di andata e ritorno**: si decodifica il
 file come UTF-8, lo si ricodifica, e si confrontano i byte. Se non coincidono, il
 file è misto.
 
+### 5.quater `process.env[nome]` non legge nulla in produzione
+
+**Il guasto più costoso finora, e quello che somigliava di meno a un guasto.**
+
+Una variabile configurata correttamente su Vercel risultava **assente** al
+server. Il portale rifiutava di conservare le chiavi dei modelli dicendo che
+mancava `SECRETS_KEY`, e `SECRETS_KEY` c'era.
+
+La causa: **Next.js sostituisce a tempo di build le occorrenze letterali di
+`process.env.NOME` con il loro valore.** Un accesso calcolato non lo è —
+
+```ts
+// NON funziona in produzione: il bundler non sa quale nome verrà chiesto
+function masterKey(env = process.env) {
+  return env["SECRETS_KEY"];
+}
+
+// Funziona: l'occorrenza è letterale e il bundler la vede
+function processEnvironment() {
+  return { SECRETS_KEY: process.env.SECRETS_KEY };
+}
+```
+
+— quindi il bundler non sostituisce nulla, e a runtime la variabile **non
+esiste**, anche se nel pannello della piattaforma è lì da settimane.
+
+| Strumento | Reazione |
+|---|---|
+| typecheck, lint, test | **passano** (in locale `process.env` è l'ambiente vero) |
+| `npm run build` | **passa** |
+| il sito in produzione | la variabile risulta assente |
+
+**Perché è costato tanto.** Il sintomo — «manca la chiave di custodia» —
+puntava con precisione verso la configurazione, che era giusta. Ogni verifica
+la confermava assente, quindi ogni tentativo rafforzava l'ipotesi sbagliata: si
+rigenera la chiave, si controlla l'ambiente, si rifà il deploy, si cerca un
+secondo progetto Vercel. Nessuna di quelle strade poteva finire da nessuna
+parte.
+
+**Come si è trovato.** Una pagina di diagnostica che si è **contraddetta da
+sola**: `Object.keys(process.env)` elencava dieci variabili dell'applicazione, e
+le righe accanto ne davano otto per assenti. Le uniche due che «funzionavano»
+— `DATABASE_URL` e `AUTH_SECRET` — erano le sole referenziate letteralmente
+altrove nel codice.
+
+Da qui la regola: **ogni variabile d'ambiente si legge con un riferimento
+letterale**, raccolto in una funzione `processEnvironment()` che restituisce un
+oggetto. Il parametro iniettabile resta — serve ai test — ma il **valore
+predefinito** non è più `process.env`.
+
+La forma è ripetitiva e va lasciata tale: un ciclo sarebbe più corto e
+leggerebbe di nuovo il nulla. Due test la difendono da una futura pulizia,
+verificando che il codice sorgente contenga il riferimento letterale per ogni
+nome dichiarato.
+
+`/organizzazione/ambiente` esiste per questo: dice cosa il server vede davvero,
+quante variabili ha in tutto e da quale commit sta rispondendo.
+
 ---
 
 ## 6. Il vincolo che vale più di tutti

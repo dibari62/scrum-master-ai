@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -28,6 +30,29 @@ const ENV = { SECRETS_KEY: randomBytes(32).toString("base64") };
 const CHIAVE_FINTA = "AIzaSyD-esempio-non-vera-0123456789abcdef";
 
 describe("chiave principale", () => {
+  it("legge SECRETS_KEY con un riferimento che un bundler riesce a vedere", () => {
+    /*
+     * Il difetto che ha bloccato una configurazione corretta per un pomeriggio.
+     *
+     * Il valore predefinito era `process.env`, e la lettura avveniva con
+     * `env["SECRETS_KEY"]` sul parametro. In locale funziona: là `process.env`
+     * è l'ambiente vero. Su Vercel no — Next.js sostituisce a tempo di build le
+     * occorrenze **letterali** di `process.env.NOME`, e un accesso attraverso un
+     * parametro non lo è. La chiave risultava assente **pur essendo
+     * configurata**, e il portale rifiutava le credenziali dicendo che mancava
+     * la chiave di custodia.
+     *
+     * È il tipo di guasto peggiore: ogni tentativo di rimediare confermava
+     * l'ipotesi sbagliata.
+     */
+    const source = readFileSync(
+      join(__dirname, "..", "..", "..", "src", "lib", "secrets", "index.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("process.env.SECRETS_KEY");
+  });
+
   it("rifiuta l'assenza invece di ripiegare sul chiaro", () => {
     // Un ripiego silenzioso sarebbe come non aver preso la decisione, con in
     // più la convinzione di averla presa.
