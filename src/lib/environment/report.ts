@@ -49,6 +49,23 @@ export type EnvironmentEntry = {
   readonly purpose: string;
   /** Che cosa succede senza. Presente quando manca o non è valida. */
   readonly consequence: string | null;
+
+  /**
+   * Come si presenta il valore, senza mostrarlo.
+   *
+   * **Tre situazioni che «assente» confondeva in una sola**, e distinguerle è
+   * ciò che ha smontato due ipotesi sbagliate di fila:
+   *
+   * - `missing-key`: il nome non esiste proprio nell'oggetto;
+   * - `empty`: il nome c'è, il valore è vuoto — è quello che succede quando una
+   *   variabile è dichiarata nel pannello ma non arriva al processo;
+   * - `filled`: c'è ed è valorizzata.
+   *
+   * La differenza fra le prime due dice **dove guardare**: la prima è una
+   * variabile mai definita, la seconda è una variabile definita che non
+   * raggiunge questo runtime. Sono guasti diversi con lo stesso sintomo.
+   */
+  readonly shape: "missing-key" | "empty" | "filled";
 };
 
 export type EnvironmentReport = {
@@ -144,8 +161,27 @@ function processEnvironment(): Readonly<Record<string, string | undefined>> {
 export function environmentReport(
   env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): EnvironmentReport {
+  /*
+   * L'oggetto vero del processo, accanto a quello letto per nome.
+   *
+   * Serve a rispondere alla domanda che ha bloccato la diagnosi: «il nome
+   * esiste ma il valore è vuoto» oppure «il nome non esiste»? Sono due guasti
+   * diversi e finora producevano la stessa parola.
+   */
+  const raw: Readonly<Record<string, string | undefined>> = process.env;
+
   const entries = EXPECTED.map((expected): EnvironmentEntry => {
     const state = stateOf(expected.name, env);
+    const value = env[expected.name];
+
+    const shape: EnvironmentEntry["shape"] =
+      value === undefined
+        ? expected.name in raw
+          ? "empty"
+          : "missing-key"
+        : value.trim() === ""
+          ? "empty"
+          : "filled";
 
     return {
       name: expected.name,
@@ -153,6 +189,7 @@ export function environmentReport(
       state,
       purpose: expected.purpose,
       consequence: state === "present" ? null : expected.consequence,
+      shape,
     };
   });
 

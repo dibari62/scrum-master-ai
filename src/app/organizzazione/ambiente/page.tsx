@@ -241,6 +241,19 @@ function EntryRow({
 
       <p className="text-muted-foreground text-sm">{entry.purpose}</p>
 
+      {entry.state !== "present" ? (
+        <p className="text-muted-foreground text-sm">
+          Forma del valore:{" "}
+          <code className="font-mono">
+            {entry.shape === "missing-key"
+              ? "il nome non esiste nell'ambiente"
+              : entry.shape === "empty"
+                ? "il nome esiste, il valore è vuoto"
+                : "valorizzata"}
+          </code>
+        </p>
+      ) : null}
+
       {entry.consequence ? (
         <p className="text-sm">
           <strong>Senza:</strong> {entry.consequence}
