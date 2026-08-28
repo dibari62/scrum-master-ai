@@ -3,7 +3,7 @@ import {
   generateSprintReport,
   type GenerateOutcome,
 } from "@/agents/sprint-report";
-import { createGateway, selectedProvider } from "@/lib/llm";
+import { createGateway, environmentProviders, selectedProvider } from "@/lib/llm";
 
 import { GOLDEN_DATASET, type EvalCase } from "./dataset";
 import { evaluate, type PropertyResult } from "./properties";
@@ -31,7 +31,16 @@ type CaseReport = {
 
 async function runCase(testCase: EvalCase): Promise<CaseReport> {
   const outcome = await generateSprintReport({
-    gateway: createGateway(),
+    /*
+     * L'unico posto che legge ancora una chiave dall'ambiente.
+     *
+     * Una valutazione gira da riga di comando, fuori da qualsiasi richiesta, e
+     * non ha un progetto da cui prendere la chiave: è il solo chiamante rimasto
+     * per cui l'ambiente è la fonte giusta. Nel portale non esiste — ogni
+     * esecuzione appartiene a un progetto e usa la chiave del suo cliente
+     * (ADR-0010).
+     */
+    gateway: createGateway({ providers: environmentProviders() }),
     snapshot: testCase.snapshot,
     projectName: testCase.projectName,
     language: "it",

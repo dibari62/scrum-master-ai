@@ -77,14 +77,15 @@ export type GatewayOptions = {
   readonly providers?: readonly LlmProviderAdapter[] | undefined;
   /** Injectable clock: a duration measured from the wall clock is not testable. */
   readonly now?: (() => number) | undefined;
-  readonly env?: EnvironmentSlice | undefined;
 
   /**
-   * The project's own credentials, when it has them (ADR-0010).
+   * The project's own credentials (ADR-0010).
    *
-   * When present they **win over the environment**: a project that declared a
-   * provider must be served by that one, or its report would be written on
-   * somebody else's quota — ours.
+   * **There is no alternative source, and that is the point.** The application
+   * has no model of its own: every run belongs to a project, and a project
+   * brings its own key. A gateway built without one would serve one company's
+   * report on another company's quota — and no test would notice, because the
+   * text produced would be perfectly correct.
    */
   readonly credentials?: ProjectCredentials | undefined;
 };
@@ -94,12 +95,16 @@ export type Gateway = {
 };
 
 /**
- * Which provider the environment asks for.
+ * Which provider the environment asks for — **for `npm run eval` only**.
+ *
+ * The portal never calls this. An evaluation runs from a command line, outside
+ * any request, and has no project to take a key from: it is the one caller left
+ * that legitimately reads the environment.
  *
  * An unrecognised value falls back to `fake` rather than throwing. The
- * alternative — refusing to start — turns a typo in a dashboard into a dead
- * application, whereas this turns it into a run that visibly did not reach a
- * vendor. Both are wrong; only one of them can be diagnosed from the register.
+ * alternative — refusing to start — turns a typo into a dead run, whereas this
+ * turns it into a run that visibly did not reach a vendor. Both are wrong; only
+ * one of them can be diagnosed from the register.
  */
 export function selectedProvider(env: EnvironmentSlice = process.env): LlmProvider {
   const parsed = llmProviderSchema.safeParse(env["LLM_PROVIDER"]);
@@ -107,10 +112,15 @@ export function selectedProvider(env: EnvironmentSlice = process.env): LlmProvid
 }
 
 /**
- * The credential each provider reads.
+ * The credential each provider reads **from the environment**, for the eval
+ * runner.
  *
  * One per provider, never a shared one: ADR-0005 is explicit that *«una riserva
  * che richiede di riscrivere a mano la credenziale non è una riserva»*.
+ *
+ * These names have nothing to do with the portal. A project's key is typed into
+ * its settings and sealed in the database (ADR-0010); no environment variable
+ * configures a project's model, and setting one would have no effect.
  */
 const API_KEY_VARIABLE: Readonly<Record<LlmProvider, string | null>> = {
   fake: null,
@@ -197,32 +207,41 @@ function adapterFor(
 }
 
 /**
- * The chain the gateway will try, primary first.
+ * The chain the gateway will try for a **project**.
  *
- * `fake` is never mixed with real providers: a demonstration that quietly
- * degraded to invented text would be indistinguishable from one that worked.
- *
- * **Con le credenziali di un progetto non c'è riserva, ed è voluto.** La riserva
- * di ADR-0005 esisteva perché le chiavi erano nostre e le avevamo entrambe. La
- * chiave di un cliente è una sola: dirottare il suo lavoro su un fornitore che
- * non ha scelto significherebbe spendere una quota che non ci ha dato, o
- * fallire con un messaggio che parla di un servizio di cui non sa nulla.
+ * One adapter, never two. **Con le credenziali di un progetto non c'è riserva,
+ * ed è voluto.** La riserva di ADR-0005 esisteva perché le chiavi erano nostre
+ * e le avevamo entrambe. La chiave di un cliente è una sola: dirottare il suo
+ * lavoro su un fornitore che non ha scelto significherebbe spendere una quota
+ * che non ci ha dato, o fallire con un messaggio che parla di un servizio di
+ * cui non sa nulla.
  */
-export function defaultProviders(
-  env: EnvironmentSlice = process.env,
-  credentials?: ProjectCredentials | undefined,
-): readonly LlmProviderAdapter[] {
-  if (credentials) {
-    return [
-      adapterFor(
-        credentials.provider,
-        credentials.apiKey,
-        credentials.model,
-        credentials.baseUrl,
-      ),
-    ];
-  }
+export function providersFor(credentials: ProjectCredentials): readonly LlmProviderAdapter[] {
+  return [
+    adapterFor(credentials.provider, credentials.apiKey, credentials.model, credentials.baseUrl),
+  ];
+}
 
+/**
+ * The chain built from environment variables — **for `npm run eval` only**.
+ *
+ * **Perché esiste una funzione a sé invece di un ripiego dentro `createGateway`.**
+ * Finché il ripiego era implicito, chiunque scrivesse `createGateway()` senza
+ * argomenti otteneva «il modello dell'applicazione», che dopo ADR-0010 non
+ * esiste più: ogni esecuzione appartiene a un progetto e usa la chiave del suo
+ * cliente. Un gateway costruito senza credenziali servirebbe il rapporto di
+ * un'azienda con la chiave di un'altra, e **nessun test se ne accorgerebbe**,
+ * perché il testo prodotto sarebbe corretto.
+ *
+ * Adesso quel gateway va chiesto per nome, e il nome dice da dove prende la
+ * chiave. Il portale non lo chiama mai.
+ *
+ * `fake` non si mescola mai con i fornitori veri: una valutazione che degradasse
+ * silenziosamente in testo inventato sarebbe indistinguibile da una riuscita.
+ */
+export function environmentProviders(
+  env: EnvironmentSlice = process.env,
+): readonly LlmProviderAdapter[] {
   const selected = selectedProvider(env);
   if (selected === "fake") return [createFakeProvider()];
 
@@ -250,10 +269,26 @@ function classify(error: unknown): LlmProviderError {
   return new LlmProviderError("provider_unavailable", message, true);
 }
 
+/**
+ * Builds a gateway from a project's credentials, or from adapters given by name.
+ *
+ * **Non esiste più un ripiego sull'ambiente**, e la sua assenza è la funzione
+ * di questa firma: dopo ADR-0010 «il modello dell'applicazione» non è una cosa
+ * che esiste, e finché `createGateway()` senza argomenti restituiva qualcosa,
+ * era una cosa che si poteva costruire per distrazione. Chi vuole leggere
+ * l'ambiente lo chiede per nome con `environmentProviders()`, e oggi lo fa
+ * soltanto il runner delle valutazioni.
+ *
+ * Senza né credenziali né adattatori si ottiene il fornitore fittizio, che è
+ * l'unico predefinito difendibile: non chiama nessuno, non spende nulla, e
+ * dichiara di essere sé stesso nel risultato invece di somigliare a un modello
+ * vero.
+ */
 export function createGateway(options: GatewayOptions = {}): Gateway {
-  const env = options.env ?? process.env;
   const now = options.now ?? (() => Date.now());
-  const providers = options.providers ?? defaultProviders(env, options.credentials);
+  const providers =
+    options.providers ??
+    (options.credentials ? providersFor(options.credentials) : [createFakeProvider()]);
 
   return {
     async complete(request: LlmRequest): Promise<GatewayOutcome> {

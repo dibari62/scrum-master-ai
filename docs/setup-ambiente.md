@@ -14,13 +14,23 @@ Sei servizi, tutti su piano gratuito, nessuno richiede una carta di credito.
 | [GitHub](https://github.com) | Free | repository, CI, accesso OAuth | T0 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` |
 | [Neon](https://neon.tech) | Free | Postgres + pgvector | T0 | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` |
 | [Vercel](https://vercel.com) | Hobby | hosting | T0 | — |
-| [Google AI Studio](https://aistudio.google.com/apikey) | Free | Gemini, provider primario | T3 | `GEMINI_API_KEY` |
-| [Groq](https://console.groq.com/keys) | Free | provider di riserva | T3 | `GROQ_API_KEY` |
-| [Upstash](https://console.upstash.com/qstash) | Free | QStash, job schedulati | T5 | `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` |
+| [Google AI Studio](https://aistudio.google.com/apikey) | Free | Gemini | quando vuoi vederlo scrivere | **nessuna**: la chiave si incolla nel portale, non in un file |
+| [Groq](https://console.groq.com/keys) | Free | fornitore alternativo | idem | **nessuna**, stessa ragione |
+| [Upstash](https://console.upstash.com/qstash) | Free | QStash, job schedulati | quando ci sarà un job | `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` |
 
 Vercel Hobby vieta l'uso commerciale: legittimo per un proof-of-concept (ADR-0001).
 Il piano gratuito di Gemini usa i contenuti inviati per migliorare i propri prodotti,
 quindi **solo dati sintetici** possono transitare dal modello (ADR-0005).
+
+> **Le chiavi dei modelli non stanno in un file di configurazione**, e la
+> colonna qui sopra lo dice apposta. Dopo
+> [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) le porta chi usa il
+> portale: si incollano nella scheda «Modello» delle impostazioni di un
+> progetto, anche quando quel qualcuno sei tu che stai provando.
+>
+> Vale anche in sviluppo. `GEMINI_API_KEY` in `.env.local` non ha alcun effetto
+> sullo Scrum Master AI: serve soltanto a `npm run eval`, che gira da riga di
+> comando e non ha un progetto da cui prendere una chiave.
 
 ---
 
@@ -81,14 +91,14 @@ cp .env.example .env.local     # su Windows: Copy-Item .env.example .env.local
 node scripts/generate-secrets.mjs
 ```
 
-Lo script riempie `AUTH_SECRET` e `JOB_SECRET` con valori casuali **scrivendoli
-direttamente nel file**: un segreto stampato a terminale finisce nella cronologia della
-shell e, se il comando lo esegue un agente, nella trascrizione di una conversazione.
-I valori già presenti non vengono toccati.
+Lo script riempie `AUTH_SECRET`, `JOB_SECRET` e `SECRETS_KEY` con valori casuali
+**scrivendoli direttamente nel file**: un segreto stampato a terminale finisce
+nella cronologia della shell e, se il comando lo esegue un agente, nella
+trascrizione di una conversazione. I valori già presenti non vengono toccati.
 
 Le altre variabili si compilano a mano con quanto raccolto ai punti precedenti.
-`LLM_PROVIDER` resta `fake`: in sviluppo e nei test non parte alcuna chiamata reale
-(`AGENTS.md` §9).
+`LLM_PROVIDER` può restare `fake`: riguarda solo `npm run eval`, e il portale
+non lo legge affatto.
 
 `.env.local` è escluso da git. Non va mai incollato in una chat, in un ticket o in una
 pull request.

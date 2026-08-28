@@ -139,8 +139,20 @@ corrispondente non è costruita: non devono mai far credere che un passo sia sta
 
 ## Configurazione
 
-Copia `.env.example` in `.env.local` e valorizza le variabili.
-In sviluppo tieni `LLM_PROVIDER=fake`: nessuna chiamata di rete, nessun costo.
+Copia `.env.example` in `.env.local`, valorizza le variabili e genera i segreti
+con `node scripts/generate-secrets.mjs`. Poi `node scripts/check-env.mjs` dice
+cosa manca.
+
+> **Il modello linguistico non si configura qui.** Lo sceglie chi usa il
+> portale, progetto per progetto, dalla scheda «Modello» delle impostazioni: la
+> chiave è sua, e vive cifrata nel database
+> ([ADR-0010](docs/architecture/ADR-0010-chiavi-del-cliente.md)). Le variabili
+> `LLM_*` in `.env.example` riguardano **solo `npm run eval`**, che gira da riga
+> di comando e non ha un progetto da cui prendere una chiave.
+>
+> Serve però `SECRETS_KEY`: è ciò con cui quelle chiavi vengono cifrate. Senza,
+> il portale **rifiuta** di conservarle — e lo dichiara, invece di tenerle in
+> chiaro.
 
 ---
 

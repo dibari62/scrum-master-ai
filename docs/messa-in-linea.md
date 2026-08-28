@@ -85,13 +85,35 @@ quando arriverà il momento.
 |---|---|---|
 | `DATABASE_URL` | **sì** | stringa Neon **pooled** (host con `-pooler`) |
 | `AUTH_SECRET` | **sì** | valore casuale, **diverso** da quello di sviluppo |
+| `SECRETS_KEY` | **sì** | 32 byte casuali in base64, **diversi** da quelli di sviluppo. Senza, il portale **rifiuta** le chiavi API e i token Jira dei progetti |
 | `AUTH_GITHUB_ID` | facoltativa | applicazione OAuth **di produzione** |
 | `AUTH_GITHUB_SECRET` | facoltativa | idem |
 | `LOG_LEVEL` | no | se vuota: `info` in produzione |
 | `DATABASE_URL_UNPOOLED` | no | serve solo alle migrazioni, già applicate |
-| `LLM_PROVIDER` | da T3 | `gemini` \| `groq` \| `fake` |
-| `GEMINI_API_KEY`, `GROQ_API_KEY` | da T3 | **una per fornitore**, mai una condivisa (ADR-0005) |
-| `JOB_SECRET`, `QSTASH_*` | da T5 | job schedulati |
+| `LLM_PROVIDER`, `GEMINI_API_KEY`, `GROQ_API_KEY` | **no, mai più** | superate da ADR-0010: la chiave la porta il cliente, per progetto. Vedi il riquadro qui sotto |
+| `JOB_SECRET`, `QSTASH_*` | quando ci sarà un job | oggi la lettura da Jira si avvia a mano |
+
+> **`SECRETS_KEY` è la chiave con cui si custodiscono le chiavi altrui**, e va
+> capito prima di generarla ([ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md)).
+>
+> Dalla scheda «Dati» e «Modello» delle impostazioni, un cliente inserisce il
+> proprio token Jira e la propria chiave del modello. Da quel momento sono **roba
+> sua custodita da noi**: chi le ottiene può spendere i suoi soldi e leggere i
+> suoi progetti. Prima di toccare il database vengono cifrate, e `SECRETS_KEY` è
+> ciò che le apre.
+>
+> Ne discendono tre conseguenze pratiche:
+>
+> - **Senza, il portale rifiuta le credenziali invece di conservarle in chiaro.**
+>   Non è un guasto: è la scelta di non ripiegare. La schermata lo dichiara in
+>   cima — «questa installazione non ha una chiave di custodia» — quindi il
+>   sintomo è «non riesco a salvare la chiave del modello».
+> - **Dev'essere diversa da quella di sviluppo**, per la stessa ragione di
+>   `AUTH_SECRET`: un portatile compromesso non deve aprire i segreti della
+>   produzione.
+> - **Cambiarla rende illeggibile tutto ciò che è già stato cifrato.** Non si
+>   perde nulla di irrecuperabile — le credenziali si reinseriscono — ma il
+>   portale dirà che non sono configurate, e va saputo prima e non dopo.
 
 Senza `AUTH_GITHUB_ID` e `AUTH_GITHUB_SECRET` l'applicazione funziona: il pulsante
 «Continua con GitHub» semplicemente non compare, e resta l'accesso con email e
@@ -109,18 +131,19 @@ password.
 > È il motivo per cui **non si copia `.env.local` dentro Vercel**: si inseriscono
 > solo le variabili della tabella qui sopra, una per una.
 
-> **⚠️ Attenzione a `LLM_API_KEY`.** Su Vercel oggi esiste una variabile chiamata
-> `LLM_API_KEY`, una chiave sola per tutti i fornitori. **Il codice non la
-> leggerà mai.** ADR-0005 prevede una chiave **per fornitore** —
-> `GEMINI_API_KEY` e `GROQ_API_KEY` — e il motivo è scritto lì: *«una riserva che
-> richiede di riscrivere a mano la credenziale non è una riserva»*. Il passaggio
-> al fornitore di scorta deve costare il cambio di una sola variabile, non uno
-> scambio di segreti sotto pressione durante una dimostrazione.
+> **⚠️ `LLM_API_KEY` e `LLM_PROVIDER` su Vercel si possono cancellare.** Erano
+> l'impostazione precedente: una chiave nostra, uguale per tutti i progetti.
+> **Il codice non le legge più**, e non è un rinvio.
 >
-> Va rinominata quando arriverà il gateway di T3. Fino ad allora è innocua:
-> `LLM_PROVIDER=fake` non fa alcuna chiamata di rete e non legge alcuna chiave.
-> Il fallimento sarebbe silenzioso — nessun errore, semplicemente il fornitore
-> risulterebbe non configurato — quindi vale la pena saperlo prima.
+> [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) ha cambiato la
+> premessa: ogni progetto porta **la propria** chiave, inserita dalla scheda
+> «Modello» delle sue impostazioni, e ogni esecuzione costruisce il gateway da
+> lì. Non esiste più un gateway dell'applicazione — un gateway riusato
+> servirebbe il rapporto di un'azienda con la chiave di un'altra, e **nessun
+> test se ne accorgerebbe**, perché il testo prodotto sarebbe corretto.
+>
+> Lasciarle non fa danno, ma sono ingannevoli: qualcuno le troverà e penserà che
+> configurare il modello si faccia lì.
 
 ### Passi
 
@@ -132,15 +155,23 @@ password.
 3. Apri **Environment Variables** e inserisci le variabili della tabella sopra,
    per gli ambienti *Production*, *Preview* e *Development*.
 
-   Genera un `AUTH_SECRET` nuovo, senza riusare quello locale:
+   Genera `AUTH_SECRET` e `SECRETS_KEY` nuovi, senza riusare quelli locali.
+   Entrambi sono 32 byte casuali in base64, e si generano **uno alla volta**:
 
    ```powershell
-   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))" | Set-Clipboard
    ```
+
+   Il valore finisce negli **appunti** e non a schermo. Non è pignoleria: un
+   segreto stampato resta nella cronologia della shell, nello scrollback del
+   terminale e — quando alla tastiera c'è un agente — nella trascrizione di una
+   conversazione inviata a terzi. Incollalo su Vercel e genera il successivo, che
+   sovrascrive gli appunti.
 
    Un segreto condiviso fra il portatile di uno sviluppatore e la produzione
    significa che un portatile compromesso permette di falsificare le sessioni
-   dell'ambiente reale.
+   dell'ambiente reale — o, per `SECRETS_KEY`, di aprire le credenziali dei
+   clienti.
 
 4. **Deploy.** Al termine annota l'indirizzo assegnato, del tipo
    `https://scrum-master-ai-<qualcosa>.vercel.app`.
