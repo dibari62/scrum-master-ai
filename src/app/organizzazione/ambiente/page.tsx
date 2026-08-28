@@ -203,6 +203,16 @@ export default async function EnvironmentPage() {
             progetti su Vercel, e le variabili appartengono a uno solo: il ramo e il
             commit qui sopra dicono quale sta rispondendo davvero a questo indirizzo.
           </p>
+          <p>
+            <strong>
+              Se una riga dice «il nome esiste, il valore è vuoto», è quasi sempre il
+              tipo.
+            </strong>{" "}
+            Su Vercel una variabile di tipo <strong>Secret</strong> raggiunge il runtime
+            con il nome presente e il contenuto vuoto. Cancellala e ricreala con tipo{" "}
+            <strong>Config</strong>: non significa pubblica, resta visibile solo a chi ha
+            accesso al progetto. Una chiave che non arriva non protegge nulla.
+          </p>
         </div>
 
         <Button asChild variant="outline">

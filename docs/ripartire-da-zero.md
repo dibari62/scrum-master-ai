@@ -389,6 +389,47 @@ nome dichiarato.
 `/organizzazione/ambiente` esiste per questo: dice cosa il server vede davvero,
 quante variabili ha in tutto e da quale commit sta rispondendo.
 
+### 5.quinquies Su Vercel, «Secret» arriva vuota — serve «Config»
+
+**La causa vera del guasto di §5.quater**, trovata dopo aver smontato tre
+ipotesi: progetto sbagliato, deploy vecchio, accessi calcolati.
+
+Aggiungendo una variabile, Vercel chiede un **tipo**:
+
+| Tipo | Come si presenta | Cosa succede davvero |
+|---|---|---|
+| **Secret** | «You can't reveal this value after saving. Use for passwords, API keys, and tokens.» | il nome arriva al runtime, **il valore è vuoto** |
+| **Config** | «Readable after saving for members with access.» | arriva valorizzata |
+
+La descrizione di «Secret» nomina esattamente il caso d'uso — password, chiavi
+API, token — quindi è la scelta che chiunque farebbe per una chiave di
+cifratura. Ed è quella che non funziona.
+
+**Il sintomo non somiglia alla causa.** Il portale dice «manca la chiave di
+custodia» e rifiuta di conservare credenziali; nel pannello la variabile è lì,
+su *Production*, aggiunta pochi minuti prima. Ogni verifica conferma che manca,
+quindi ogni tentativo di rimediare — rigenerarla, rifare il deploy, controllare
+l'ambiente, cercare un secondo progetto — **rafforza l'ipotesi sbagliata**.
+
+**Come si riconosce.** `/organizzazione/ambiente` distingue i due casi:
+
+```
+SECRETS_KEY          assente
+Forma del valore:    il nome esiste, il valore è vuoto   <-- tipo Secret
+```
+
+Se il nome non esistesse affatto, la variabile non sarebbe mai stata definita:
+guasto diverso, gesto diverso.
+
+**Il rimedio**: cancellare la variabile e ricrearla con **Type: Config**.
+
+«Config» non significa pubblica — resta visibile solo a chi ha accesso al
+progetto Vercel, che qui è una persona sola. Il compromesso è dichiarato:
+**una chiave che non arriva non protegge nulla, blocca soltanto il portale.**
+
+`npm run chiave` genera la chiave, la mette negli appunti e stampa queste
+istruzioni, così non vanno ricordate.
+
 ---
 
 ## 6. Il vincolo che vale più di tutti
