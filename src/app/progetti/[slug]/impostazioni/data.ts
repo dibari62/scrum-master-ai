@@ -12,7 +12,7 @@ import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings, type SafeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import { mayConfigureSettings } from "@/lib/projects/settings";
-import { secretsAvailable } from "@/lib/secrets";
+import { secretsStatus, type SecretsStatus } from "@/lib/secrets";
 
 /**
  * Ciò che la schermata delle impostazioni ha bisogno di sapere.
@@ -29,13 +29,17 @@ export type SettingsView = {
   readonly canConfigure: boolean;
 
   /**
-   * Whether the installation can encrypt at all.
+   * Whether the installation can encrypt at all, and why not when it cannot.
    *
    * Without `SECRETS_KEY` the form must not accept a key: storing it is
    * impossible, and pretending otherwise would lose it on submit — after the
    * person has already fetched it from a vendor's dashboard.
+   *
+   * **Uno stato e non un booleano**, perché «assente» e «incollata male» sono
+   * due situazioni diverse e la seconda è quella in cui qualcuno ha già fatto
+   * il lavoro giusto. Dirgli la stessa frase lo manda a rifarlo.
    */
-  readonly custodyReady: boolean;
+  readonly custody: SecretsStatus;
 
   /**
    * Il calendario dichiarato dalla squadra, o il predefinito.
@@ -73,7 +77,7 @@ export async function loadSettings(slug: string): Promise<SettingsView | null> {
     settings,
     role: session.role ?? null,
     canConfigure: mayConfigureSettings(session.role),
-    custodyReady: secretsAvailable(),
+    custody: secretsStatus(),
     calendar: contextRows[0]
       ? workingCalendarSchema.parse(contextRows[0].workingCalendar)
       : DEFAULT_WORKING_CALENDAR,

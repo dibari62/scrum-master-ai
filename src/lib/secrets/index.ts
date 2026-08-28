@@ -111,12 +111,44 @@ export function masterKey(
 export function secretsAvailable(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
-  try {
-    masterKey(env);
-    return true;
-  } catch {
-    return false;
+  return secretsStatus(env).ok;
+}
+
+/**
+ * Why secrets cannot be handled, when they cannot.
+ *
+ * **Due cause con lo stesso sintomo, e questa funzione le separa.** Una chiave
+ * assente e una chiave incollata male producevano lo stesso identico messaggio,
+ * «questa installazione non ha una chiave di custodia» — e la seconda è quella
+ * in cui una persona ha già fatto il lavoro giusto. Chi legge quel messaggio
+ * dopo aver incollato la chiave conclude che non è stata salvata, e torna a
+ * incollarla: il ciclo può durare a lungo, perché ogni tentativo produce lo
+ * stesso esito.
+ *
+ * Il caso `malformed` succede più spesso di quanto sembri: un carattere perso
+ * incollando, un a capo aggiunto dal pannello, base64url al posto di base64.
+ *
+ * **La lunghezza si può dire, il valore no** (§8.3). «Ne ha 31 invece di 32»
+ * non rivela nulla di segreto — la lunghezza attesa è pubblica, sta in questo
+ * file — e trasforma una caccia al fantasma in una correzione di dieci secondi.
+ */
+export type SecretsStatus =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: "missing" }
+  | { readonly ok: false; readonly reason: "malformed"; readonly bytes: number };
+
+export function secretsStatus(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): SecretsStatus {
+  const raw = env["SECRETS_KEY"]?.trim();
+  if (!raw) return { ok: false, reason: "missing" };
+
+  const decoded = Buffer.from(raw, "base64");
+  if (decoded.length !== KEY_BYTES) {
+    return { ok: false, reason: "malformed", bytes: decoded.length };
   }
+
+  return { ok: true };
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { Breadcrumb } from "@/components/navigation/breadcrumb";
@@ -55,7 +55,7 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
 
   if (!view) notFound();
 
-  const { project, settings, canConfigure, custodyReady, calendar, hasContext } = view;
+  const { project, settings, canConfigure, custody, calendar, hasContext } = view;
 
   const dataReady = connectorReady({
     connector: settings.connector,
@@ -129,7 +129,7 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
                   <SettingsForm
                     slug={project.slug}
                     settings={settings}
-                    custodyReady={custodyReady}
+                    custody={custody}
                     sezione="dati"
                   />
                 </>
@@ -143,7 +143,7 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
                 <SettingsForm
                   slug={project.slug}
                   settings={settings}
-                  custodyReady={custodyReady}
+                  custody={custody}
                   sezione="modello"
                 />
               ),
