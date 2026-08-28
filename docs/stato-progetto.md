@@ -993,7 +993,7 @@ attendono il Product Owner, nessuna delle quali ferma lo sviluppo:
 |---|---|---|
 | **Q2** — un elemento bloccato fa parte del carico? | [glossario](domain-glossary.md) | il WIP continua a escluderlo |
 | **Q6 di `sprint-health`** — come rendere equo il confronto sull'attesa in revisione | [spec](../specs/sprint-health/spec.md) | il segnale resta un po' più sensibile del dovuto, in modo dichiarato |
-| `LLM_API_KEY` su Vercel va rinominata | [messa-in-linea](messa-in-linea.md) | nessuno finché il provider è `fake`; con un fornitore vero la chiave non verrebbe letta |
+| `LLM_API_KEY` e `LLM_PROVIDER` su Vercel si possono cancellare | [messa-in-linea](messa-in-linea.md) | **non è più un debito ma una pulizia**: dopo ADR-0010 il portale non legge alcuna variabile per il modello. Lasciarle non fa danno, ma qualcuno le troverà e penserà che il modello si configuri lì |
 | Rotazione della password Neon | §5 qui sotto | nessuno finché i dati sono sintetici |
 
 Le **otto questioni aperte** della specifica di T3 hanno tutte una risposta
@@ -1016,7 +1016,8 @@ Cose note e volutamente rimandate, non sviste:
 | Nessun recupero password | — | dopo il PoC |
 | Password Neon comparsa in chiaro, mai ruotata | decisione consapevole del PO | prima dei dati veri |
 | Sviluppo e produzione condividono il database | §3 qui sopra | prima dei dati veri |
-| `LLM_API_KEY` su Vercel non verrà mai letta | [messa-in-linea](messa-in-linea.md) | prima di usare un fornitore vero |
+| `LLM_API_KEY` su Vercel non verrà mai letta | [messa-in-linea](messa-in-linea.md) | ~~prima di usare un fornitore vero~~ **risolto alla radice**: nessuna variabile configura il modello del portale, e `createGateway()` senza credenziali non può più raggiungere un fornitore vero — c'è un test che lo verifica |
+| `SECRETS_KEY` non era nella guida a Vercel | [messa-in-linea](messa-in-linea.md) | **corretto**: la tabella delle variabili era stata scritta prima che la cifratura esistesse, quindi chi seguiva la guida otteneva un sito che rifiuta le credenziali senza sapere perché |
 | `reviewWaitTime` misura lo stato, non la pull request | [glossario](domain-glossary.md) | con il connettore GitHub |
 | Spec-first mai usato | `AGENTS.md` §5 | ~~da T3 in poi~~ **fatto**: `specs/scrum-agent/spec.md` scritta prima del codice |
 | Agenti specializzati mai usati | `docs/agent-workflow.md` | ~~da T3 in poi~~ **in corso**: `product-analyst` e `architect` usati su T3 |

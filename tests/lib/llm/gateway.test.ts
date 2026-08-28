@@ -7,6 +7,7 @@ import {
   apiKeyVariableFor,
   createFakeProvider,
   createGateway,
+  environmentProviders,
   estimateCostUsd,
   estimateRequestTokens,
   renderRequest,
@@ -73,12 +74,54 @@ describe("nessuna rete e nessuna chiave (criterio 17)", () => {
     fetchSpy.mockRestore();
   });
 
-  it("un valore sconosciuto di LLM_PROVIDER non blocca l'applicazione", () => {
-    // Un refuso in un pannello non deve trasformarsi in un'applicazione morta:
-    // diventa un'esecuzione che visibilmente non ha raggiunto un fornitore.
+  it("un valore sconosciuto di LLM_PROVIDER non blocca le valutazioni", () => {
+    // Un refuso non deve trasformarsi in un'esecuzione morta: diventa
+    // un'esecuzione che visibilmente non ha raggiunto un fornitore.
     expect(selectedProvider({ LLM_PROVIDER: "inventato" })).toBe("fake");
     expect(selectedProvider({})).toBe("fake");
     expect(selectedProvider({ LLM_PROVIDER: "gemini" })).toBe("gemini");
+  });
+});
+
+describe("il portale non ha un modello suo (ADR-0010)", () => {
+  it("un gateway senza credenziali non legge l'ambiente", async () => {
+    /*
+     * La regressione che questo test esiste per impedire.
+     *
+     * Finché `createGateway()` ripiegava sull'ambiente, chi lo chiamava senza
+     * argomenti otteneva «il modello dell'applicazione» — che dopo ADR-0010 non
+     * esiste. Il rapporto di un'azienda sarebbe stato scritto con la chiave di
+     * un'altra, e **nessun test se ne sarebbe accorto**: il testo prodotto
+     * sarebbe stato corretto.
+     *
+     * Con `GEMINI_API_KEY` presente nell'ambiente e `LLM_PROVIDER=gemini`, un
+     * gateway costruito senza credenziali deve comunque rispondere `fake`.
+     */
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    process.env["LLM_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "chiave-che-non-va-usata";
+
+    try {
+      const outcome = await createGateway().complete(aRequest());
+
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok) expect(outcome.provider).toBe("fake");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      delete process.env["LLM_PROVIDER"];
+      delete process.env["GEMINI_API_KEY"];
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("l'ambiente si legge solo chiedendolo per nome", () => {
+    // `environmentProviders` esiste per le valutazioni da riga di comando, che
+    // non hanno un progetto da cui prendere una chiave. Il nome dice da dove
+    // viene, che è tutta la differenza rispetto a un ripiego implicito.
+    const providers = environmentProviders({ LLM_PROVIDER: "gemini", GEMINI_API_KEY: "k" });
+
+    expect(providers).toHaveLength(1);
+    expect(providers[0]?.name).toBe("gemini");
   });
 });
 

@@ -19,12 +19,13 @@ const EXPECTED = new Map([
   ["DATABASE_URL", [true, "connessione Neon per l'applicazione (pooled)"]],
   ["DATABASE_URL_UNPOOLED", [true, "connessione Neon diretta, per le migrazioni"]],
   ["AUTH_SECRET", [true, "segreto di sessione Auth.js"]],
+  ["SECRETS_KEY", [true, "chiave di custodia: cifra i token e le chiavi dei progetti"]],
   ["AUTH_GITHUB_ID", [false, "OAuth App GitHub di sviluppo"]],
   ["AUTH_GITHUB_SECRET", [false, "OAuth App GitHub di sviluppo"]],
-  ["LLM_PROVIDER", [true, "provider attivo: gemini | groq | fake"]],
-  ["GEMINI_API_KEY", [false, "chiave Google AI Studio"]],
-  ["GROQ_API_KEY", [false, "chiave Groq"]],
-  ["LLM_MODEL", [false, "modello da usare; se vuoto decide il gateway"]],
+  ["LLM_PROVIDER", [false, "solo per npm run eval; non configura il portale"]],
+  ["GEMINI_API_KEY", [false, "solo per npm run eval"]],
+  ["GROQ_API_KEY", [false, "solo per npm run eval"]],
+  ["LLM_MODEL", [false, "solo per npm run eval"]],
   ["LOG_LEVEL", [false, "debug | info | warn | error; se vuoto dipende da NODE_ENV"]],
   ["JOB_SECRET", [true, "segreto delle route dei job"]],
   ["QSTASH_TOKEN", [false, "QStash, serve da T5"]],
@@ -119,12 +120,24 @@ if (pooled !== "" && direct !== "") {
   );
 }
 
+/*
+ * `LLM_PROVIDER` riguarda solo `npm run eval`, e questo controllo lo riflette.
+ *
+ * §9 vieta chiamate LLM nei test e in CI, e la garanzia oggi non viene da
+ * questa variabile: il portale non la legge affatto (ADR-0010). Un progetto
+ * nasce con `fake` finché qualcuno non inserisce una chiave nelle sue
+ * impostazioni, e i test costruiscono i propri adattatori.
+ *
+ * Resta un avviso — non un errore — perché un provider vero qui significa che
+ * `npm run eval` chiamerà davvero un fornitore, il che è legittimo ma va saputo.
+ */
 const provider = env.get("LLM_PROVIDER") ?? "";
-check(
-  'LLM_PROVIDER è "fake" in sviluppo',
-  provider === "fake",
-  `LLM_PROVIDER="${provider}": in sviluppo deve essere "fake" (AGENTS.md §9)`,
-);
+if (provider !== "" && provider !== "fake") {
+  console.log(
+    `  nota  LLM_PROVIDER="${provider}": riguarda solo "npm run eval", che farà ` +
+      "chiamate vere. Il modello del portale si configura per progetto.",
+  );
+}
 
 /**
  * `AUTH_URL` is not expected, and its presence is worth a warning.

@@ -1,8 +1,26 @@
 # ADR-0005 — Provider LLM: Gemini primario, Groq di riserva, fittizio in sviluppo
 
-- **Stato:** accettato
+- **Stato:** parzialmente superato da [ADR-0010](ADR-0010-chiavi-del-cliente.md)
 - **Data:** 2026-08-20
 - **Decisori:** Giuseppe Di Bari
+
+> **Cosa di questo documento non vale più.** ADR-0010 ha cambiato la premessa:
+> la chiave del modello non è nostra, la porta chi usa il portale, e la scelta
+> del fornitore appartiene a **ogni progetto** invece che all'applicazione.
+>
+> Ne discende che `LLM_PROVIDER` e le variabili `*_API_KEY` **non configurano
+> più il portale**: restano solo per `npm run eval`, che gira da riga di comando
+> e non ha un progetto da cui prendere una chiave. Ed è caduta la **riserva
+> automatica**: la chiave di un cliente è una sola, e dirottare il suo lavoro su
+> un fornitore che non ha scelto significherebbe spendere una quota che non ci
+> ha dato.
+>
+> **Cosa resta valido, e sono le cose che contano.** Il vincolo sui dati — il
+> piano gratuito di Gemini usa i contenuti per migliorare i propri prodotti,
+> quindi solo dati sintetici — vale per chiunque scelga quel piano, cliente
+> compreso, e va detto a chi incolla la chiave. Vale anche il principio di una
+> credenziale **per fornitore**, mai una condivisa: è la ragione per cui
+> `ProjectSettings` tiene fornitore e chiave insieme invece di una chiave sola.
 
 ## Contesto
 
