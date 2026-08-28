@@ -9,6 +9,7 @@ import {
   seal,
   SecretCorruptedError,
   secretsAvailable,
+  secretsStatus,
   SecretsUnavailableError,
   unseal,
 } from "@/lib/secrets";
@@ -47,6 +48,68 @@ describe("chiave principale", () => {
 
   it("dice come rimediare, non solo che c'è un problema", () => {
     expect(() => masterKey({})).toThrow(/generate-secrets/);
+  });
+});
+
+describe("perché la custodia non è pronta", () => {
+  /*
+   * Due cause con lo stesso sintomo, e la distinzione è tutto il valore.
+   *
+   * «Chiave assente» e «chiave incollata male» producevano lo stesso identico
+   * messaggio a schermo. La seconda è la situazione in cui una persona ha già
+   * fatto il lavoro giusto: leggere «non c'è» dopo averla messa porta a
+   * rimetterla, e ogni tentativo produce lo stesso esito.
+   */
+
+  it("distingue l'assenza dalla chiave incollata male", () => {
+    const assente = secretsStatus({});
+    const rotta = secretsStatus({ SECRETS_KEY: randomBytes(31).toString("base64") });
+
+    expect(assente.ok).toBe(false);
+    if (!assente.ok) expect(assente.reason).toBe("missing");
+
+    expect(rotta.ok).toBe(false);
+    if (!rotta.ok) expect(rotta.reason).toBe("malformed");
+  });
+
+  it("dice quanti byte ha trovato, così l'errore si corregge invece di cercarlo", () => {
+    const rotta = secretsStatus({ SECRETS_KEY: randomBytes(16).toString("base64") });
+
+    if (rotta.ok) throw new Error("attesa non valida");
+    if (rotta.reason !== "malformed") throw new Error("atteso malformed");
+    expect(rotta.bytes).toBe(16);
+  });
+
+  it("una chiave con spazi intorno resta valida", () => {
+    // Incollare da un pannello aggiunge spesso uno spazio o un a capo, e
+    // rifiutare per quello sarebbe un'ora persa su un problema inesistente.
+    expect(secretsStatus({ SECRETS_KEY: `  ${ENV.SECRETS_KEY}\n` }).ok).toBe(true);
+  });
+
+  it("non riporta mai il valore, solo la sua lunghezza (§8.3)", () => {
+    /*
+     * La lunghezza attesa è pubblica: sta scritta nel modulo. Dirla non rivela
+     * nulla, e trasforma una caccia al fantasma in una correzione di dieci
+     * secondi. Il valore invece non deve comparire da nessuna parte.
+     */
+    const chiave = randomBytes(20).toString("base64");
+    const rotta = secretsStatus({ SECRETS_KEY: chiave });
+
+    expect(JSON.stringify(rotta)).not.toContain(chiave);
+  });
+
+  it("concorda sempre con secretsAvailable", () => {
+    // Due risposte alla stessa domanda sono un'occasione per divergere: qui
+    // `secretsAvailable` è definita in termini di `secretsStatus`, e questo
+    // test è ciò che impedisce di riscriverla a parte.
+    for (const env of [
+      {},
+      { SECRETS_KEY: "" },
+      { SECRETS_KEY: randomBytes(31).toString("base64") },
+      ENV,
+    ]) {
+      expect(secretsAvailable(env)).toBe(secretsStatus(env).ok);
+    }
   });
 });
 

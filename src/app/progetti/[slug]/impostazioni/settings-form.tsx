@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SafeProjectSettings } from "@/db/project-settings";
+import type { SecretsStatus } from "@/lib/secrets";
 import { configString, renderStateMapping } from "@/lib/projects/settings";
 
 import { saveSettingsAction, type SettingsFormState } from "./actions";
@@ -161,12 +162,12 @@ function errorOf(state: SettingsFormState, field: string): string | undefined {
 export function SettingsForm({
   slug,
   settings,
-  custodyReady,
+  custody,
   sezione,
 }: {
   readonly slug: string;
   readonly settings: SafeProjectSettings;
-  readonly custodyReady: boolean;
+  readonly custody: SecretsStatus;
   /**
    * Quale metà mostra questo modulo.
    *
@@ -237,23 +238,40 @@ export function SettingsForm({
         </p>
       ) : null}
 
-      {!custodyReady && canTypeSecret ? (
+      {!custody.ok && canTypeSecret ? (
         /*
          * Detto prima, non dopo il tentativo.
          *
          * Scoprirlo al salvataggio significherebbe aver già copiato la
          * credenziale dal sito del fornitore per niente.
+         *
+         * **Due frasi diverse per due cause diverse.** «Assente» e «incollata
+         * male» producevano lo stesso messaggio, e la seconda è la situazione
+         * in cui qualcuno ha già fatto il lavoro giusto: leggere «non c'è» dopo
+         * averla messa porta a rimetterla, all'infinito.
          */
         <p
           role="alert"
           className="border-destructive/40 text-destructive rounded-md border px-3 py-2 text-sm"
         >
-          Questa installazione non ha una <strong>chiave di custodia</strong>
-          {" ("}
-          <code className="font-mono">SECRETS_KEY</code>
-          {"), "}
-          quindi non può conservare credenziali in modo sicuro. Tutto il resto si configura
-          lo stesso.
+          {custody.reason === "missing" ? (
+            <>
+              Questa installazione non ha una <strong>chiave di custodia</strong>
+              {" ("}
+              <code className="font-mono">SECRETS_KEY</code>
+              {"), "}
+              quindi non può conservare credenziali in modo sicuro. Tutto il resto si
+              configura lo stesso.
+            </>
+          ) : (
+            <>
+              La <strong>chiave di custodia</strong> ({" "}
+              <code className="font-mono">SECRETS_KEY</code> ) c&apos;è ma non è valida:
+              contiene <strong>{custody.bytes} byte</strong> invece di 32. Di solito è un
+              carattere perso incollando, un a capo aggiunto dal pannello, oppure una
+              chiave generata in base64url anziché base64. Rigenerala e incollala di nuovo.
+            </>
+          )}
         </p>
       ) : null}
 
@@ -385,7 +403,7 @@ export function SettingsForm({
               name="connectorSecret"
               label="Token API di Jira"
               presence={settings.connectorSecret}
-              disabled={!custodyReady}
+              disabled={!custody.ok}
               hint={
                 "Si genera su id.atlassian.com/manage/api-tokens. Vale quanto la password " +
                 "dell'account: il portale non scrive mai su Jira, ma il token non lo sa."
@@ -500,7 +518,7 @@ export function SettingsForm({
                 name="brainApiKey"
                 label="Chiave API"
                 presence={settings.brainApiKey}
-                disabled={!custodyReady}
+                disabled={!custody.ok}
                 hint="Viene cifrata prima di essere conservata, e non viene mai rimandata al browser."
                 error={errorOf(state, "brainApiKey")}
               />
