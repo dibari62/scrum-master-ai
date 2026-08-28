@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
+﻿import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
  * Segreti di terzi, cifrati prima di toccare il database.
@@ -83,8 +83,39 @@ export class SecretCorruptedError extends Error {
  * carries the strength of the passphrase, which is the kind of false comfort
  * this whole module exists to avoid.
  */
+/**
+ * L'ambiente, letto con un riferimento che un bundler riesce a vedere.
+ *
+ * **Il difetto che questa funzione esiste per riparare, e come si è
+ * manifestato.** Fino a ieri il valore predefinito era `process.env`, e
+ * `masterKey` faceva `env["SECRETS_KEY"]` sul parametro. In locale funziona: là
+ * `process.env` è l'ambiente vero del processo. Su Vercel no — e in un modo che
+ * non somiglia affatto a un guasto.
+ *
+ * Next.js **sostituisce a tempo di build** le occorrenze letterali di
+ * `process.env.NOME` con il loro valore. Un accesso attraverso un parametro non
+ * è un'occorrenza letterale: il bundler non ha modo di sapere quale nome verrà
+ * chiesto, quindi non sostituisce nulla, e a runtime la variabile risulta
+ * assente **anche quando è configurata**.
+ *
+ * La conferma è arrivata da una pagina di diagnostica che si contraddiceva da
+ * sola: `Object.keys(process.env)` elencava `SECRETS_KEY`, e la riga accanto la
+ * dava per assente. Le uniche due variabili che funzionavano —
+ * `DATABASE_URL` e `AUTH_SECRET` — erano le sole referenziate letteralmente
+ * altrove nel codice.
+ *
+ * **Costo del difetto**: un pomeriggio di verifiche su una configurazione che
+ * era giusta dall'inizio. È il tipo di guasto peggiore, perché ogni prova
+ * conferma l'ipotesi sbagliata.
+ */
+function processEnvironment(): Readonly<Record<string, string | undefined>> {
+  // Riferimento letterale, deliberatamente: è l'unica forma che sopravvive al
+  // bundler. Non sostituirlo con un accesso calcolato.
+  return { SECRETS_KEY: process.env.SECRETS_KEY };
+}
+
 export function masterKey(
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): Buffer {
   const raw = env["SECRETS_KEY"]?.trim();
 
@@ -109,7 +140,7 @@ export function masterKey(
 
 /** Whether secrets can be handled at all, without throwing to ask. */
 export function secretsAvailable(
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): boolean {
   return secretsStatus(env).ok;
 }
@@ -138,7 +169,7 @@ export type SecretsStatus =
   | { readonly ok: false; readonly reason: "malformed"; readonly bytes: number };
 
 export function secretsStatus(
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): SecretsStatus {
   const raw = env["SECRETS_KEY"]?.trim();
   if (!raw) return { ok: false, reason: "missing" };
@@ -160,7 +191,7 @@ export function secretsStatus(
  */
 export function seal(
   plaintext: string,
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): SealedSecret {
   if (plaintext === "") {
     throw new SecretCorruptedError("Un segreto vuoto non si cifra: si cancella.");
@@ -193,7 +224,7 @@ export function seal(
  */
 export function unseal(
   sealed: string,
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): string {
   const parts = sealed.split(".");
 

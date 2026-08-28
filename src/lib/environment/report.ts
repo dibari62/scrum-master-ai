@@ -112,8 +112,37 @@ const EXPECTED: readonly Expectation[] = [
   },
 ];
 
+/**
+ * L'ambiente, letto con riferimenti che un bundler riesce a vedere.
+ *
+ * **Il difetto che questa funzione ripara.** Next.js sostituisce a tempo di
+ * build le occorrenze **letterali** di `process.env.NOME` con il loro valore.
+ * Un accesso calcolato — `env[nome]` su un parametro — non è un'occorrenza
+ * letterale: il bundler non sa quale nome verrà chiesto, non sostituisce nulla,
+ * e a runtime la variabile risulta assente **anche quando è configurata**.
+ *
+ * Questa pagina si è contraddetta da sola e così ha trovato il difetto:
+ * `Object.keys(process.env)` elencava dieci variabili dell'applicazione, e le
+ * righe accanto ne davano otto per assenti. Le uniche due che «funzionavano»
+ * erano le sole referenziate letteralmente altrove nel codice.
+ *
+ * Da qui la forma esplicita e ripetitiva qui sotto: **è la ripetizione che la
+ * fa funzionare.** Un ciclo su `EXPECTED` sarebbe più corto e leggerebbe di
+ * nuovo il nulla.
+ */
+function processEnvironment(): Readonly<Record<string, string | undefined>> {
+  return {
+    DATABASE_URL: process.env.DATABASE_URL,
+    AUTH_SECRET: process.env.AUTH_SECRET,
+    SECRETS_KEY: process.env.SECRETS_KEY,
+    AUTH_GITHUB_ID: process.env.AUTH_GITHUB_ID,
+    AUTH_GITHUB_SECRET: process.env.AUTH_GITHUB_SECRET,
+    JOB_SECRET: process.env.JOB_SECRET,
+  };
+}
+
 export function environmentReport(
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): EnvironmentReport {
   const entries = EXPECTED.map((expected): EnvironmentEntry => {
     const state = stateOf(expected.name, env);
@@ -159,7 +188,7 @@ function stateOf(
 
 /** Il dettaglio in più per una chiave di custodia incollata male. */
 export function custodyDetail(
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): string | null {
   const status = secretsStatus(env);
   if (status.ok || status.reason !== "malformed") return null;
@@ -228,6 +257,16 @@ export type DeploymentFacts = {
 const APPLICATION_PREFIXES = ["AUTH_", "DATABASE_", "SECRETS_", "JOB_", "QSTASH_", "LOG_", "LLM_"];
 
 export function deploymentFacts(
+  /*
+   * Qui `process.env` **diretto**, ed è voluto.
+   *
+   * A differenza del rapporto qui sopra, questa funzione non chiede singole
+   * variabili per nome: le **conta** e le **enumera**, e per farlo serve
+   * l'oggetto vero del processo. È esattamente l'incoerenza fra questo elenco e
+   * le righe del rapporto che ha permesso di trovare il difetto del bundler:
+   * `Object.keys` vedeva dieci nomi che l'accesso calcolato non riusciva a
+   * leggere.
+   */
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): DeploymentFacts {
   const sha = env["VERCEL_GIT_COMMIT_SHA"]?.trim();

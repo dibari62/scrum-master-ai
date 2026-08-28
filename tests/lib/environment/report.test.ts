@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { custodyDetail, deploymentFacts, environmentReport } from "@/lib/environment/report";
@@ -23,6 +26,39 @@ const COMPLETO = {
 };
 
 describe("che cosa vede il server", () => {
+  it("legge le variabili con riferimenti che un bundler riesce a vedere", () => {
+    /*
+     * Il difetto che è costato un pomeriggio, e che questo test blocca.
+     *
+     * Next.js sostituisce a tempo di build le occorrenze **letterali** di
+     * `process.env.NOME`. Un accesso calcolato — `env[nome]` — non lo è: il
+     * bundler non sa quale nome verrà chiesto, non sostituisce nulla, e a
+     * runtime la variabile risulta assente **anche quando è configurata**.
+     *
+     * Il modulo deve quindi contenere un riferimento letterale per ogni
+     * variabile che dichiara di sapere leggere. Un ciclo su `EXPECTED` sarebbe
+     * più corto e leggerebbe di nuovo il nulla: è la ripetizione che lo fa
+     * funzionare, e questo test è ciò che la difende da una futura pulizia.
+     */
+    const source = readFileSync(
+      join(__dirname, "..", "..", "..", "src", "lib", "environment", "report.ts"),
+      "utf8",
+    );
+
+    for (const name of [
+      "DATABASE_URL",
+      "AUTH_SECRET",
+      "SECRETS_KEY",
+      "AUTH_GITHUB_ID",
+      "AUTH_GITHUB_SECRET",
+      "JOB_SECRET",
+    ]) {
+      expect(source, `manca il riferimento letterale a ${name}`).toContain(
+        `process.env.${name}`,
+      );
+    }
+  });
+
   it("non riporta mai il valore di una variabile", () => {
     /*
      * La regola che rende questa pagina mostrabile a qualcuno.
