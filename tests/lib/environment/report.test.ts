@@ -165,4 +165,34 @@ describe("quale deploy sta rispondendo", () => {
     expect(facts.environment).toBeNull();
     expect(facts.commit).toBeNull();
   });
+
+  it("conta tutte le variabili viste, non solo quelle attese", () => {
+    /*
+     * Distingue due guasti che si assomigliano. «Manca quella variabile» e «a
+     * questo processo non arriva quasi niente» hanno lo stesso sintomo su una
+     * riga sola, e portano a guardare in posti diversi.
+     */
+    const facts = deploymentFacts({ A: "1", B: "2", DATABASE_URL: "x" });
+    expect(facts.variableCount).toBe(3);
+  });
+
+  it("elenca i nomi dell'applicazione, mai quelli della piattaforma", () => {
+    const facts = deploymentFacts({
+      DATABASE_URL: "x",
+      AUTH_SECRET: "y",
+      SECRETS_KEY: "z",
+      PATH: "/usr/bin",
+      AWS_REGION: "eu-central-1",
+    });
+
+    expect(facts.applicationNames).toEqual(["AUTH_SECRET", "DATABASE_URL", "SECRETS_KEY"]);
+  });
+
+  it("non riporta il valore di nessuna delle variabili elencate", () => {
+    // Un elenco di nomi è a un passo da un elenco di coppie, e il passo lo si
+    // fa per comodità mentre si cerca un guasto.
+    const facts = deploymentFacts({ SECRETS_KEY: "valore-riconoscibile-123" });
+
+    expect(JSON.stringify(facts)).not.toContain("valore-riconoscibile-123");
+  });
 });
