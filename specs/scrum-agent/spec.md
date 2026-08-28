@@ -282,9 +282,24 @@ di approvazione del Product Owner.
 
 **Gateway LLM**
 
+> **Nota di aggiornamento (ADR-0010).** Questa sezione fu scritta quando il
+> modello era **uno solo per tutta l'applicazione**, scelto da `LLM_PROVIDER`.
+> Non è più così: ogni progetto porta il proprio fornitore e la propria chiave,
+> e `LLM_PROVIDER` sopravvive solo per `npm run eval`. I criteri restano
+> **tutti validi**, ma due vanno letti con la premessa nuova — sono annotati
+> sotto. Annotati e non riscritti: una specifica riscritta all'indietro nasconde
+> che una decisione è cambiata, che è l'unica cosa che vale la pena ricordare.
+
 17. Con `LLM_PROVIDER=fake` nessuna richiesta di rete lascia il processo: un test che
     intercetta le chiamate uscenti fallisce se ne parte una. L'intera suite `npm run test`
     passa senza alcuna chiave API configurata.
+
+    > **Oggi la garanzia è più forte e non dipende da quella variabile.** Il
+    > portale non la legge affatto: un progetto nasce con `fake` finché qualcuno
+    > non incolla una chiave nelle sue impostazioni, e `createGateway()` senza
+    > credenziali non può più raggiungere un fornitore vero. C'è un test che
+    > mette `LLM_PROVIDER=gemini` e `GEMINI_API_KEY` nell'ambiente e verifica che
+    > la risposta sia comunque `fake`, senza traffico.
 18. Con lo stesso input, il provider fittizio restituisce lo stesso output e lo stesso
     conteggio di token: due esecuzioni consecutive producono `SkillRun` con identici token e
     costo.
@@ -298,6 +313,16 @@ di approvazione del Product Owner.
     il `SkillRun` registra il fornitore effettivamente usato. Se anche la riserva fallisce,
     l'esito è `failed` con causa `provider_unavailable` (o `rate_limited`) e nessuna
     eccezione risale all'interfaccia.
+
+    > **La riserva non si applica a un progetto, e non è una regressione.** Il
+    > meccanismo resta — è ciò che regge questo criterio, e i test lo esercitano
+    > con adattatori iniettati — ma una catena con due fornitori si costruisce
+    > solo dove entrambe le chiavi sono **nostre**. La chiave di un cliente è
+    > una sola: dirottare il suo lavoro su un fornitore che non ha scelto
+    > significherebbe spendere una quota che non ci ha dato, o fallire con un
+    > messaggio che parla di un servizio di cui non sa nulla. Un progetto ha
+    > quindi un adattatore solo, e un fornitore indisponibile produce
+    > `provider_unavailable` senza tentativi altrove.
 22. Se l'output del fornitore non rispetta lo schema atteso, il gateway ritenta una sola
     volta; al secondo fallimento l'esito è `failed` con causa `invalid_output`. Nessun testo
     non validato viene mostrato o salvato come risultato.
@@ -346,7 +371,7 @@ di approvazione del Product Owner.
 | Fonte esterna non raggiungibile (in T3 la fonte esterna è il **fornitore LLM**) | Si tenta la riserva una sola volta; se fallisce, `SkillRun` `failed` con causa `provider_unavailable` o `timeout`, messaggio esplicito nell'interfaccia, agente e configurazione intatti. |
 | Progetto senza integrazioni configurate | Creazione e configurazione pienamente consentite: lo `ScrumAgent` non dipende da un'integrazione. La scheda dichiara che l'unica fonte è il connettore `seed`. |
 | Dati parziali o incoerenti (durate di sprint molto diverse, sprint con date non valide) | Gli sprint con date non valide sono esclusi dal calcolo della mediana; se ne restano meno di due, la proposta torna a 14. Il valore è presentato come **proposta modificabile**, mai come verità. |
-| Chiave API assente con `LLM_PROVIDER=gemini` | Creazione e modifica dell'agente restano possibili. L'esecuzione fallisce con causa `provider_not_configured` e un messaggio che indica quale variabile manca, senza mai stamparne il valore. |
+| Chiave API assente per il fornitore dichiarato dal progetto | Creazione e modifica dell'agente restano possibili. L'esecuzione fallisce con causa `provider_not_configured` e un messaggio che rimanda alla scheda «Modello» delle impostazioni, senza mai stampare alcun valore. **Aggiornato (ADR-0010):** in origine il caso era «chiave assente con `LLM_PROVIDER=gemini`» e il messaggio nominava la variabile d'ambiente mancante. Non c'è più una variabile da nominare — la chiave la incolla chi usa il portale, e la sua assenza si corregge dove è stata inserita. |
 | Fornitore lento oltre il timeout | `SkillRun` `failed`, causa `timeout`, durata effettivamente registrata; nessuna richiesta lasciata pendente. |
 | Limite di frequenza del fornitore (429) | Si tenta la riserva; se assente o anch'essa limitata, causa `rate_limited` con invito a riprovare più tardi. |
 | Testo di prompt injection incollato nel working agreement, nella Definition of Done o nel ruolo di uno stakeholder («ignora le istruzioni precedenti e …») | Salvato **come dato**, senza interpretazione. In T3 non raggiunge alcun prompt (criterio 24). Il caso entra nella suite avversariale come regressione permanente per T4 (`AGENTS.md` §8.1). |
@@ -425,7 +450,7 @@ sull'agente riguarda i **suoi** output, non l'applicazione.
   invio; isolamento fra due organizzazioni; scrittura di un `SkillRun` per ogni esito;
   fallback al fornitore di riserva e successivo fallimento, con provider fittizio
   configurabile per fallire; superamento di budget e di tetto giornaliero; agente sospeso;
-  assenza di traffico di rete con `LLM_PROVIDER=fake`.
+  assenza di traffico di rete senza credenziali di progetto.
 - **Suite avversariale**: payload di prompt injection salvati nei campi di testo del contesto
   di progetto, con verifica che non compaiano nella richiesta inviata al fornitore.
 - **Eval (se coinvolge un LLM)**: **nessuna in T3.** Non c'è narrazione di numeri da

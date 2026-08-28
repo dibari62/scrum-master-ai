@@ -290,6 +290,9 @@ export function createGateway(options: GatewayOptions = {}): Gateway {
     options.providers ??
     (options.credentials ? providersFor(options.credentials) : [createFakeProvider()]);
 
+  /** Se la chiave doveva arrivare da un progetto: cambia solo cosa si dice a chi legge. */
+  const fromProject = options.credentials !== undefined;
+
   return {
     async complete(request: LlmRequest): Promise<GatewayOutcome> {
       const startedAt = now();
@@ -330,6 +333,29 @@ export function createGateway(options: GatewayOptions = {}): Gateway {
       const usable = providers.filter((provider) => provider.isConfigured());
 
       if (usable.length === 0) {
+        /*
+         * Il messaggio dipende da **dove** doveva arrivare la chiave, e non è
+         * un dettaglio di forma.
+         *
+         * Nominare `GEMINI_API_KEY` a chi usa il portale lo manda a cercare una
+         * variabile d'ambiente che non controlla e che non avrebbe alcun
+         * effetto: dopo ADR-0010 la sua chiave si incolla nelle impostazioni del
+         * progetto. Era il messaggio giusto quando il modello era nostro, ed è
+         * diventato una direzione sbagliata senza che una riga cambiasse.
+         *
+         * Il nome della variabile resta per il runner delle valutazioni, che
+         * l'ambiente lo legge davvero. In nessuno dei due casi compare un
+         * valore: un messaggio è un posto da cui un segreto esce verso registri
+         * e schermate (§8.3).
+         */
+        if (fromProject) {
+          return refused(
+            "provider_not_configured",
+            "Il modello di questo progetto non ha una chiave. Inseriscila nella scheda " +
+              "«Modello» delle impostazioni del progetto.",
+          );
+        }
+
         const missing = providers
           .map((provider) => apiKeyVariableFor(provider.name))
           .filter((name): name is string => name !== null);
@@ -337,9 +363,7 @@ export function createGateway(options: GatewayOptions = {}): Gateway {
         return refused(
           "provider_not_configured",
           missing.length > 0
-            ? // The variable name, never its value: a message is a place a
-              // secret escapes to logs and screenshots (§8.3).
-              `Nessun fornitore configurato. Manca una fra: ${missing.join(", ")}.`
+            ? `Nessun fornitore configurato. Manca una fra: ${missing.join(", ")}.`
             : "Nessun fornitore configurato.",
         );
       }
