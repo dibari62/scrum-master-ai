@@ -99,17 +99,24 @@ test.describe("creazione di un progetto", () => {
       description: "Il flusso di pagamento del negozio.",
     });
 
-    // Si torna all'elenco, e il progetto appena creato ci deve essere.
-    await page.waitForURL("**/progetti");
-    await expect(page.getByText("Piattaforma di Checkout")).toBeVisible();
-    await expect(page.getByText("Il flusso di pagamento del negozio.")).toBeVisible();
-
-    // E dall'elenco si entra nel progetto senza scrivere l'indirizzo a mano.
-    await page.getByRole("link", { name: "Piattaforma di Checkout" }).click();
+    /*
+     * Si atterra **nel progetto**, non sull'elenco.
+     *
+     * E la prima cosa che deve dire è che cosa fare: un progetto appena creato
+     * non ha dati, quindi ogni metrica è vuota. Senza i primi passi la
+     * schermata è indistinguibile da un guasto.
+     */
     await page.waitForURL(`**/progetti/${slug}`);
     await expect(
       page.getByRole("heading", { name: "Piattaforma di Checkout", level: 1 }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: /i dati no/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Collega una fonte dati" })).toBeVisible();
+
+    // E il progetto compare nell'elenco, che è la conferma per chi torna dopo.
+    await page.goto("/progetti");
+    await expect(page.getByText("Piattaforma di Checkout")).toBeVisible();
+    await expect(page.getByText("Il flusso di pagamento del negozio.")).toBeVisible();
   });
 
   test("l'identificativo segue il nome finché non lo si modifica a mano", async ({
@@ -142,7 +149,7 @@ test.describe("creazione di un progetto", () => {
 
     await page.goto("/progetti/crea");
     await fillProject(page, { name: "Primo progetto", slug });
-    await page.waitForURL("**/progetti");
+    await page.waitForURL(`**/progetti/${slug}`);
 
     await page.goto("/progetti/crea");
     await fillProject(page, { name: "Secondo progetto", slug });
@@ -194,8 +201,8 @@ test.describe("creazione di un progetto", () => {
     await register(page, first);
     await page.goto("/progetti/crea");
     await fillProject(page, { name: nameA, slug: shared });
-    await page.waitForURL("**/progetti");
-    await expect(page.getByText(nameA)).toBeVisible();
+    await page.waitForURL(`**/progetti/${shared}`);
+    await expect(page.getByRole("heading", { name: nameA, level: 1 })).toBeVisible();
 
     await signOut(page);
 
@@ -203,14 +210,14 @@ test.describe("creazione di un progetto", () => {
     await page.goto("/progetti/crea");
     await fillProject(page, { name: nameB, slug: shared });
 
-    // Nessun errore di unicità: lo stesso identificativo è libero qui.
-    await page.waitForURL("**/progetti");
+    // Nessun errore di unicità: lo stesso identificativo è libero qui, e lo
+    // stesso indirizzo apre due progetti diversi, uno per azienda.
+    await page.waitForURL(`**/progetti/${shared}`);
+    await expect(page.getByRole("heading", { name: nameB, level: 1 })).toBeVisible();
+
+    await page.goto("/progetti");
     await expect(page.getByText(nameB)).toBeVisible();
     await expect(page.getByText(nameA)).toHaveCount(0);
-
-    // Lo stesso indirizzo apre due progetti diversi, uno per azienda.
-    await page.goto(`/progetti/${shared}`);
-    await expect(page.getByRole("heading", { name: nameB, level: 1 })).toBeVisible();
 
     await signOut(page);
     await signIn(page, first);
