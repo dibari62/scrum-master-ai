@@ -25,7 +25,21 @@ import { timingSafeEqual } from "node:crypto";
 export type JobAuthorisation =
   | { readonly ok: true }
   /** `misconfigured` is the server's fault, `refused` is the caller's. */
-  | { readonly ok: false; readonly reason: "misconfigured" | "refused" };
+  | {
+      readonly ok: false;
+      readonly reason: "misconfigured" | "refused";
+      /**
+       * Come manca il segreto, quando manca.
+       *
+       * `name-missing`: la variabile non è mai stata creata.
+       * `value-empty`: il nome arriva ma il contenuto no — su Vercel è il tipo
+       * *Secret*, che va ricreato come *Config*.
+       *
+       * Non compare mai in una risposta HTTP: serve al registro del server e a
+       * chi amministra, che sono gli unici a poterci fare qualcosa.
+       */
+      readonly detail?: "name-missing" | "value-empty";
+    };
 
 /**
  * Compares two secrets without leaking their contents through timing.
@@ -62,7 +76,25 @@ export function authoriseJob(headers: Headers): JobAuthorisation {
   // Refusing everything is the right answer when the server has no secret to
   // check against: the alternative is a job anyone can trigger.
   if (!expected || expected.length === 0) {
-    return { ok: false, reason: "misconfigured" };
+    /*
+     * Due modi di non esserci, e distinguerli fa risparmiare ore.
+     *
+     * **Il caso vero.** Su Vercel una variabile di tipo *Secret* raggiunge il
+     * processo con il **nome presente e il valore vuoto**; una di tipo *Config*
+     * arriva valorizzata. La descrizione di «Secret» nomina esattamente questo
+     * caso d'uso — «passwords, API keys, and tokens» — quindi è la scelta che
+     * chiunque farebbe, ed è quella sbagliata.
+     *
+     * Costò tre giorni con `SECRETS_KEY` (ripartire-da-zero §5.quinquies). Qui
+     * la distinzione è scritta nel codice fin dal principio, perché il sintomo
+     * — «Job non configurato» su una variabile che nel pannello si vede — è
+     * identico e manda a cercare nello stesso posto sbagliato.
+     */
+    return {
+      ok: false,
+      reason: "misconfigured",
+      detail: expected === undefined ? "name-missing" : "value-empty",
+    };
   }
 
   const presented = presentedSecret(headers);

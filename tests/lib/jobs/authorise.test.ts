@@ -76,6 +76,7 @@ describe("autorizzazione di un job", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("atteso rifiuto");
     expect(result.reason).toBe("misconfigured");
+    expect(result.detail).toBe("name-missing");
   });
 
   it("tratta un segreto vuoto come assente", () => {
@@ -88,6 +89,32 @@ describe("autorizzazione di un job", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("atteso rifiuto");
     expect(result.reason).toBe("misconfigured");
+  });
+
+  it("distingue «non l'hai creata» da «l'hai creata del tipo sbagliato»", () => {
+    /*
+     * Il caso vero, incontrato mettendo in linea la lettura schedulata.
+     *
+     * Su Vercel una variabile di tipo *Secret* raggiunge il processo con il
+     * **nome presente e il valore vuoto**; una di tipo *Config* arriva
+     * valorizzata. Il sintomo è identico all'assenza — «Job non configurato» —
+     * ma la variabile nel pannello **si vede**, quindi chi cerca il problema
+     * guarda ovunque tranne che nel tipo.
+     *
+     * La stessa trappola costò tre giorni con `SECRETS_KEY`. Questa riga esiste
+     * perché la seconda volta costi un minuto.
+     */
+    process.env["JOB_SECRET"] = "";
+
+    const vuota = authoriseJob(headersWith("Bearer x"));
+    if (vuota.ok) throw new Error("atteso rifiuto");
+    expect(vuota.detail).toBe("value-empty");
+
+    delete process.env["JOB_SECRET"];
+
+    const assente = authoriseJob(headersWith("Bearer x"));
+    if (assente.ok) throw new Error("atteso rifiuto");
+    expect(assente.detail).toBe("name-missing");
   });
 
   it("non legge il segreto dall'indirizzo", () => {
