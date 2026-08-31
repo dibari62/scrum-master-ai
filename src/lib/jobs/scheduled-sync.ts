@@ -45,6 +45,20 @@ export type SyncSummary = {
 };
 
 /**
+ * Quanti hanno rifiutato di partire, cioè non sono nemmeno arrivati alla rete.
+ *
+ * **Il difetto che questo conteggio ripara, trovato provando.** Un progetto con
+ * il token mancante o illeggibile viene *rifiutato* prima di telefonare: nessun
+ * errore, nessuna riga. Nel riepilogo compariva come «0 righe, 0 fallimenti»,
+ * indistinguibile da «non c'era niente di nuovo» — e siccome il rifiuto non
+ * sposta il segnatempo, quel progetto resta scaduto **per sempre** e viene
+ * ritentato a ogni giro senza che nessuno lo sappia.
+ */
+export function countRefusals(summary: SyncSummary): number {
+  return summary.outcomes.filter((outcome) => outcome.status === "refused").length;
+}
+
+/**
  * Rilegge i progetti scaduti di **una** organizzazione.
  *
  * Prende l'organizzazione invece di ciclarle tutte dentro, come il job della
