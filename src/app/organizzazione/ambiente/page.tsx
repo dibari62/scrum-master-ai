@@ -232,13 +232,14 @@ export default async function EnvironmentPage() {
           </p>
           <p>
             <strong>
-              Se una riga dice «il nome esiste, il valore è vuoto», la variabile non è
-              arrivata affatto.
+              Se una riga dice «il nome esiste, il valore è vuoto», è il tipo della
+              variabile.
             </strong>{" "}
-            Controlla che sia stata salvata su <strong>Production</strong> e che ci sia
-            stato un deploy dopo. Il tipo — <em>Secret</em> o <em>Config</em> — non
-            conta: il portale legge le variabili dall&apos;oggetto del processo, quindi
-            anche una <em>Secret</em>, disponibile solo al runtime, arriva valorizzata.
+            Su Vercel una variabile di tipo <strong>Secret</strong> raggiunge il processo
+            con il nome presente e il contenuto vuoto — lo conferma la sezione qui sopra,
+            dove nessuna forma di lettura la trova. Cancellala e ricreala con tipo{" "}
+            <strong>Config</strong>: non significa pubblica, resta visibile a chi ha
+            accesso al progetto. Una chiave che non arriva non protegge nulla.
           </p>
         </div>
 
