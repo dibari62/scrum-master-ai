@@ -111,6 +111,15 @@ export type SynchroniseInput = {
    * function is a connector test in every respect that matters.
    */
   readonly httpFetch?: typeof fetch;
+
+  /**
+   * Ignora il cursore e richiedi tutta la storia.
+   *
+   * La via d'uscita per chi si accorge di non vedere dati che su Jira ci sono:
+   * il cursore fa chiedere solo le novità, e se il portale è rimasto indietro
+   * per una configurazione sbagliata quelle novità non bastano a recuperare.
+   */
+  readonly full?: boolean;
 };
 
 export async function synchroniseProject(input: SynchroniseInput): Promise<SyncOutcome> {
@@ -147,12 +156,17 @@ export async function synchroniseProject(input: SynchroniseInput): Promise<SyncO
      * anche l'unica che può esistere all'inizio: fingere un cursore
      * significherebbe partire con una storia che comincia a metà, e ogni prima
      * transizione risulterebbe venire da uno stato inventato.
+     *
+     * `full` lo scavalca di proposito: è la richiesta esplicita di chi si è
+     * accorto che il portale è rimasto indietro.
      */
+    const since = input.full ? null : settings.lastSyncedAt;
+
     const batch = await connector.fetch({
       organizationId,
       projectId,
       asOf,
-      ...(settings.lastSyncedAt ? { since: settings.lastSyncedAt } : {}),
+      ...(since ? { since } : {}),
     });
 
     const report = await ingestBatch({ organizationId, projectId, batch, db });
@@ -185,7 +199,7 @@ export async function synchroniseProject(input: SynchroniseInput): Promise<SyncO
       }),
       configuredKey: config.data.projectKey,
       projectId,
-      ...(settings.lastSyncedAt ? { since: settings.lastSyncedAt } : {}),
+      ...(since ? { since } : {}),
     });
 
     return { status: "done", report, at: asOf, diagnosis };
