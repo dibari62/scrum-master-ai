@@ -506,7 +506,16 @@ export async function testModelAction(
         ? ` Con questa chiave il fornitore accetta, fra gli altri: ${outcome.availableModels.slice(0, 8).join(", ")}.`
         : "";
 
-    return { status: "error", message: `${outcome.message} ${richiesto}${disponibili}` };
+    /*
+     * E il numero con cui ha rifiutato, che è un fatto e non un'interpretazione.
+     *
+     * Serve a chi legge quanto a chi assiste: `404` e `429` portano a due gesti
+     * opposti, e senza quel numero restano due frasi che si somigliano.
+     */
+    const stato =
+      outcome.providerStatus === null ? "" : ` Il fornitore ha risposto ${outcome.providerStatus}.`;
+
+    return { status: "error", message: `${outcome.message} ${richiesto}${disponibili}${stato}` };
   }
 
   return {

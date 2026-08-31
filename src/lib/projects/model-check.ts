@@ -61,6 +61,15 @@ export type ModelCheckOutcome =
        * peggio di nessun elenco.
        */
       readonly availableModels: readonly string[];
+
+      /**
+       * Il codice HTTP del rifiuto, quando c'è stato.
+       *
+       * Si mostra a chi legge, e non è un dettaglio da tecnici: `404` e `429`
+       * portano a due gesti opposti — correggere un nome, oppure aspettare — e
+       * senza quel numero le due situazioni si somigliano troppo.
+       */
+      readonly providerStatus: number | null;
     };
 
 export type ModelCheckInput = {
@@ -111,6 +120,7 @@ export async function checkModel(input: ModelCheckInput): Promise<ModelCheckOutc
       cause: outcome.failureCause,
       message: explainFailure(outcome.failureCause),
       availableModels: await askForModels(outcome.failureCause, input.listModels),
+      providerStatus: outcome.providerStatus,
     };
   }
 
