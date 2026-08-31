@@ -331,7 +331,7 @@ Per trovarli dopo, la prova è il **giro di andata e ritorno**: si decodifica il
 file come UTF-8, lo si ricodifica, e si confrontano i byte. Se non coincidono, il
 file è misto.
 
-### 5.quater `process.env[nome]` non legge nulla in produzione
+### 5.quater `process.env.NOME` legge il vuoto della build, non il valore vero
 
 **Il guasto più costoso finora, e quello che somigliava di meno a un guasto.**
 
@@ -340,95 +340,111 @@ server. Il portale rifiutava di conservare le chiavi dei modelli dicendo che
 mancava `SECRETS_KEY`, e `SECRETS_KEY` c'era.
 
 La causa: **Next.js sostituisce a tempo di build le occorrenze letterali di
-`process.env.NOME` con il loro valore.** Un accesso calcolato non lo è —
+`process.env.NOME` con il loro valore.** Per la maggior parte delle variabili è
+innocuo. Non lo è per quelle che **in fase di build non esistono ancora**: su
+Vercel una variabile di tipo *Secret* è disponibile solo al runtime, quindi il
+bundler la sostituisce con una **stringa vuota**, e quel vuoto resta inciso nel
+pacchetto per sempre.
 
 ```ts
-// NON funziona in produzione: il bundler non sa quale nome verrà chiesto
-function masterKey(env = process.env) {
-  return env["SECRETS_KEY"];
-}
-
-// Funziona: l'occorrenza è letterale e il bundler la vede
+// NON funziona: il letterale viene congelato a "" durante la build,
+// quando la variabile ancora non esiste
 function processEnvironment() {
   return { SECRETS_KEY: process.env.SECRETS_KEY };
 }
-```
 
-— quindi il bundler non sostituisce nulla, e a runtime la variabile **non
-esiste**, anche se nel pannello della piattaforma è lì da settimane.
+// Funziona: un accesso calcolato non è sostituibile, quindi al runtime
+// si legge ciò che la piattaforma ha davvero iniettato
+function processEnvironment() {
+  return process.env as unknown as Record<string, string | undefined>;
+}
+```
 
 | Strumento | Reazione |
 |---|---|
-| typecheck, lint, test | **passano** (in locale `process.env` è l'ambiente vero) |
+| typecheck, lint, test | **passano** (in locale la variabile esiste già in fase di build) |
 | `npm run build` | **passa** |
 | il sito in produzione | la variabile risulta assente |
 
 **Perché è costato tanto.** Il sintomo — «manca la chiave di custodia» —
-puntava con precisione verso la configurazione, che era giusta. Ogni verifica
-la confermava assente, quindi ogni tentativo rafforzava l'ipotesi sbagliata: si
+puntava con precisione verso la configurazione, che era giusta. Ogni verifica la
+confermava assente, quindi ogni tentativo rafforzava l'ipotesi sbagliata: si
 rigenera la chiave, si controlla l'ambiente, si rifà il deploy, si cerca un
 secondo progetto Vercel. Nessuna di quelle strade poteva finire da nessuna
 parte.
 
+> **Un rimedio andò nella direzione opposta e peggiorò le cose.** La prima
+> diagnosi fu «il bundler non vede gli accessi calcolati, quindi servono
+> riferimenti letterali». Sembrava ragionevole, spiegava perché `DATABASE_URL`
+> funzionava, e produsse un cambiamento che rese il difetto **sistematico**
+> invece che accidentale. Vale la pena ricordarlo: una spiegazione che rende
+> conto dei fatti noti non è ancora una spiegazione giusta.
+
 **Come si è trovato.** Una pagina di diagnostica che si è **contraddetta da
-sola**: `Object.keys(process.env)` elencava dieci variabili dell'applicazione, e
-le righe accanto ne davano otto per assenti. Le uniche due che «funzionavano»
-— `DATABASE_URL` e `AUTH_SECRET` — erano le sole referenziate letteralmente
-altrove nel codice.
+sola**: `Object.keys(process.env)` elencava il nome — quindi al runtime la
+variabile c'è — e la riga accanto lo dava per vuoto. Le uniche due che
+«funzionavano», `DATABASE_URL` e `AUTH_SECRET`, sono quelle disponibili anche in
+fase di build.
 
-Da qui la regola: **ogni variabile d'ambiente si legge con un riferimento
-letterale**, raccolto in una funzione `processEnvironment()` che restituisce un
-oggetto. Il parametro iniettabile resta — serve ai test — ma il **valore
-predefinito** non è più `process.env`.
+Da qui la regola: **una variabile d'ambiente si legge dall'oggetto, mai per
+nome letterale.** Il parametro iniettabile resta — serve ai test — ma il valore
+predefinito è `process.env` letto come oggetto.
 
-La forma è ripetitiva e va lasciata tale: un ciclo sarebbe più corto e
-leggerebbe di nuovo il nulla. Due test la difendono da una futura pulizia,
-verificando che il codice sorgente contenga il riferimento letterale per ogni
-nome dichiarato.
+Due test la difendono da una futura «pulizia», e guardano il **sorgente**
+invece del comportamento: è una delle poche volte in cui ha senso, perché in
+locale le due forme si comportano in modo identico e nessun test funzionale
+potrebbe distinguerle.
 
 `/organizzazione/ambiente` esiste per questo: dice cosa il server vede davvero,
-quante variabili ha in tutto e da quale commit sta rispondendo.
+quante variabili ha in tutto, da quale commit sta rispondendo, e **segnala le
+variabili che il pacchetto ha congelato a vuoto**.
 
-### 5.quinquies Su Vercel, «Secret» arriva vuota — serve «Config»
+### 5.quinquies Su Vercel, «Secret» non esiste in fase di build
 
-**La causa vera del guasto di §5.quater**, trovata dopo aver smontato tre
-ipotesi: progetto sbagliato, deploy vecchio, accessi calcolati.
+**La metà mancante di §5.quater**: quella spiega perché il codice leggeva il
+vuoto, questa spiega perché il vuoto c'era.
 
 Aggiungendo una variabile, Vercel chiede un **tipo**:
 
-| Tipo | Come si presenta | Cosa succede davvero |
+| Tipo | Come si presenta | Quando è disponibile |
 |---|---|---|
-| **Secret** | «You can't reveal this value after saving. Use for passwords, API keys, and tokens.» | il nome arriva al runtime, **il valore è vuoto** |
-| **Config** | «Readable after saving for members with access.» | arriva valorizzata |
+| **Secret** | «You can't reveal this value after saving. Use for passwords, API keys, and tokens.» | **solo al runtime** |
+| **Config** | «Readable after saving for members with access.» | anche in fase di build |
 
 La descrizione di «Secret» nomina esattamente il caso d'uso — password, chiavi
 API, token — quindi è la scelta che chiunque farebbe per una chiave di
-cifratura. Ed è quella che non funziona.
+cifratura. Ed è quella che innesca il difetto.
 
-**Il sintomo non somiglia alla causa.** Il portale dice «manca la chiave di
-custodia» e rifiuta di conservare credenziali; nel pannello la variabile è lì,
-su *Production*, aggiunta pochi minuti prima. Ogni verifica conferma che manca,
-quindi ogni tentativo di rimediare — rigenerarla, rifare il deploy, controllare
-l'ambiente, cercare un secondo progetto — **rafforza l'ipotesi sbagliata**.
+**Le due condizioni insieme.** Nessuna delle due da sola rompe nulla:
 
-**Come si riconosce.** `/organizzazione/ambiente` distingue i due casi:
+- una variabile *Secret* letta **dall'oggetto** al runtime funziona;
+- una variabile *Config* letta con un **letterale** funziona.
+
+È la combinazione — *Secret* più letterale — che produce il guasto, ed è la
+ragione per cui `DATABASE_URL` funzionava e `SECRETS_KEY` no pur avendo lo
+stesso identico codice attorno.
+
+**Come si riconosce.** `/organizzazione/ambiente` distingue i casi:
 
 ```
 SECRETS_KEY          assente
-Forma del valore:    il nome esiste, il valore è vuoto   <-- tipo Secret
+Forma del valore:    il nome esiste, il valore è vuoto
 ```
 
 Se il nome non esistesse affatto, la variabile non sarebbe mai stata definita:
-guasto diverso, gesto diverso.
+guasto diverso, gesto diverso. E se una riga avverte che «il pacchetto ne porta
+una copia vuota», la variabile al runtime c'è ed è il codice a non vederla.
 
-**Il rimedio**: cancellare la variabile e ricrearla con **Type: Config**.
+**Il rimedio è nel codice** — leggere dall'oggetto, §5.quater — e vale per
+qualunque tipo. Ricreare la variabile come *Config* è un rimedio alternativo che
+funziona anche con codice sbagliato, ma cura il sintomo: la prossima variabile
+*Secret* riaprirebbe il caso.
 
-«Config» non significa pubblica — resta visibile solo a chi ha accesso al
-progetto Vercel, che qui è una persona sola. Il compromesso è dichiarato:
-**una chiave che non arriva non protegge nulla, blocca soltanto il portale.**
+«Config» non significa comunque pubblica: resta visibile solo a chi ha accesso
+al progetto Vercel.
 
-`npm run chiave` genera la chiave, la mette negli appunti e stampa queste
-istruzioni, così non vanno ricordate.
+`npm run chiave` genera la chiave, la mette negli appunti e stampa dove
+incollarla, così non va ricordato.
 
 ---
 

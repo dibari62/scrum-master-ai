@@ -84,34 +84,41 @@ export class SecretCorruptedError extends Error {
  * this whole module exists to avoid.
  */
 /**
- * L'ambiente, letto con un riferimento che un bundler riesce a vedere.
+ * L'ambiente **del processo**, non quello inciso nel pacchetto compilato.
  *
- * **Il difetto che questa funzione esiste per riparare, e come si è
- * manifestato.** Fino a ieri il valore predefinito era `process.env`, e
- * `masterKey` faceva `env["SECRETS_KEY"]` sul parametro. In locale funziona: là
- * `process.env` è l'ambiente vero del processo. Su Vercel no — e in un modo che
- * non somiglia affatto a un guasto.
+ * ## Il difetto, e perché il rimedio precedente lo peggiorava
  *
- * Next.js **sostituisce a tempo di build** le occorrenze letterali di
- * `process.env.NOME` con il loro valore. Un accesso attraverso un parametro non
- * è un'occorrenza letterale: il bundler non ha modo di sapere quale nome verrà
- * chiesto, quindi non sostituisce nulla, e a runtime la variabile risulta
- * assente **anche quando è configurata**.
+ * Next.js sostituisce a tempo di build le occorrenze **letterali** di
+ * `process.env.NOME` con il loro valore. Per la maggior parte delle variabili
+ * è innocuo. Non lo è per quelle che **in fase di build non esistono**: su
+ * Vercel una variabile di tipo *Secret* è disponibile solo al runtime, quindi
+ * il bundler la sostituisce con una **stringa vuota**, e quel vuoto resta
+ * inciso nel pacchetto per sempre.
  *
- * La conferma è arrivata da una pagina di diagnostica che si contraddiceva da
- * sola: `Object.keys(process.env)` elencava `SECRETS_KEY`, e la riga accanto la
- * dava per assente. Le uniche due variabili che funzionavano —
- * `DATABASE_URL` e `AUTH_SECRET` — erano le sole referenziate letteralmente
- * altrove nel codice.
+ * Il rimedio precedente raccoglieva riferimenti letterali «perché il bundler
+ * li vede». Li vedeva, appunto — e li congelava a vuoto. `SECRETS_KEY`
+ * risultava assente a ogni avvio, pur essendo configurata correttamente, e il
+ * portale rifiutava di conservare le credenziali dei progetti.
  *
- * **Costo del difetto**: un pomeriggio di verifiche su una configurazione che
- * era giusta dall'inizio. È il tipo di guasto peggiore, perché ogni prova
- * conferma l'ipotesi sbagliata.
+ * **La prova** è arrivata da una contraddizione dentro la pagina di
+ * diagnostica: `Object.keys(process.env)` elencava il nome — quindi al runtime
+ * la variabile c'è — e la riga accanto lo dava per vuoto. Le uniche due che
+ * «funzionavano», `DATABASE_URL` e `AUTH_SECRET`, sono quelle disponibili
+ * anche in fase di build.
+ *
+ * **Costo del difetto**: tre giorni di verifiche su una configurazione che era
+ * giusta dall'inizio. È il tipo di guasto peggiore, perché ogni prova conferma
+ * l'ipotesi sbagliata.
+ *
+ * Qui si legge quindi **l'oggetto**, mai un nome letterale. Un accesso
+ * calcolato non è sostituibile: il bundler non sa quale chiave verrà chiesta,
+ * lascia il codice com'è, e al runtime si legge ciò che la piattaforma ha
+ * davvero iniettato.
  */
 function processEnvironment(): Readonly<Record<string, string | undefined>> {
-  // Riferimento letterale, deliberatamente: è l'unica forma che sopravvive al
-  // bundler. Non sostituirlo con un accesso calcolato.
-  return { SECRETS_KEY: process.env.SECRETS_KEY };
+  // Non sostituire con `process.env.SECRETS_KEY`: quella forma viene congelata
+  // in fase di build, quando la variabile può non esistere ancora.
+  return process.env as unknown as Readonly<Record<string, string | undefined>>;
 }
 
 export function masterKey(

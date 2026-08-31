@@ -205,13 +205,13 @@ export default async function EnvironmentPage() {
           </p>
           <p>
             <strong>
-              Se una riga dice «il nome esiste, il valore è vuoto», è quasi sempre il
-              tipo.
+              Se una riga dice «il nome esiste, il valore è vuoto», la variabile non è
+              arrivata affatto.
             </strong>{" "}
-            Su Vercel una variabile di tipo <strong>Secret</strong> raggiunge il runtime
-            con il nome presente e il contenuto vuoto. Cancellala e ricreala con tipo{" "}
-            <strong>Config</strong>: non significa pubblica, resta visibile solo a chi ha
-            accesso al progetto. Una chiave che non arriva non protegge nulla.
+            Controlla che sia stata salvata su <strong>Production</strong> e che ci sia
+            stato un deploy dopo. Il tipo — <em>Secret</em> o <em>Config</em> — non
+            conta: il portale legge le variabili dall&apos;oggetto del processo, quindi
+            anche una <em>Secret</em>, disponibile solo al runtime, arriva valorizzata.
           </p>
         </div>
 
@@ -261,6 +261,16 @@ function EntryRow({
                 ? "il nome esiste, il valore è vuoto"
                 : "valorizzata"}
           </code>
+        </p>
+      ) : null}
+
+      {entry.bundlerFroze ? (
+        <p className="text-sm">
+          <strong>Attenzione:</strong> al runtime questa variabile è valorizzata, ma il
+          pacchetto compilato ne porta una copia <strong>vuota</strong>, congelata in fase
+          di build. Un modulo che la leggesse con un riferimento letterale otterrebbe il
+          vuoto. È il difetto documentato in{" "}
+          <code className="font-mono">ripartire-da-zero.md</code> §5.quater.
         </p>
       ) : null}
 

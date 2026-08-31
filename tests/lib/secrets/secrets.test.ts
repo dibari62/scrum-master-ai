@@ -30,27 +30,37 @@ const ENV = { SECRETS_KEY: randomBytes(32).toString("base64") };
 const CHIAVE_FINTA = "AIzaSyD-esempio-non-vera-0123456789abcdef";
 
 describe("chiave principale", () => {
-  it("legge SECRETS_KEY con un riferimento che un bundler riesce a vedere", () => {
+  it("legge SECRETS_KEY dall'oggetto del processo, non da un letterale congelato", () => {
     /*
-     * Il difetto che ha bloccato una configurazione corretta per un pomeriggio.
+     * Il difetto che ha bloccato una configurazione corretta per tre giorni, e
+     * il motivo per cui questo test verifica il **sorgente**: il comportamento
+     * in locale è identico nei due casi, quindi nessun test funzionale può
+     * distinguerli.
      *
-     * Il valore predefinito era `process.env`, e la lettura avveniva con
-     * `env["SECRETS_KEY"]` sul parametro. In locale funziona: là `process.env`
-     * è l'ambiente vero. Su Vercel no — Next.js sostituisce a tempo di build le
-     * occorrenze **letterali** di `process.env.NOME`, e un accesso attraverso un
-     * parametro non lo è. La chiave risultava assente **pur essendo
-     * configurata**, e il portale rifiutava le credenziali dicendo che mancava
-     * la chiave di custodia.
+     * Next.js sostituisce a tempo di build le occorrenze **letterali** di
+     * `process.env.NOME`. Su Vercel una variabile di tipo *Secret* non esiste
+     * in fase di build: viene sostituita con una stringa vuota, e quel vuoto
+     * resta inciso nel pacchetto. La chiave risultava assente pur essendo
+     * configurata, e il portale rifiutava le credenziali dicendo che mancava la
+     * chiave di custodia.
      *
-     * È il tipo di guasto peggiore: ogni tentativo di rimediare confermava
-     * l'ipotesi sbagliata.
+     * Un tentativo precedente di rimediare andò nella direzione opposta —
+     * raccogliere riferimenti letterali «perché il bundler li vede» — e
+     * peggiorò le cose. Da qui il test: il modulo **non deve** contenere
+     * `process.env.SECRETS_KEY`.
      */
     const source = readFileSync(
       join(__dirname, "..", "..", "..", "src", "lib", "secrets", "index.ts"),
       "utf8",
     );
 
-    expect(source).toContain("process.env.SECRETS_KEY");
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("*") && !line.trimStart().startsWith("//"))
+      .join("\n");
+
+    expect(code).not.toContain("process.env.SECRETS_KEY");
+    expect(code).toContain("process.env as unknown as");
   });
 
   it("rifiuta l'assenza invece di ripiegare sul chiaro", () => {

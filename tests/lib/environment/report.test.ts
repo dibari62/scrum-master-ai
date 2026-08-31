@@ -26,37 +26,32 @@ const COMPLETO = {
 };
 
 describe("che cosa vede il server", () => {
-  it("legge le variabili con riferimenti che un bundler riesce a vedere", () => {
+  it("legge l'ambiente dall'oggetto del processo, non da letterali congelati", () => {
     /*
-     * Il difetto che è costato un pomeriggio, e che questo test blocca.
+     * Lo stesso difetto di `src/lib/secrets`, e la stessa ragione per cui il
+     * test guarda il sorgente invece del comportamento: in locale le due forme
+     * si comportano allo stesso modo.
      *
-     * Next.js sostituisce a tempo di build le occorrenze **letterali** di
-     * `process.env.NOME`. Un accesso calcolato — `env[nome]` — non lo è: il
-     * bundler non sa quale nome verrà chiesto, non sostituisce nulla, e a
-     * runtime la variabile risulta assente **anche quando è configurata**.
-     *
-     * Il modulo deve quindi contenere un riferimento letterale per ogni
-     * variabile che dichiara di sapere leggere. Un ciclo su `EXPECTED` sarebbe
-     * più corto e leggerebbe di nuovo il nulla: è la ripetizione che lo fa
-     * funzionare, e questo test è ciò che la difende da una futura pulizia.
+     * `bundledEnvironment` è l'eccezione **voluta**: raccoglie proprio i
+     * letterali congelati, per affiancarli a quelli veri e rendere visibile la
+     * differenza. È diagnostica, non lettura.
      */
     const source = readFileSync(
       join(__dirname, "..", "..", "..", "src", "lib", "environment", "report.ts"),
       "utf8",
     );
 
-    for (const name of [
-      "DATABASE_URL",
-      "AUTH_SECRET",
-      "SECRETS_KEY",
-      "AUTH_GITHUB_ID",
-      "AUTH_GITHUB_SECRET",
-      "JOB_SECRET",
-    ]) {
-      expect(source, `manca il riferimento letterale a ${name}`).toContain(
-        `process.env.${name}`,
-      );
-    }
+    const bundledStart = source.indexOf("function bundledEnvironment");
+    const bundledEnd = source.indexOf("}", source.indexOf("{", bundledStart));
+    const withoutDiagnostic = source.slice(0, bundledStart) + source.slice(bundledEnd);
+
+    const code = withoutDiagnostic
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("*") && !line.trimStart().startsWith("//"))
+      .join("\n");
+
+    expect(code).not.toContain("process.env.SECRETS_KEY");
+    expect(code).toContain("process.env as unknown as");
   });
 
   it("non riporta mai il valore di una variabile", () => {

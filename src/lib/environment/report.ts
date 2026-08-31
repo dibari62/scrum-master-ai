@@ -66,6 +66,17 @@ export type EnvironmentEntry = {
    * raggiunge questo runtime. Sono guasti diversi con lo stesso sintomo.
    */
   readonly shape: "missing-key" | "empty" | "filled";
+
+  /**
+   * Vera quando la variabile **c'è al runtime** ma il pacchetto ne porta una
+   * copia vuota, congelata in fase di build.
+   *
+   * È la firma del difetto costato tre giorni: un modulo che la leggesse con un
+   * riferimento letterale otterrebbe il vuoto, mentre l'oggetto del processo ha
+   * il valore giusto. Mostrarla serve a riconoscerlo in un colpo d'occhio,
+   * invece di dedurlo confrontando due schermate.
+   */
+  readonly bundlerFroze: boolean;
 };
 
 export type EnvironmentReport = {
@@ -130,24 +141,46 @@ const EXPECTED: readonly Expectation[] = [
 ];
 
 /**
- * L'ambiente, letto con riferimenti che un bundler riesce a vedere.
+ * L'ambiente **del processo**, non quello inciso nel pacchetto compilato.
  *
- * **Il difetto che questa funzione ripara.** Next.js sostituisce a tempo di
- * build le occorrenze **letterali** di `process.env.NOME` con il loro valore.
- * Un accesso calcolato — `env[nome]` su un parametro — non è un'occorrenza
- * letterale: il bundler non sa quale nome verrà chiesto, non sostituisce nulla,
- * e a runtime la variabile risulta assente **anche quando è configurata**.
+ * ## Il difetto, e perché il rimedio precedente lo peggiorava
  *
- * Questa pagina si è contraddetta da sola e così ha trovato il difetto:
- * `Object.keys(process.env)` elencava dieci variabili dell'applicazione, e le
- * righe accanto ne davano otto per assenti. Le uniche due che «funzionavano»
- * erano le sole referenziate letteralmente altrove nel codice.
+ * Next.js sostituisce a tempo di build le occorrenze **letterali** di
+ * `process.env.NOME` con il loro valore. Sembra un dettaglio innocuo, e per la
+ * maggior parte delle variabili lo è. Non lo è per quelle che **a tempo di
+ * build non esistono**: su Vercel le variabili di tipo *Secret* sono
+ * disponibili solo al runtime, quindi il bundler le sostituisce con una
+ * **stringa vuota** e quel vuoto resta inciso nel pacchetto per sempre.
  *
- * Da qui la forma esplicita e ripetitiva qui sotto: **è la ripetizione che la
- * fa funzionare.** Un ciclo su `EXPECTED` sarebbe più corto e leggerebbe di
- * nuovo il nulla.
+ * Il rimedio precedente faceva esattamente la cosa sbagliata: raccoglieva
+ * riferimenti letterali «perché il bundler li vede». Li vedeva, appunto — e li
+ * congelava a vuoto. Una variabile perfettamente configurata risultava assente
+ * a ogni avvio.
+ *
+ * **La prova è arrivata da una contraddizione dentro la stessa pagina**:
+ * `Object.keys(process.env)` elencava il nome (quindi al runtime la variabile
+ * c'è), e la riga accanto lo dava per vuoto (quindi il letterale era stato
+ * congelato). Le uniche due che «funzionavano» — `DATABASE_URL` e
+ * `AUTH_SECRET` — sono quelle disponibili anche in fase di build.
+ *
+ * Qui si legge quindi **l'oggetto**, mai un nome letterale. Un accesso
+ * calcolato non è sostituibile: il bundler non sa quale chiave verrà chiesta,
+ * lascia il codice com'è, e al runtime si legge ciò che la piattaforma ha
+ * davvero iniettato.
  */
 function processEnvironment(): Readonly<Record<string, string | undefined>> {
+  return process.env as unknown as Readonly<Record<string, string | undefined>>;
+}
+
+/**
+ * Lo stesso ambiente, ma nella forma che il bundler **congela**.
+ *
+ * Serve solo alla diagnostica: affiancato a quello vero rende visibile la
+ * differenza fra «la variabile non c'è» e «la variabile c'è ma il pacchetto
+ * contiene il vuoto che aveva in fase di build». Senza questo confronto la
+ * causa resta invisibile, ed è ciò che ha portato a tre ipotesi sbagliate.
+ */
+function bundledEnvironment(): Readonly<Record<string, string | undefined>> {
   return {
     DATABASE_URL: process.env.DATABASE_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
@@ -162,13 +195,13 @@ export function environmentReport(
   env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): EnvironmentReport {
   /*
-   * L'oggetto vero del processo, accanto a quello letto per nome.
+   * L'ambiente congelato nel pacchetto, accanto a quello vero.
    *
-   * Serve a rispondere alla domanda che ha bloccato la diagnosi: «il nome
-   * esiste ma il valore è vuoto» oppure «il nome non esiste»? Sono due guasti
-   * diversi e finora producevano la stessa parola.
+   * Se una variabile risulta valorizzata a runtime e vuota qui, il pacchetto
+   * porta dentro di sé il vuoto che quella variabile aveva in fase di build:
+   * è la firma del difetto, e vale la pena poterlo vedere invece di dedurlo.
    */
-  const raw: Readonly<Record<string, string | undefined>> = process.env;
+  const bundled = bundledEnvironment();
 
   const entries = EXPECTED.map((expected): EnvironmentEntry => {
     const state = stateOf(expected.name, env);
@@ -176,12 +209,16 @@ export function environmentReport(
 
     const shape: EnvironmentEntry["shape"] =
       value === undefined
-        ? expected.name in raw
+        ? expected.name in env
           ? "empty"
           : "missing-key"
         : value.trim() === ""
           ? "empty"
           : "filled";
+
+    const frozen = bundled[expected.name];
+    const bundlerFroze =
+      shape === "filled" && (frozen === undefined || frozen.trim() === "");
 
     return {
       name: expected.name,
@@ -190,6 +227,7 @@ export function environmentReport(
       purpose: expected.purpose,
       consequence: state === "present" ? null : expected.consequence,
       shape,
+      bundlerFroze,
     };
   });
 
