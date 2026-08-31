@@ -618,6 +618,7 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
 | **Jira Cloud** | 🟢 **porta dati veri** | catena completa e percorsa: istanza vera, token vero, **7 elementi di lavoro** con 2 persone, 7 transizioni, 7 variazioni di stima e 2 di perimetro, letti dal progetto `SCRUM` di un'istanza Atlassian e visibili nelle schermate del portale. Non è verde pieno per una cosa sola: **la velocity non è ancora stata confrontata** con quella che Jira mostra nel suo rapporto, perché su quel progetto non c'è ancora uno sprint concluso |
 | **Custodia dei segreti** | ✅ **attiva anche in produzione** | la chiave si **deriva da `AUTH_SECRET`** con HKDF quando `SECRETS_KEY` non c'è ([ADR-0011](architecture/ADR-0011-chiave-derivata.md)). Verificato sul sito pubblicato: campo «Chiave API» sbloccato, credenziale salvata, riletta e rimossa. Il prezzo è dichiarato in schermata: ruotare `AUTH_SECRET` rende illeggibile ciò che è già cifrato |
+| **Modello linguistico** | ✅ **risponde con una chiave vera** | una chiave Gemini di un cliente, inserita dal portale, cifrata, riletta e usata: ha risposto in 11 secondi per una frazione di millesimo di dollaro. Il pulsante «Prova la connessione» sta nella scheda «Modello», accanto al campo della chiave ([#96](https://github.com/dibari62/scrum-master-ai/pull/96)) |
 
 > **I tre difetti che il primo collegamento vero ha portato a galla**, e che
 > nessuna risposta registrata poteva contenere. Vale la pena elencarli insieme,
@@ -641,6 +642,29 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 > contenere né una seconda pagina, né un progetto altrui, né la storia di una
 > configurazione cambiata. È la ragione per cui una casella resta gialla finché
 > qualcosa non ha attraversato la rete per davvero.
+
+> **E i quattro che ha portato a galla la prima chiave di modello vera.** Stessa
+> famiglia, stessa morale.
+>
+> 1. **`brainBaseUrl` non veniva letto** ([#96](https://github.com/dibari62/scrum-master-ai/pull/96)):
+>    si compilava, si validava, si salvava, e le richieste andavano comunque
+>    all'indirizzo pubblico del fornitore. Un campo che non fa nulla è peggio di
+>    un campo che non c'è.
+> 2. **Il modello predefinito non esisteva più** ([#99](https://github.com/dibari62/scrum-master-ai/pull/99)):
+>    Google ha smesso di offrire `gemini-2.0-flash`, e il rifiuto colpiva
+>    **esattamente chi non aveva scelto niente**, cioè chi seguiva il nostro
+>    consiglio.
+> 3. **La schermata annunciava un modello Anthropic diverso** da quello che
+>    l'adattatore usa. Trovato dal test scritto per il difetto precedente, non
+>    da una persona.
+> 4. **Il `429` era classificato come «richiesta rifiutata»** ([#100](https://github.com/dibari62/scrum-master-ai/pull/100)),
+>    quindi una quota esaurita faceva consigliare di cambiare il nome del
+>    modello: mandare a riparare una configurazione che funziona.
+>
+> Il metodo che li ha chiusi è lo stesso applicato a Jira e prima ancora a
+> `SECRETS_KEY`: **chiedere al servizio** invece di dedurre. Il portale ora
+> domanda a Gemini quali modelli accetta e mostra il codice HTTP del rifiuto —
+> un numero, che a differenza di un messaggio non può contenere una chiave.
 
 ### Come guardarci dentro
 
@@ -1069,7 +1093,9 @@ Cose note e volutamente rimandate, non sviste:
 | **Groq non è collegato al suo SDK** | [ADR-0005](architecture/ADR-0005-provider-llm.md) | ~~anche Gemini~~ **fatto**: otto fornitori collegati (Gemini, OpenAI, Anthropic, Mistral, Groq, OpenRouter, Ollama, più quello finto). Cinque di essi parlano lo stesso dialetto e condividono un adattatore solo: aggiungerne un sesto compatibile è una riga in una tabella |
 | Il registro dei costi su OpenRouter è una stima larga | `src/lib/llm/pricing.ts` | OpenRouter è un aggregatore: sotto ci sono centinaia di modelli che vanno da zero a due ordini di grandezza di differenza. La cifra dichiarata è quella del modello predefinito; per gli altri il registro riporta un costo indicativo, che è già ciò che la parola «stimato» promette |
 | La riserva fra fornitori non vale più per un progetto | [ADR-0005](architecture/ADR-0005-provider-llm.md), [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | la riserva esisteva perché le chiavi erano **nostre** e le avevamo entrambe. La chiave di un cliente è una sola: dirottare il suo lavoro su un fornitore che non ha scelto significherebbe spendere una quota che non ci ha dato. Con credenziali di progetto la catena ha un solo anello, **di proposito** |
-| La configurazione del progetto non alimenta ancora la lettura dei dati | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | ~~manca l'azione «leggi ora»~~ **fatto**: il pulsante esiste, `synchroniseProject` mette insieme client, traduzione e riconciliazione, e `markSynchronised` viene chiamata — **solo dopo** che le righe sono dentro. Resta fuori il **job schedulato**: oggi si legge premendo, e va bene così finché non si sa quanto dura una lettura vera |
+| La configurazione del progetto non alimenta ancora la lettura dei dati | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | ~~manca l'azione «leggi ora»~~ **fatto**: il pulsante esiste, `synchroniseProject` mette insieme client, traduzione e riconciliazione, e `markSynchronised` viene chiamata — **solo dopo** che le righe sono dentro. Da [#94](https://github.com/dibari62/scrum-master-ai/pull/94) c'è anche «Rileggi tutto», che ignora il cursore. Resta fuori il **job schedulato**: oggi si legge premendo, e ora si sa quanto dura una lettura vera — pochi secondi su un progetto piccolo |
+| **La lettura da Jira non parte da sola** | `src/lib/jobs/` | l'unico job schedulato oggi è la salute dello sprint. Un progetto collegato a Jira mostra i dati dell'ultima volta che qualcuno ha premuto: nessuno se ne accorge finché non guarda una data. Il pezzo mancante non è il codice — QStash, rotta e autorizzazione esistono — ma la decisione su **ogni quanto**, che va presa sapendo che la quota di chiamate è del cliente |
+| **La chiave del modello non era mai stata provata su un fornitore vero** | `src/lib/projects/model-check.ts` | ~~si scopriva alla prima relazione di sprint~~ **chiuso** in [#96](https://github.com/dibari62/scrum-master-ai/pull/96): pulsante «Prova la connessione» nella scheda «Modello». Verificato su una chiave Gemini vera, che ha risposto in 11 secondi. La strada per arrivarci ha trovato quattro difetti, elencati in §3 |
 | **Ruotare `SECRETS_KEY` richiede di riscrivere ogni riga cifrata** | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | lo strumento che ricifra **non esiste**. Perdere o cambiare la chiave principale significa perdere ogni segreto già conservato: vanno reinserite le credenziali, una per progetto. Scritto accanto alla variabile in `.env.example`, dove lo legge chi sta per toccarla |
 | `SECRETS_KEY` non è fra le variabili di Vercel | [ADR-0011](architecture/ADR-0011-chiave-derivata.md), [messa-in-linea](messa-in-linea.md) | ~~il sito rifiuta le credenziali~~ **risolto per un'altra strada**: quando la variabile non c'è, la chiave si **deriva da `AUTH_SECRET`** con HKDF. `SECRETS_KEY` resta la fonte preferita — se un giorno la si aggiunge va creata con **Type: Config**, perché una variabile di tipo *Secret* su Vercel arriva al processo con il nome presente e il valore vuoto. Tre giorni di diagnosi per scoprirlo, raccontati in [ripartire-da-zero](ripartire-da-zero.md) §5.quinquies |
 | **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | ~~manca un account e un token~~ ~~resta da vedere una lettura che porti elementi~~ **chiuso**: 7 elementi di lavoro, 2 persone e 7 transizioni letti da un'istanza vera e visibili nel portale. La strada per arrivarci ha richiesto tre correzioni ([#90](https://github.com/dibari62/scrum-master-ai/pull/90), [#93](https://github.com/dibari62/scrum-master-ai/pull/93), [#94](https://github.com/dibari62/scrum-master-ai/pull/94)) |
