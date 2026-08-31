@@ -461,6 +461,38 @@ Nessuna forma di lettura trova la variabile ⇒ **non è il codice**.
 
 ---
 
+### 5.sexies I difetti che vivono dove i test non arrivano
+
+Il primo collegamento a un'istanza Jira vera ha prodotto **tre** difetti in
+mezza giornata, su codice che aveva una suite verde e mille e passa test.
+Non era una suite scadente: i tre difetti erano *fuori dalla sua portata per
+costruzione*.
+
+| Difetto | Perché nessuna fixture poteva contenerlo |
+|---|---|
+| La paginazione chiedeva sempre la prima pagina | una risposta registrata sta **in una pagina sola**: sotto le cento issue il difetto non esiste |
+| Le tre cause di una lettura vuota non si distinguevano | distinguerle richiede di **chiedere a Jira** cosa vede un token, e un token non c'è nei test (§6) |
+| Il cursore non si azzerava al cambio di chiave | serve la **storia** di una configurazione cambiata fra due letture, che una fixture non ha |
+
+Il terzo è il più istruttivo. Il portale chiedeva a Jira solo «cosa è cambiato
+dall'ultima lettura»; chi correggeva una chiave di progetto sbagliata continuava
+a chiedere solo le novità, e **tutto ciò che esisteva prima restava invisibile per
+sempre**. La lettura riusciva. Nessun errore, nessun avviso, un portale vuoto.
+
+> **Come si trovano difetti di questa famiglia.** Non aggiungendo test — sono
+> per definizione fuori dalla loro portata. Si trovano **facendo dire al sistema
+> che cosa sta guardando**. La frase che ha smascherato il terzo difetto era una
+> diagnosi scritta per tutt'altro motivo: «questa lettura chiedeva soltanto che
+> cosa fosse cambiato dal *31/08 14:33*». Quella data non doveva esserci, e non
+> l'avrebbe mai detta nessuno se il messaggio si fosse limitato a «zero
+> elementi».
+>
+> Il corollario pratico: quando un'integrazione con un servizio esterno «non
+> porta dati», la prima cosa da scrivere non è una correzione — è la frase che
+> dice **che domanda è stata fatta**.
+
+---
+
 ## 6. Il vincolo che vale più di tutti
 
 > Un'applicazione funzionante che il Product Owner non ha capito è un
