@@ -2,7 +2,7 @@ import { organizationIdSchema } from "@/domain";
 import { getDatabase } from "@/db";
 import { organizations } from "@/db/schema";
 import { authoriseJob } from "@/lib/jobs/authorise";
-import { synchroniseOrganization } from "@/lib/jobs/scheduled-sync";
+import { countRefusals, synchroniseOrganization } from "@/lib/jobs/scheduled-sync";
 import { checkOrganizationHealth } from "@/lib/jobs/sprint-health-check";
 import { logger } from "@/lib/logger";
 
@@ -87,6 +87,7 @@ export async function POST(request: Request): Promise<Response> {
   let projectsDue = 0;
   let rowsIngested = 0;
   let failures = 0;
+  let refusals = 0;
   let checksRecorded = 0;
 
   for (const row of rows) {
@@ -96,6 +97,7 @@ export async function POST(request: Request): Promise<Response> {
 
     projectsExamined += summary.projectsExamined;
     projectsDue += summary.projectsDue;
+    refusals += countRefusals(summary);
 
     for (const outcome of summary.outcomes) {
       rowsIngested += outcome.rows;
@@ -122,6 +124,7 @@ export async function POST(request: Request): Promise<Response> {
     projectsDue,
     rowsIngested,
     failures,
+    refusals,
     checksRecorded,
   });
 
@@ -132,6 +135,16 @@ export async function POST(request: Request): Promise<Response> {
     projectsDue,
     rowsIngested,
     failures,
+    /*
+     * I rifiuti si contano a parte, e non è pignoleria contabile.
+     *
+     * Un progetto rifiutato non ha nemmeno telefonato — manca il token, o non è
+     * leggibile — quindi non è un fallimento di rete e non ha portato righe. Nel
+     * riepilogo risultava «0 righe, 0 fallimenti», cioè identico a «non c'era
+     * niente di nuovo». Ma un rifiuto **non sposta il segnatempo**: quel
+     * progetto resta scaduto per sempre, e ogni giro lo ritenta in silenzio.
+     */
+    refusals,
     checksRecorded,
   });
 }
