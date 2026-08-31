@@ -481,7 +481,17 @@ export async function testModelAction(
   }
 
   if (outcome.kind === "failed") {
-    return { status: "error", message: outcome.message };
+    /*
+     * Il modello richiesto si nomina, perché è il campo che si sbaglia più
+     * spesso e perché chi legge non lo ha sotto gli occhi: sta in un altro
+     * riquadro, e «controlla il nome del modello» senza dire quale sia stato
+     * usato costringe a cercarlo.
+     */
+    const richiesto = settings.brainModel
+      ? `Il modello richiesto era «${settings.brainModel}».`
+      : "Nessun modello indicato: è stato usato quello predefinito del fornitore.";
+
+    return { status: "error", message: `${outcome.message} ${richiesto}` };
   }
 
   return {

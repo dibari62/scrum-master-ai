@@ -95,29 +95,38 @@ describe("prova di connessione al modello", () => {
     expect(outcome.reply.length).toBeLessThanOrEqual(200);
   });
 
-  it("distingue «manca la chiave» da «la chiave è stata rifiutata»", async () => {
+  it("distingue «chiave rifiutata» da «richiesta rifiutata»", async () => {
     /*
      * Sono i due casi di gran lunga più frequenti, e le azioni da fare sono
-     * diverse: nel primo si inserisce una chiave, nel secondo se ne controlla
-     * una che c'è già — o il nome del modello, che sbaglia altrettanto spesso.
+     * opposte: nel primo si rigenera una chiave, nel secondo la chiave va
+     * benissimo e il sospetto è il nome del modello.
+     *
+     * Gli adattatori li separano già — un 401 diventa `provider_not_configured`,
+     * un 400 resta `provider_unavailable` — e la prima stesura di questo modulo
+     * li rimescolava, nominando la chiave in entrambi. Chi ne aveva appena
+     * incollata una buona veniva mandato a rigenerarla per niente.
      */
-    const assente = await checkModel({
+    const chiave = await checkModel({
       gateway: gatewayThat({ ...FAILURE, failureCause: "provider_not_configured", message: "x" }),
       provider: "gemini",
     });
 
-    const rifiutata = await checkModel({
+    const richiesta = await checkModel({
       gateway: gatewayThat({ ...FAILURE, failureCause: "provider_unavailable", message: "x" }),
       provider: "gemini",
     });
 
-    if (assente.kind !== "failed" || rifiutata.kind !== "failed") {
+    if (chiave.kind !== "failed" || richiesta.kind !== "failed") {
       throw new Error("attesi due fallimenti");
     }
 
-    expect(assente.message).toContain("Manca la chiave");
-    expect(rifiutata.message).toContain("non valida");
-    expect(rifiutata.message).toContain("modello");
+    expect(chiave.message).toContain("rifiutata");
+    expect(chiave.message).toContain("Rigenerala");
+
+    expect(richiesta.message).toContain("ha riconosciuto la chiave");
+    expect(richiesta.message).toContain("Modello");
+    // La prova che discrimina: qui non si deve suggerire di toccare la chiave.
+    expect(richiesta.message).not.toContain("Rigenerala");
   });
 
   it("dice che la chiave funziona quando il problema è la quota", async () => {
@@ -183,6 +192,41 @@ describe("prova di connessione al modello", () => {
     const request = seen as unknown as Parameters<Gateway["complete"]>[0];
 
     expect(request.untrustedData).toBeUndefined();
-    expect(request.maxTokens).toBeLessThanOrEqual(100);
+    expect(request.maxTokens).toBeLessThanOrEqual(400);
+  });
+
+  it("chiede un tetto di token più alto di quanto la richiesta stessa costi", async () => {
+    /*
+     * Il gateway stima i token **prima** di chiamare e rifiuta se la stima
+     * supera `maxTokens`. Un tetto troppo stretto farebbe fallire la prova per
+     * «budget superato» senza mai telefonare: il messaggio più fuorviante
+     * possibile per chi sta verificando una chiave, perché non parla né della
+     * chiave né del fornitore.
+     */
+    let seen: Parameters<Gateway["complete"]>[0] | null = null;
+
+    await checkModel({
+      gateway: {
+        complete: async (request) => {
+          seen = request;
+          return {
+            ok: true,
+            text: "pronto",
+            provider: "gemini",
+            model: "m",
+            inputTokens: 10,
+            outputTokens: 1,
+            estimatedCostUsd: 0,
+            durationMs: 1,
+          };
+        },
+      },
+      provider: "gemini",
+    });
+
+    const request = seen as unknown as Parameters<Gateway["complete"]>[0];
+    const { estimateRequestTokens } = await import("@/lib/llm");
+
+    expect(estimateRequestTokens(request)).toBeLessThan(request.maxTokens);
   });
 });
