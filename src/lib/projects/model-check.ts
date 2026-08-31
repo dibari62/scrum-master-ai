@@ -20,8 +20,16 @@ import type { Gateway } from "@/lib/llm";
  * possa influenzare, perché non ne entra nessuno.
  */
 
-/** Il costo massimo di una prova, in token. */
-const CHECK_BUDGET = 64;
+/**
+ * Il costo massimo di una prova, in token.
+ *
+ * Il tetto vale per la richiesta **intera**, istruzioni comprese: il gateway
+ * stima i token prima di chiamare e rifiuta se la stima lo supera. Con un tetto
+ * troppo stretto la prova fallirebbe per «budget superato» senza mai
+ * telefonare, cioè col messaggio più fuorviante possibile per chi sta
+ * verificando una chiave.
+ */
+const CHECK_BUDGET = 256;
 
 const SYSTEM = [
   "Questa è una verifica tecnica di connessione, non una richiesta di lavoro.",
@@ -111,12 +119,33 @@ export async function checkModel(input: ModelCheckInput): Promise<ModelCheckOutc
 function explainFailure(cause: SkillRunFailureCause): string {
   switch (cause) {
     case "provider_not_configured":
-      return "Manca la chiave API, oppure non è leggibile. Reinseriscila qui sotto e salva.";
+      /*
+       * Due situazioni sotto la stessa causa, e vanno dette entrambe.
+       *
+       * Gli adattatori usano `provider_not_configured` sia quando la chiave non
+       * c'è, sia quando il fornitore l'ha **rifiutata** con un 401 o un 403 —
+       * che è una cosa diversa e più frequente. Scrivere solo «manca la chiave»
+       * a chi ne ha appena incollata una lo manda a cercare un campo vuoto che
+       * vuoto non è.
+       */
+      return (
+        "La chiave non c'è, oppure il fornitore l'ha rifiutata: revocata, scaduta, " +
+        "o incollata con uno spazio di troppo. Rigenerala e reinseriscila qui sotto."
+      );
 
     case "provider_unavailable":
+      /*
+       * Il caso in cui la chiave è quasi certamente buona.
+       *
+       * Un 401 sarebbe arrivato come `provider_not_configured`: se siamo qui, il
+       * fornitore ci ha riconosciuti e ha rifiutato *la richiesta*. In pratica
+       * significa quasi sempre un nome di modello che non esiste, o che non
+       * esiste più — i nomi dei modelli cambiano spesso e in silenzio.
+       */
       return (
-        "Il fornitore ha rifiutato la richiesta. Le due cause di gran lunga più frequenti " +
-        "sono una chiave non valida (o revocata) e un nome di modello che quel fornitore non conosce."
+        "Il fornitore ha riconosciuto la chiave ma ha rifiutato la richiesta, oppure non era " +
+        "raggiungibile. La causa di gran lunga più frequente è un nome di modello che quel " +
+        "fornitore non conosce: controlla il campo «Modello», o lascialo vuoto per usare il predefinito."
       );
 
     case "rate_limited":
