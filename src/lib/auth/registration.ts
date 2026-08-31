@@ -2,13 +2,11 @@ import { createOrganizationWithOwner, getDatabase, type Database } from "@/db";
 import type { OrganizationId, SignUpInput, UserId } from "@/domain";
 
 import { hashPassword } from "../password";
+import { uniqueViolationOf } from "../unique-violation";
 
 /**
  * Registration of a company and its first user (T0).
  */
-
-/** Postgres unique-violation. */
-const UNIQUE_VIOLATION = "23505";
 
 /**
  * Constraint names from the migration, mapped to what the interface should
@@ -27,12 +25,6 @@ export type RegistrationOutcome =
   | { readonly ok: true; readonly organizationId: OrganizationId; readonly userId: UserId }
   | { readonly ok: false; readonly reason: RegistrationFailureReason };
 
-function readStringField(error: object, field: string): string | null {
-  if (!(field in error)) return null;
-  const value = (error as Record<string, unknown>)[field];
-  return typeof value === "string" ? value : null;
-}
-
 /**
  * Recognises a collision the interface can explain, or returns `null`.
  *
@@ -46,21 +38,10 @@ function readStringField(error: object, field: string): string | null {
  * the wrong thing (§7).
  */
 export function classifyRegistrationError(error: unknown): RegistrationFailureReason | null {
-  if (typeof error !== "object" || error === null) return null;
-  if (readStringField(error, "code") !== UNIQUE_VIOLATION) return null;
+  const constraint = uniqueViolationOf(error, Object.keys(CONSTRAINT_REASONS));
+  if (constraint === null) return null;
 
-  const constraint = readStringField(error, "constraint");
-  if (constraint && constraint in CONSTRAINT_REASONS) {
-    return CONSTRAINT_REASONS[constraint as keyof typeof CONSTRAINT_REASONS];
-  }
-
-  // Some drivers report the constraint only inside the message.
-  const message = readStringField(error, "message") ?? "";
-  for (const [name, reason] of Object.entries(CONSTRAINT_REASONS)) {
-    if (message.includes(name)) return reason;
-  }
-
-  return null;
+  return CONSTRAINT_REASONS[constraint as keyof typeof CONSTRAINT_REASONS];
 }
 
 /**

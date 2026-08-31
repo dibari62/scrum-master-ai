@@ -1,70 +1,32 @@
 import { z } from "zod";
 
 import { signInInputSchema, signUpInputSchema } from "@/domain";
+import {
+  fieldErrorState,
+  readFields,
+  summaryErrorState,
+  toFieldErrors,
+  type FormErrors,
+  type FormState,
+  type ParseResult,
+} from "@/app/form-state";
 import type { RegistrationFailureReason } from "@/lib/auth/registration";
 
 /**
- * The part of the forms that is worth testing.
+ * The part of the sign-up and sign-in forms that is worth testing.
  *
  * A server action pulls in `next/headers` and Auth.js, so it cannot be loaded
  * outside a request. Everything here is a plain function over plain data:
  * reading the submitted fields, turning validation failures into per-field
  * copy, and naming what went wrong. The actions stay thin wrappers around it.
- */
-
-/** Per-field messages, plus one for failures that belong to no single field. */
-export type FormErrors = {
-  readonly fields: Readonly<Record<string, string>>;
-  readonly summary: string | null;
-};
-
-export type FormState<Values> =
-  | { readonly status: "idle" }
-  | {
-      readonly status: "invalid";
-      readonly errors: FormErrors;
-      readonly values: Values;
-    };
-
-/**
- * Keeps the first message per field.
  *
- * Zod reports every failed rule; stacking four lines under one field is noise,
- * and the first one has to be fixed anyway.
+ * The generic half — the shapes and the three helpers — moved to
+ * `@/app/form-state` the day a second form needed it. Re-exported here so the
+ * callers that already know this module keep working.
  */
-function toFieldErrors(error: z.ZodError): Readonly<Record<string, string>> {
-  const fields: Record<string, string> = {};
 
-  for (const issue of error.issues) {
-    const path = issue.path[0];
-    if (typeof path !== "string") continue;
-    if (path in fields) continue;
-
-    fields[path] = issue.message;
-  }
-
-  return fields;
-}
-
-/**
- * Reads `names` out of a `FormData` as plain strings.
- *
- * A missing field and a field submitted as a file both become `""`, so the Zod
- * schema decides what is acceptable instead of each caller guessing.
- */
-export function readFields<Name extends string>(
-  form: FormData,
-  names: readonly Name[],
-): Record<Name, string> {
-  const values = {} as Record<Name, string>;
-
-  for (const name of names) {
-    const value = form.get(name);
-    values[name] = typeof value === "string" ? value : "";
-  }
-
-  return values;
-}
+export type { FormErrors, FormState, ParseResult };
+export { readFields };
 
 export const SIGN_UP_FIELDS = [
   "organizationName",
@@ -88,10 +50,6 @@ export type SignInValues = Record<(typeof SIGN_IN_FIELDS)[number], string>;
 function withoutPassword<Values extends { password: string }>(values: Values): Values {
   return { ...values, password: "" };
 }
-
-export type ParseResult<Data, Values> =
-  | { readonly ok: true; readonly data: Data }
-  | { readonly ok: false; readonly state: FormState<Values> };
 
 function invalid<Values extends { password: string }>(
   error: z.ZodError,
@@ -146,11 +104,7 @@ export function registrationFailureState(
 ): FormState<SignUpValues> {
   const { field, message } = REGISTRATION_MESSAGES[reason];
 
-  return {
-    status: "invalid",
-    errors: { fields: { [field]: message }, summary: null },
-    values: withoutPassword(values),
-  };
+  return fieldErrorState(field, message, withoutPassword(values));
 }
 
 /**
@@ -163,9 +117,5 @@ export function registrationFailureState(
 export const SIGN_IN_FAILURE_MESSAGE = "Indirizzo email o password non corretti.";
 
 export function signInFailureState(values: SignInValues): FormState<SignInValues> {
-  return {
-    status: "invalid",
-    errors: { fields: {}, summary: SIGN_IN_FAILURE_MESSAGE },
-    values: withoutPassword(values),
-  };
+  return summaryErrorState(SIGN_IN_FAILURE_MESSAGE, withoutPassword(values));
 }
