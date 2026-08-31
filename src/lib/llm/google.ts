@@ -31,8 +31,20 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
  * Il più piccolo della famiglia, e volutamente: è quello con il piano gratuito
  * più generoso, e chi non ha espresso una preferenza non dovrebbe scoprire di
  * aver scelto il più caro.
+ *
+ * **Perché non è più `gemini-2.0-flash`.** Quel nome ha smesso di comparire fra
+ * i modelli che Google offre, e una chiave nuova con la configurazione
+ * predefinita otteneva un rifiuto — verificato su un'istanza vera. È il modo in
+ * cui invecchia un valore scritto una volta: senza rumore, e nel punto che
+ * riguarda esattamente chi non ha scelto niente.
+ *
+ * **Un nome con la versione, non `gemini-flash-latest`.** L'alias resiste al
+ * tempo ma cambia comportamento senza preavviso, e le nostre uscite sono
+ * vincolate a uno schema (ADR-0004): un modello che cambia da solo trasforma
+ * una valutazione ripetibile in una che non lo è più. Meglio un nome che
+ * invecchia visibilmente — e ora c'è un pulsante che lo dice.
  */
-export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 export type GoogleProviderOptions = {
   readonly apiKey: string;

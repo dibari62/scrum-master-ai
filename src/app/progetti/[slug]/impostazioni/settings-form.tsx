@@ -102,7 +102,7 @@ const BRAINS = [
     ready: true,
     explanation:
       "Piano gratuito con un limite giornaliero. La chiave si genera su aistudio.google.com. " +
-      "Senza un modello indicato viene usato gemini-2.0-flash.",
+      "Senza un modello indicato viene usato gemini-2.5-flash.",
   },
   {
     value: "groq",
@@ -128,7 +128,7 @@ const BRAINS = [
     badge: "a consumo",
     ready: true,
     explanation:
-      "La chiave si genera su console.anthropic.com. Predefinito: claude-3-5-haiku, il più " +
+      "La chiave si genera su console.anthropic.com. Predefinito: claude-3-5-haiku-latest, il più " +
       "economico della famiglia.",
   },
   {
@@ -539,7 +539,7 @@ export function SettingsForm({
 /** The vendor's own default, shown as a hint of what «vuoto» will mean. */
 function modelPlaceholder(provider: string): string {
   const defaults: Readonly<Record<string, string>> = {
-    gemini: "gemini-2.0-flash",
+    gemini: "gemini-2.5-flash",
     openai: "gpt-4o-mini",
     anthropic: "claude-3-5-haiku-latest",
     mistral: "mistral-small-latest",
