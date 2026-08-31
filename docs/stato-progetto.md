@@ -613,16 +613,22 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
-| **Jira Cloud** | 🟡 codice pronto, **nessuna istanza** | il connettore supera l'intera suite di conformità su una risposta registrata, e il client HTTP è scritto e provato con un `fetch` finto. La configurazione ora si inserisce da `/progetti/<nome>/impostazioni`. Manca l'unica cosa che un agente non può fare: un account Atlassian gratuito e un token ([spec, questione aperta 1](../specs/connettore-jira/spec.md)) |
-| **Custodia dei segreti** | 🟡 attiva in locale, **non in produzione** | `SECRETS_KEY` esiste in `.env.local` e la cifratura è verificata sui dati veri — nel database ci sono solo valori `v1.…`. Su Vercel la variabile **non c'è**: il sito pubblicato accetta la configurazione ma rifiuta le credenziali, e lo dichiara in cima alla schermata invece di perderle in silenzio |
+| **Jira Cloud** | 🟡 **ha parlato davvero**, ma non ha ancora portato dati | la catena arriva fino in fondo: un'istanza vera, un token vero, una lettura riuscita che ha riportato **1 board e 1 sprint** — e **zero elementi di lavoro**. Restano da distinguere le tre cause (progetto vuoto, chiave sbagliata, account che non vede il progetto): il portale ora le nomina invece di tacere. Nello stesso giro è emerso un difetto che nessuna risposta registrata poteva mostrare: la paginazione chiedeva sempre la stessa pagina ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)) |
+| **Custodia dei segreti** | ✅ **attiva anche in produzione** | la chiave si **deriva da `AUTH_SECRET`** con HKDF quando `SECRETS_KEY` non c'è ([ADR-0011](architecture/ADR-0011-chiave-derivata.md)). Verificato sul sito pubblicato: campo «Chiave API» sbloccato, credenziale salvata, riletta e rimossa. Il prezzo è dichiarato in schermata: ruotare `AUTH_SECRET` rende illeggibile ciò che è già cifrato |
 
-> **Che cosa significa quel giallo, e perché non è verde.** Tutto ciò che
-> *decide* è scritto e verificato; ciò che manca è ciò che *telefona a un
-> indirizzo vero*. Non c'è modo di rendere quella casella verde scrivendo altro
-> codice: si rende verde creando un progetto Jira con due sprint chiusi e uno
-> aperto, e confrontando la velocity che calcoliamo noi con quella che Jira
-> mostra nel suo rapporto. È il controllo che vale più di tutti gli altri messi
-> insieme, e finché non è stato fatto la casella mentirebbe.
+> **Che cosa significa quel giallo, e perché non è ancora verde.** Non è più
+> «nessuno ha mai telefonato»: la telefonata è stata fatta, e la linea funziona.
+> Quello che manca è la **risposta dall'altra parte**: una lettura che riporti
+> elementi di lavoro veri, e il confronto fra la velocity che calcoliamo noi e
+> quella che Jira mostra nel suo rapporto. È il controllo che vale più di tutti
+> gli altri messi insieme, e finché non è stato fatto la casella mentirebbe.
+>
+> **Quello che quella telefonata ha già insegnato**, e che nessun test avrebbe
+> potuto: l'endpoint di ricerca di Jira Cloud non conosce `startAt`, e a chi
+> glielo passa risponde ogni volta con la stessa prima pagina — senza errore.
+> Sotto le cento issue il difetto non esiste, quindi nessuna risposta registrata
+> lo conteneva. È la ragione per cui una casella resta gialla finché qualcosa non
+> ha attraversato la rete per davvero.
 
 ### Come guardarci dentro
 
@@ -1053,8 +1059,9 @@ Cose note e volutamente rimandate, non sviste:
 | La riserva fra fornitori non vale più per un progetto | [ADR-0005](architecture/ADR-0005-provider-llm.md), [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | la riserva esisteva perché le chiavi erano **nostre** e le avevamo entrambe. La chiave di un cliente è una sola: dirottare il suo lavoro su un fornitore che non ha scelto significherebbe spendere una quota che non ci ha dato. Con credenziali di progetto la catena ha un solo anello, **di proposito** |
 | La configurazione del progetto non alimenta ancora la lettura dei dati | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | ~~manca l'azione «leggi ora»~~ **fatto**: il pulsante esiste, `synchroniseProject` mette insieme client, traduzione e riconciliazione, e `markSynchronised` viene chiamata — **solo dopo** che le righe sono dentro. Resta fuori il **job schedulato**: oggi si legge premendo, e va bene così finché non si sa quanto dura una lettura vera |
 | **Ruotare `SECRETS_KEY` richiede di riscrivere ogni riga cifrata** | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | lo strumento che ricifra **non esiste**. Perdere o cambiare la chiave principale significa perdere ogni segreto già conservato: vanno reinserite le credenziali, una per progetto. Scritto accanto alla variabile in `.env.example`, dove lo legge chi sta per toccarla |
-| `SECRETS_KEY` non è fra le variabili di Vercel | [messa-in-linea](messa-in-linea.md) | finché non c'è, il sito pubblicato accetta la configurazione ma **rifiuta le credenziali** e lo dichiara in cima alla schermata. Va generata **nuova**, diversa da quella di sviluppo, per la stessa ragione di `AUTH_SECRET` |
-| **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | traduzione, client, riconciliazione e pulsante sono scritti e provati; la catena arriva fino a **telefonare davvero** (verificato: `404` da un sito inesistente, registrato col contesto). Manca l'unica cosa che un agente non può procurarsi: un account Atlassian gratuito e un token. Finché non c'è, «funziona» significa «funziona fino al 404 di un sito che non esiste» |
+| `SECRETS_KEY` non è fra le variabili di Vercel | [ADR-0011](architecture/ADR-0011-chiave-derivata.md), [messa-in-linea](messa-in-linea.md) | ~~il sito rifiuta le credenziali~~ **risolto per un'altra strada**: quando la variabile non c'è, la chiave si **deriva da `AUTH_SECRET`** con HKDF. `SECRETS_KEY` resta la fonte preferita — se un giorno la si aggiunge va creata con **Type: Config**, perché una variabile di tipo *Secret* su Vercel arriva al processo con il nome presente e il valore vuoto. Tre giorni di diagnosi per scoprirlo, raccontati in [ripartire-da-zero](ripartire-da-zero.md) §5.quinquies |
+| **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | ~~manca un account e un token~~ **superato**: la prima lettura da un'istanza vera è avvenuta, con un token vero, e ha riportato 1 board e 1 sprint. Ha anche portato alla luce il difetto che nessuna risposta registrata poteva contenere — la paginazione che chiedeva sempre la stessa pagina ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)). Resta da vedere una lettura che porti **elementi di lavoro** |
+| **Una lettura riuscita può riportare zero elementi, e le cause non si distinguono** | `src/lib/projects/sync.ts` | successo alla prima prova sul campo: board e sprint letti, nessuna issue. Le tre cause probabili — progetto vuoto, chiave del progetto sbagliata, account del token che non vede il progetto — **non sono visibili da questa parte**: il portale sa solo che la risposta era vuota. Ora le nomina, invece di tacere. Distinguerle richiederebbe di interrogare Jira su cosa quell'account vede, e non è ancora scritto |
 | La configurazione Jira non si compila da nessuna parte | [spec](../specs/connettore-jira/spec.md) §9 | ~~nessuna schermata li chiede~~ **fatto**: scheda «Dati» delle impostazioni, con indirizzo, chiave, board, mappatura degli stati, indirizzo dell'account e token cifrato |
 | La mappatura degli stati Jira va scritta a mano | [spec](../specs/connettore-jira/spec.md), questione aperta 2 | il ripiego su `statusCategory` copre tre stati; i nostri sono sei. Una coda di revisione arriva come «in corso» finché qualcuno non dichiara il contrario, e il portale lo **segnala** invece di tacerlo |
 | Sprint Jira sovrapposti farebbero fallire la conformità | [conformità](../tests/connectors/conformance.ts) | una board con due squadre in parallelo ha sprint che si accavallano, e la suite pretende che non si sovrappongano. Sui nostri dati non succede. Va deciso guardando una board vera: o la pretesa è troppo forte, o quei progetti non sono leggibili come uno solo |
