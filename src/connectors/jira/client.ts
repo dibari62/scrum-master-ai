@@ -46,6 +46,16 @@ const MAX_ATTEMPTS = 3;
 const PAGE_SIZE = 100;
 
 /**
+ * Quante pagine si sfogliano prima di dichiarare che qualcosa non va.
+ *
+ * Centomila issue è molto oltre qualunque progetto reale, e serve solo a
+ * distinguere «un progetto grande» da «una paginazione che non avanza» — che
+ * senza un tetto sarebbe una richiesta appesa per sempre, cioè un guasto senza
+ * messaggio.
+ */
+const MAX_PAGES = 1000;
+
+/**
  * How long to wait when Jira asks to be left alone but does not say for how long.
  *
  * `Retry-After` is normally present on a `429`; when it is missing, waiting a
@@ -167,6 +177,20 @@ const rawIssueSchema = z.object({
   fields: z.record(z.string(), z.unknown()).default({}),
 });
 
+/**
+ * Le issue del progetto, in ordine di backlog.
+ *
+ * **La paginazione qui è diversa da quella agile, e non per scelta nostra.**
+ * `/rest/api/3/search/jql` è l'endpoint nuovo di Jira Cloud e **non conosce
+ * `startAt`**: si sfoglia con un `nextPageToken` che ogni risposta porta con sé.
+ * Passargli `startAt` non produce un errore — lo ignora e basta, restituendo
+ * ogni volta la stessa prima pagina.
+ *
+ * È il guasto peggiore che una paginazione possa avere: invisibile sotto le
+ * cento issue, e su un progetto vero un ciclo che non finisce o cento elementi
+ * ripetuti all'infinito. Nessun test lo avrebbe mostrato, perché una risposta
+ * registrata sta in una pagina sola.
+ */
 async function readIssues(
   get: (path: string) => Promise<unknown>,
   config: JiraConfig,
@@ -187,21 +211,41 @@ async function readIssues(
   const jqlQuery = encodeURIComponent(`${clauses.join(" AND ")} ORDER BY Rank ASC`);
 
   const collected: JiraIssue[] = [];
+  let token: string | null = null;
 
-  for (let startAt = 0; ; startAt += PAGE_SIZE) {
-    const page = searchResultSchema.parse(
-      await get(
-        `/rest/api/3/search/jql?jql=${jqlQuery}&startAt=${startAt}&maxResults=${PAGE_SIZE}&fields=*all`,
-      ),
-    );
+  /*
+   * Un tetto alle pagine, che è una difesa e non una preferenza.
+   *
+   * Se un giorno l'endpoint smettesse di mandare `nextPageToken` senza
+   * dichiararsi finito, il ciclo girerebbe per sempre dentro una richiesta
+   * HTTP: un job appeso che non riporta nulla è peggio di un errore.
+   */
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const path =
+      `/rest/api/3/search/jql?jql=${jqlQuery}&maxResults=${PAGE_SIZE}&fields=*all` +
+      (token === null ? "" : `&nextPageToken=${encodeURIComponent(token)}`);
 
-    for (const raw of page.issues) {
+    const result = searchResultSchema.parse(await get(path));
+
+    for (const raw of result.issues) {
       const issue = rawIssueSchema.parse(raw);
       collected.push(await readIssue(get, issue, sprintFieldId));
     }
 
-    if (page.issues.length < PAGE_SIZE) return collected;
+    /*
+     * Due condizioni d'uscita, e servono entrambe. `isLast` è la risposta
+     * ufficiale; l'assenza del token è la difesa contro una risposta che non la
+     * manda — e senza token la richiesta successiva ricomincerebbe da capo.
+     */
+    if (result.isLast === true) return collected;
+
+    token = result.nextPageToken ?? null;
+    if (token === null) return collected;
   }
+
+  throw new Error(
+    `La ricerca su Jira ha superato ${MAX_PAGES} pagine: probabile paginazione che non avanza.`,
+  );
 }
 
 const issueFieldsSchema = z.object({

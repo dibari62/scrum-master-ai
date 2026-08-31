@@ -160,4 +160,52 @@ describe("come si racconta una lettura", () => {
     expect(testo).toContain("51 elementi di lavoro");
     expect(testo).not.toContain("commenti");
   });
+
+  it("dice che non ha trovato elementi, invece di ometterlo", () => {
+    /*
+     * Il caso vero che ha portato a questa riga: una lettura che ha riportato
+     * «Letti 1 board, 1 sprint» su un portale poi rimasto vuoto.
+     *
+     * La frase suonava come un successo, e ometteva l'unica informazione che
+     * contava: di elementi di lavoro non ce n'era nessuno. Chi la leggeva non
+     * poteva sapere se il portale avesse cercato, trovato zero, o fallito in
+     * silenzio.
+     */
+    const testo = describeReport({ counts: { board: 1, sprint: 1 }, total: 2 });
+
+    expect(testo).toContain("1 board");
+    expect(testo).toContain("Nessun elemento di lavoro");
+  });
+
+  it("nomina le cause probabili, che sono verificabili in un minuto", () => {
+    // «Nessun elemento» senza un dove guardare lascia allo stesso punto di
+    // prima: il portale sa solo che la risposta era vuota, e le tre cause non
+    // sono visibili da questa parte.
+    const testo = describeReport({ counts: { board: 1 }, total: 1 });
+
+    expect(testo).toContain("chiave del progetto");
+    expect(testo).toContain("token");
+  });
+
+  it("non avverte quando gli elementi ci sono", () => {
+    // Un avviso che compare sempre è un avviso che nessuno legge.
+    const testo = describeReport({ counts: { "elementi di lavoro": 3 }, total: 3 });
+
+    expect(testo).not.toContain("Nessun elemento");
+  });
+
+  it("scrive in testo semplice, perché così viene mostrato", () => {
+    /*
+     * Questa frase finisce dentro `{state.message}` in un JSX, cioè in un punto
+     * che **non** interpreta il markdown: un `**` scritto per fare grassetto
+     * arriverebbe sullo schermo come due asterischi.
+     *
+     * Il test esiste perché l'errore è stato commesso davvero, ed è invisibile
+     * a chi legge solo il codice: la stringa sembra a posto.
+     */
+    const testo = describeReport({ counts: { board: 1 }, total: 1 });
+
+    expect(testo).not.toContain("*");
+    expect(testo).not.toContain("_");
+  });
 });

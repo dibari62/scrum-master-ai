@@ -97,6 +97,66 @@ describe("client Jira — che cosa chiede", () => {
     expect(decodeURIComponent(search ?? "")).toContain("ORDER BY Rank ASC");
   });
 
+  it("sfoglia le issue con il token di pagina, non con startAt", async () => {
+    /*
+     * Il guasto che questo test blocca, e che nessun test poteva vedere prima.
+     *
+     * `/rest/api/3/search/jql` è l'endpoint nuovo di Jira Cloud e **non conosce
+     * `startAt`**: si sfoglia con il `nextPageToken` che ogni risposta porta con
+     * sé. Passargli `startAt` non produce un errore — lo ignora, e restituisce
+     * ogni volta la stessa prima pagina.
+     *
+     * È invisibile sotto le cento issue, cioè su ogni risposta registrata e su
+     * ogni progetto di prova. Su un progetto vero sarebbe un ciclo che non
+     * finisce, o cento elementi ripetuti all'infinito.
+     */
+    const pagina = (chiave: string) => ({
+      id: chiave,
+      key: chiave,
+      fields: {
+        summary: `Elemento ${chiave}`,
+        created: "2026-08-01T09:00:00.000Z",
+        updated: "2026-08-01T09:00:00.000Z",
+        issuetype: { name: "Story" },
+        status: { name: "To Do", statusCategory: { key: "new" } },
+      },
+    });
+
+    const { read, calls } = readerWith((url) => {
+      // Ogni issue porta con sé una seconda chiamata per il changelog: senza
+      // questa rotta il test fallirebbe per una ragione che non è quella che
+      // sta verificando.
+      if (url.includes("/changelog")) return reply({ isLast: true, values: [] });
+      if (!url.includes("/search/jql")) return routed(stubRoutes())(url);
+
+      return url.includes("nextPageToken=seconda")
+        ? reply({ issues: [pagina("SMAI-2")], isLast: true })
+        : reply({ issues: [pagina("SMAI-1")], nextPageToken: "seconda" });
+    });
+
+    const snapshot = await read(OPTIONS);
+
+    const searches = calls.filter((url) => url.includes("/search/jql"));
+    expect(searches).toHaveLength(2);
+    expect(searches[0]).not.toContain("startAt");
+    expect(searches[1]).toContain("nextPageToken=seconda");
+
+    // La prova che conta: due pagine diverse, non la stessa due volte.
+    expect(snapshot.issues.map((issue) => issue.key)).toEqual(["SMAI-1", "SMAI-2"]);
+  });
+
+  it("si ferma quando la risposta non porta un token, anche senza isLast", async () => {
+    // La difesa contro una risposta che non si dichiara finita: senza token la
+    // richiesta successiva ricomincerebbe da capo, all'infinito.
+    const { read, calls } = readerWith((url) =>
+      url.includes("/search/jql") ? reply({ issues: [] }) : routed(stubRoutes())(url),
+    );
+
+    await read(OPTIONS);
+
+    expect(calls.filter((url) => url.includes("/search/jql"))).toHaveLength(1);
+  });
+
   it("su una richiesta incrementale filtra per data di aggiornamento", async () => {
     const { read, calls } = readerWith(routed(stubRoutes()));
 

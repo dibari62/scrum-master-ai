@@ -181,5 +181,27 @@ export function describeReport(report: IngestReport): string {
     .filter(([, count]) => count > 0)
     .map(([entity, count]) => `${count} ${entity}`);
 
-  return `Letti ${parts.join(", ")}.`;
+  const letti = `Letti ${parts.join(", ")}.`;
+
+  /*
+   * Zero elementi di lavoro si dice, invece di ometterlo.
+   *
+   * **Il difetto che questa riga ripara.** L'elenco mostra solo ciò che ha
+   * righe, quindi una lettura che porta la board e lo sprint ma nessuna issue
+   * produce «Letti 1 board, 1 sprint» — una frase che suona come un successo e
+   * lascia chi la legge davanti a un portale vuoto, senza sapere se il portale
+   * abbia cercato, se abbia trovato zero, o se qualcosa non abbia funzionato.
+   *
+   * Le tre cause probabili sono nominate perché sono verificabili in un minuto
+   * ciascuna, e perché nessuna di esse è visibile da questa parte: il portale
+   * sa solo che la risposta era vuota.
+   */
+  if ((report.counts["elementi di lavoro"] ?? 0) > 0) return letti;
+
+  return (
+    `${letti} Nessun elemento di lavoro, però: la lettura è riuscita e ` +
+    "Jira ha risposto che non ce n'è nessuno. Di solito è una di tre cose — il " +
+    "progetto Jira è ancora vuoto, la chiave del progetto nelle impostazioni non " +
+    "è quella giusta, oppure l'account del token non vede quel progetto."
+  );
 }
