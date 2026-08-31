@@ -21,6 +21,7 @@ import { readProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 import { onboardingFromSettings } from "@/lib/projects/onboarding";
+import { dataFreshness } from "@/lib/projects/freshness";
 import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
@@ -28,6 +29,7 @@ import { HealthNarration } from "./health-narration";
 import { DailyDigest } from "./daily-digest";
 import { ForecastTable } from "./forecast-table";
 import { NextSteps } from "./next-steps";
+import { DataAge } from "./data-age";
 import {
   presentBurndown,
   presentCount,
@@ -152,6 +154,20 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
     hasAgent: agents.length > 0,
   });
 
+  /*
+   * L'istante arriva da qui, una volta sola.
+   *
+   * Le metriche non leggono mai l'orologio (ADR-0002) e questa riga segue la
+   * stessa regola: `asOf` è già l'istante di questa pagina, e usarne un altro
+   * significherebbe raccontare i dati con un tempo diverso da quello con cui
+   * sono stati giudicati.
+   */
+  const freshness = dataFreshness({
+    connector: settings.connector,
+    lastSyncedAt: settings.lastSyncedAt,
+    now: asOf,
+  });
+
   const velocityBars: readonly Bar[] = sprints.map((entry) => ({
     label: sprintLabel(entry),
     value: entry.velocity.available ? (entry.velocity.value.points ?? null) : null,
@@ -254,6 +270,8 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
        * Quando non resta alcun passo non rende nulla, e la pagina torna com'era.
        */}
       <NextSteps state={nextSteps} />
+
+      <DataAge freshness={freshness} slug={project.slug} />
 
       {/*
        * Il semaforo sta in cima, e non è una preferenza di impaginazione.
