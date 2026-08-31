@@ -399,52 +399,65 @@ potrebbe distinguerle.
 quante variabili ha in tutto, da quale commit sta rispondendo, e **segnala le
 variabili che il pacchetto ha congelato a vuoto**.
 
-### 5.quinquies Su Vercel, «Secret» non esiste in fase di build
+### 5.quinquies Su Vercel, il tipo «Secret» non arriva al runtime
 
-**La metà mancante di §5.quater**: quella spiega perché il codice leggeva il
-vuoto, questa spiega perché il vuoto c'era.
+**La causa vera**, accertata per misura dopo quattro ipotesi sbagliate.
 
 Aggiungendo una variabile, Vercel chiede un **tipo**:
 
-| Tipo | Come si presenta | Quando è disponibile |
+| Tipo | Come si presenta | Cosa arriva al processo |
 |---|---|---|
-| **Secret** | «You can't reveal this value after saving. Use for passwords, API keys, and tokens.» | **solo al runtime** |
-| **Config** | «Readable after saving for members with access.» | anche in fase di build |
+| **Secret** | «You can't reveal this value after saving. Use for passwords, API keys, and tokens.» | il nome, con **valore vuoto** |
+| **Config** | «Readable after saving for members with access.» | nome e valore |
 
 La descrizione di «Secret» nomina esattamente il caso d'uso — password, chiavi
 API, token — quindi è la scelta che chiunque farebbe per una chiave di
-cifratura. Ed è quella che innesca il difetto.
+cifratura. Ed è quella che non funziona.
 
-**Le due condizioni insieme.** Nessuna delle due da sola rompe nulla:
+**Il rimedio**: cancellare la variabile e ricrearla con **Type: Config**.
 
-- una variabile *Secret* letta **dall'oggetto** al runtime funziona;
-- una variabile *Config* letta con un **letterale** funziona.
+«Config» non significa pubblica: resta visibile a chi ha accesso al progetto
+Vercel, che qui è una persona sola. Il compromesso è dichiarato — *una chiave
+che non arriva non protegge nulla, blocca soltanto il portale.*
 
-È la combinazione — *Secret* più letterale — che produce il guasto, ed è la
-ragione per cui `DATABASE_URL` funzionava e `SECRETS_KEY` no pur avendo lo
-stesso identico codice attorno.
+#### Come è stata accertata, e perché è costato quattro giri
 
-**Come si riconosce.** `/organizzazione/ambiente` distingue i casi:
+Il sintomo — «manca la chiave di custodia» — puntava con precisione verso la
+configurazione, che era giusta. Ogni verifica confermava che la variabile
+mancava, quindi **ogni tentativo rafforzava l'ipotesi sbagliata**.
+
+Quattro ipotesi, tutte plausibili, tutte compatibili con i fatti noti al
+momento:
+
+1. **progetto Vercel sbagliato** — smentita dal pannello;
+2. **il bundler non risolve gli accessi calcolati** — corretta, nessun
+   cambiamento;
+3. **il pacchetto congela i letterali a vuoto** — corretta, nessun cambiamento;
+4. **la variabile non è su *Production*** — smentita dal pannello.
+
+La quinta volta non è stata proposta un'ipotesi: `/organizzazione/ambiente`
+chiede la stessa variabile in **quattro forme** — letterale, oggetto,
+`globalThis`, nome composto a runtime — e mostra quale risponde:
 
 ```
-SECRETS_KEY          assente
-Forma del valore:    il nome esiste, il valore è vuoto
+SECRETS_KEY                    AUTH_SECRET
+  letterale:      no             letterale:      sì
+  oggetto:        no             oggetto:        sì
+  globalThis:     no             globalThis:     sì
+  nome composto:  no             nome composto:  sì
 ```
 
-Se il nome non esistesse affatto, la variabile non sarebbe mai stata definita:
-guasto diverso, gesto diverso. E se una riga avverte che «il pacchetto ne porta
-una copia vuota», la variabile al runtime c'è ed è il codice a non vederla.
+`AUTH_SECRET` è il termine di paragone, ed è ciò che rende la misura
+conclusiva: senza una variabile che sappiamo funzionare, quattro «no» non
+distinguerebbero un guasto da una sonda scritta male.
 
-**Il rimedio è nel codice** — leggere dall'oggetto, §5.quater — e vale per
-qualunque tipo. Ricreare la variabile come *Config* è un rimedio alternativo che
-funziona anche con codice sbagliato, ma cura il sintomo: la prossima variabile
-*Secret* riaprirebbe il caso.
+Nessuna forma di lettura trova la variabile ⇒ **non è il codice**.
 
-«Config» non significa comunque pubblica: resta visibile solo a chi ha accesso
-al progetto Vercel.
-
-`npm run chiave` genera la chiave, la mette negli appunti e stampa dove
-incollarla, così non va ricordato.
+> **La lezione che vale più della chiave.** Una spiegazione che rende conto di
+> tutti i fatti noti non è ancora una spiegazione giusta. Le ipotesi 2 e 3
+> spiegavano perfettamente perché `DATABASE_URL` funzionasse e `SECRETS_KEY` no,
+> ed erano entrambe sbagliate. Dopo il secondo tentativo fallito conviene
+> smettere di ipotizzare e costruire lo strumento che **esclude**.
 
 ---
 
