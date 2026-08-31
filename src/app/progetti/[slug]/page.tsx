@@ -15,13 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { organizationIdSchema, type HealthVerdict } from "@/domain";
+import { connectorReady, organizationIdSchema, type HealthVerdict } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 import { onboardingFromSettings } from "@/lib/projects/onboarding";
 import { dataFreshness } from "@/lib/projects/freshness";
+import { mayConfigureSettings } from "@/lib/projects/settings";
 import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
@@ -168,6 +169,20 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
     now: asOf,
   });
 
+  /*
+   * Se il pulsante di lettura ha senso su questa pagina.
+   *
+   * Due condizioni e servono entrambe: il ruolo — una lettura consuma la quota
+   * di chiamate del cliente — e una configurazione completa abbastanza da
+   * provarci. Offrire un pulsante che rifiuterebbe sempre insegna soltanto a
+   * non fidarsi dei pulsanti.
+   */
+  const dataReady = connectorReady({
+    connector: settings.connector,
+    connectorConfig: settings.connectorConfig,
+    connectorSecret: settings.connectorSecret.configured ? "v1.x.y.z" : null,
+  });
+
   const velocityBars: readonly Bar[] = sprints.map((entry) => ({
     label: sprintLabel(entry),
     value: entry.velocity.available ? (entry.velocity.value.points ?? null) : null,
@@ -271,7 +286,11 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
        */}
       <NextSteps state={nextSteps} />
 
-      <DataAge freshness={freshness} slug={project.slug} />
+      <DataAge
+        freshness={freshness}
+        slug={project.slug}
+        canSync={mayConfigureSettings(session.role) && dataReady}
+      />
 
       {/*
        * Il semaforo sta in cima, e non è una preferenza di impaginazione.
