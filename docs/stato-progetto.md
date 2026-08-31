@@ -24,10 +24,13 @@
 >
 > Ed è nato il **primo connettore verso uno strumento reale**: Jira Cloud
 > ([ADR-0009](architecture/ADR-0009-primo-connettore.md)), e ora **la catena è
-> completa**. `ingestBatch` riconcilia un lotto invece di inserirlo — leggere
-> due volte lascia le stesse righe — e il pulsante «Leggi ora» nella scheda
-> «Dati» mette insieme client, traduzione e scrittura. Provato fino a telefonare
-> davvero; manca solo un account Atlassian su cui puntarlo.
+> completa fino in fondo**. `ingestBatch` riconcilia un lotto invece di
+> inserirlo — leggere due volte lascia le stesse righe — e il pulsante «Leggi
+> ora» nella scheda «Dati» mette insieme client, traduzione e scrittura.
+> **Non è più una prova: da un'istanza Atlassian vera sono arrivati 7 elementi
+> di lavoro, 2 persone e 7 transizioni**, e si vedono nelle schermate. Quel
+> primo collegamento vero ha fatto emergere tre difetti che nessuna risposta
+> registrata poteva contenere — sono elencati in §3.
 >
 > **Ed è stata presa una decisione di prodotto**: la chiave del modello la porta
 > chi usa il portale ([ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md)).
@@ -613,22 +616,31 @@ regola R1 — il codice calcola, l'LLM racconta — smetterà di essere teorica.
 | **CI (GitHub Actions)** | ✅ configurata | typecheck, lint, test, build, confini |
 | **Vercel** | ✅ **online** | <https://scrum-master-ai-swart.vercel.app> · protezione disattivata, verificato `200`; accesso, isolamento e salute dello sprint funzionanti sul dominio pubblico |
 | **Upstash QStash** | 🟡 pronto, non acceso | rotta, job e strumento esistono e sono provati. Restano due passi che richiedono la console: `JOB_SECRET` fra le variabili di Vercel, poi `npm run qstash -- create` |
-| **Jira Cloud** | 🟡 **ha parlato davvero**, ma non ha ancora portato dati | la catena arriva fino in fondo: un'istanza vera, un token vero, una lettura riuscita che ha riportato **1 board e 1 sprint** — e **zero elementi di lavoro**. Restano da distinguere le tre cause (progetto vuoto, chiave sbagliata, account che non vede il progetto): il portale ora le nomina invece di tacere. Nello stesso giro è emerso un difetto che nessuna risposta registrata poteva mostrare: la paginazione chiedeva sempre la stessa pagina ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)) |
+| **Jira Cloud** | 🟢 **porta dati veri** | catena completa e percorsa: istanza vera, token vero, **7 elementi di lavoro** con 2 persone, 7 transizioni, 7 variazioni di stima e 2 di perimetro, letti dal progetto `SCRUM` di un'istanza Atlassian e visibili nelle schermate del portale. Non è verde pieno per una cosa sola: **la velocity non è ancora stata confrontata** con quella che Jira mostra nel suo rapporto, perché su quel progetto non c'è ancora uno sprint concluso |
 | **Custodia dei segreti** | ✅ **attiva anche in produzione** | la chiave si **deriva da `AUTH_SECRET`** con HKDF quando `SECRETS_KEY` non c'è ([ADR-0011](architecture/ADR-0011-chiave-derivata.md)). Verificato sul sito pubblicato: campo «Chiave API» sbloccato, credenziale salvata, riletta e rimossa. Il prezzo è dichiarato in schermata: ruotare `AUTH_SECRET` rende illeggibile ciò che è già cifrato |
 
-> **Che cosa significa quel giallo, e perché non è ancora verde.** Non è più
-> «nessuno ha mai telefonato»: la telefonata è stata fatta, e la linea funziona.
-> Quello che manca è la **risposta dall'altra parte**: una lettura che riporti
-> elementi di lavoro veri, e il confronto fra la velocity che calcoliamo noi e
-> quella che Jira mostra nel suo rapporto. È il controllo che vale più di tutti
-> gli altri messi insieme, e finché non è stato fatto la casella mentirebbe.
+> **I tre difetti che il primo collegamento vero ha portato a galla**, e che
+> nessuna risposta registrata poteva contenere. Vale la pena elencarli insieme,
+> perché raccontano la stessa cosa.
 >
-> **Quello che quella telefonata ha già insegnato**, e che nessun test avrebbe
-> potuto: l'endpoint di ricerca di Jira Cloud non conosce `startAt`, e a chi
-> glielo passa risponde ogni volta con la stessa prima pagina — senza errore.
-> Sotto le cento issue il difetto non esiste, quindi nessuna risposta registrata
-> lo conteneva. È la ragione per cui una casella resta gialla finché qualcosa non
-> ha attraversato la rete per davvero.
+> 1. **La paginazione chiedeva sempre la stessa pagina** ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)).
+>    L'endpoint di ricerca di Jira Cloud non conosce `startAt` e a chi glielo
+>    passa risponde con la prima pagina, senza errore. Sotto le cento issue il
+>    difetto **non esiste**: una risposta registrata sta in una pagina sola.
+> 2. **Il messaggio taceva sullo zero** ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)),
+>    e poi elencava tre sospetti invece di rispondere ([#93](https://github.com/dibari62/scrum-master-ai/pull/93)).
+>    Le tre cause sono distinguibili: basta chiedere a Jira quali progetti vede
+>    l'account del token.
+> 3. **Il cursore non si azzerava** al cambio di configurazione ([#94](https://github.com/dibari62/scrum-master-ai/pull/94)).
+>    Correggere una chiave di progetto sbagliata non serviva a nulla: si
+>    continuava a chiedere solo le novità, e tutto ciò che esisteva prima
+>    restava invisibile **per sempre**, senza che un solo errore lo segnalasse.
+>
+> Tutti e tre vivevano dove i test non arrivano — non per una lacuna della
+> suite, ma perché §6 vieta le chiamate di rete vere e una fixture non può
+> contenere né una seconda pagina, né un progetto altrui, né la storia di una
+> configurazione cambiata. È la ragione per cui una casella resta gialla finché
+> qualcosa non ha attraversato la rete per davvero.
 
 ### Come guardarci dentro
 
@@ -1060,8 +1072,9 @@ Cose note e volutamente rimandate, non sviste:
 | La configurazione del progetto non alimenta ancora la lettura dei dati | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | ~~manca l'azione «leggi ora»~~ **fatto**: il pulsante esiste, `synchroniseProject` mette insieme client, traduzione e riconciliazione, e `markSynchronised` viene chiamata — **solo dopo** che le righe sono dentro. Resta fuori il **job schedulato**: oggi si legge premendo, e va bene così finché non si sa quanto dura una lettura vera |
 | **Ruotare `SECRETS_KEY` richiede di riscrivere ogni riga cifrata** | [ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md) | lo strumento che ricifra **non esiste**. Perdere o cambiare la chiave principale significa perdere ogni segreto già conservato: vanno reinserite le credenziali, una per progetto. Scritto accanto alla variabile in `.env.example`, dove lo legge chi sta per toccarla |
 | `SECRETS_KEY` non è fra le variabili di Vercel | [ADR-0011](architecture/ADR-0011-chiave-derivata.md), [messa-in-linea](messa-in-linea.md) | ~~il sito rifiuta le credenziali~~ **risolto per un'altra strada**: quando la variabile non c'è, la chiave si **deriva da `AUTH_SECRET`** con HKDF. `SECRETS_KEY` resta la fonte preferita — se un giorno la si aggiunge va creata con **Type: Config**, perché una variabile di tipo *Secret* su Vercel arriva al processo con il nome presente e il valore vuoto. Tre giorni di diagnosi per scoprirlo, raccontati in [ripartire-da-zero](ripartire-da-zero.md) §5.quinquies |
-| **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | ~~manca un account e un token~~ **superato**: la prima lettura da un'istanza vera è avvenuta, con un token vero, e ha riportato 1 board e 1 sprint. Ha anche portato alla luce il difetto che nessuna risposta registrata poteva contenere — la paginazione che chiedeva sempre la stessa pagina ([#90](https://github.com/dibari62/scrum-master-ai/pull/90)). Resta da vedere una lettura che porti **elementi di lavoro** |
-| **Una lettura riuscita può riportare zero elementi, e le cause non si distinguono** | `src/lib/projects/sync.ts` | successo alla prima prova sul campo: board e sprint letti, nessuna issue. Le tre cause probabili — progetto vuoto, chiave del progetto sbagliata, account del token che non vede il progetto — **non sono visibili da questa parte**: il portale sa solo che la risposta era vuota. Ora le nomina, invece di tacere. Distinguerle richiederebbe di interrogare Jira su cosa quell'account vede, e non è ancora scritto |
+| **Il connettore Jira non ha mai parlato con Jira** | [spec](../specs/connettore-jira/spec.md) | ~~manca un account e un token~~ ~~resta da vedere una lettura che porti elementi~~ **chiuso**: 7 elementi di lavoro, 2 persone e 7 transizioni letti da un'istanza vera e visibili nel portale. La strada per arrivarci ha richiesto tre correzioni ([#90](https://github.com/dibari62/scrum-master-ai/pull/90), [#93](https://github.com/dibari62/scrum-master-ai/pull/93), [#94](https://github.com/dibari62/scrum-master-ai/pull/94)) |
+| **Una lettura riuscita può riportare zero elementi, e le cause non si distinguono** | `src/lib/projects/sync.ts` | ~~il portale sa solo che la risposta era vuota~~ **chiuso** in [#93](https://github.com/dibari62/scrum-master-ai/pull/93): `createJiraProbe` chiede a Jira quali progetti vede l'account del token, e il confronto con la chiave configurata separa i quattro casi. Quando la chiave è sbagliata, il messaggio **nomina quelle giuste**: saperla sbagliata senza sapere quale sia la buona lascia dove si era |
+| **La velocity nostra non è mai stata confrontata con quella di Jira** | [mappa](scrum-dalle-trincee.md) | è il controllo che vale più di tutti gli altri messi insieme, e non è ancora possibile: sull'istanza collegata non c'è uno sprint concluso. Finché non lo si fa, «il connettore funziona» significa «porta righe che sembrano giuste», non «porta i numeri che Jira conferma» |
 | La configurazione Jira non si compila da nessuna parte | [spec](../specs/connettore-jira/spec.md) §9 | ~~nessuna schermata li chiede~~ **fatto**: scheda «Dati» delle impostazioni, con indirizzo, chiave, board, mappatura degli stati, indirizzo dell'account e token cifrato |
 | La mappatura degli stati Jira va scritta a mano | [spec](../specs/connettore-jira/spec.md), questione aperta 2 | il ripiego su `statusCategory` copre tre stati; i nostri sono sei. Una coda di revisione arriva come «in corso» finché qualcuno non dichiara il contrario, e il portale lo **segnala** invece di tacerlo |
 | Sprint Jira sovrapposti farebbero fallire la conformità | [conformità](../tests/connectors/conformance.ts) | una board con due squadre in parallelo ha sprint che si accavallano, e la suite pretende che non si sovrappongano. Sui nostri dati non succede. Va deciso guardando una board vera: o la pretesa è troppo forte, o quei progetti non sono leggibili come uno solo |
