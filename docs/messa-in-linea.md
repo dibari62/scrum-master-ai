@@ -168,19 +168,20 @@ password.
    `npm run chiave -- --mostra` lo si vede comunque, ed è una scelta che spetta
    a chi possiede il segreto.
 
-   > **⚠️ Il tipo va scelto «Config», non «Secret».** Vercel propone due tipi, e
-   > la descrizione di *Secret* nomina esattamente questo caso d'uso —
-   > «passwords, API keys, and tokens». È la scelta che chiunque farebbe, ed è
-   > quella che **non funziona**: una variabile *Secret* raggiunge il runtime
-   > con il **nome presente e il valore vuoto**, quindi il portale la vede come
-   > mancante e rifiuta di conservare credenziali.
+   > **Sul tipo: «Secret» o «Config», è indifferente.** Vercel propone due tipi
+   > e la descrizione di *Secret* nomina esattamente questo caso d'uso —
+   > «passwords, API keys, and tokens». Puoi sceglierlo.
    >
-   > Il sintomo non somiglia alla causa e costa ore: nel pannello la variabile è
-   > lì, su *Production*, aggiunta pochi minuti prima. Dettagli e diagnosi in
-   > [`ripartire-da-zero.md`](ripartire-da-zero.md) §5.quinquies.
+   > Vale la pena sapere **perché** vale la pena dirlo: una variabile *Secret* è
+   > disponibile solo al runtime, non durante la build. Finché il codice le
+   > leggeva con `process.env.NOME`, il bundler le congelava a vuoto in fase di
+   > build e il portale le vedeva mancare — con la variabile lì, su
+   > *Production*, aggiunta pochi minuti prima. Sono serviti tre giorni per
+   > arrivarci.
    >
-   > *Config* non significa pubblica: resta visibile solo a chi ha accesso al
-   > progetto Vercel. Una chiave che non arriva non protegge nulla.
+   > Ora le variabili si leggono dall'oggetto del processo, quindi arrivano
+   > qualunque sia il tipo. Diagnosi completa in
+   > [`ripartire-da-zero.md`](ripartire-da-zero.md) §5.quater e §5.quinquies.
 
    Un segreto condiviso fra il portatile di uno sviluppatore e la produzione
    significa che un portatile compromesso permette di falsificare le sessioni
