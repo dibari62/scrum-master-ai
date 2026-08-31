@@ -15,6 +15,7 @@ import {
   custodyDetail,
   deploymentFacts,
   environmentReport,
+  readingProbes,
   type EnvironmentEntry,
 } from "@/lib/environment/report";
 import { mayConfigureSettings } from "@/lib/projects/settings";
@@ -69,6 +70,7 @@ export default async function EnvironmentPage() {
   const report = environmentReport();
   const detail = custodyDetail();
   const deploy = deploymentFacts();
+  const probes = readingProbes();
 
   const required = report.entries.filter((entry) => entry.severity === "required");
   const optional = report.entries.filter((entry) => entry.severity === "optional");
@@ -163,6 +165,31 @@ export default async function EnvironmentPage() {
                 ))}
               </ul>
             )}
+          </div>
+        </section>
+
+        <section className="grid gap-3">
+          <h2 className="text-sm font-medium">Come si legge una variabile</h2>
+          <p className="text-muted-foreground text-sm">
+            La stessa variabile chiesta in quattro modi, che differiscono solo per quanto
+            un bundler riesce a capirli. Se una colonna risponde e le altre no, il rimedio
+            è nel codice; se non risponde nessuna, la variabile non raggiunge il processo
+            e il rimedio è nel pannello. Nessun valore è mostrato: solo se la lettura ha
+            prodotto qualcosa.
+          </p>
+
+          <div className="grid gap-2 rounded-md border p-3 text-sm">
+            {probes.map((probe) => (
+              <div key={probe.name} className="grid gap-1">
+                <code className="font-mono">{probe.name}</code>
+                <div className="text-muted-foreground grid gap-0.5 pl-3">
+                  <span>letterale (process.env.NOME): {probe.letterale ? "sì" : "no"}</span>
+                  <span>oggetto (process.env[nome]): {probe.oggetto ? "sì" : "no"}</span>
+                  <span>globalThis.process.env[nome]: {probe.globale ? "sì" : "no"}</span>
+                  <span>nome composto a runtime: {probe.nomeSpezzato ? "sì" : "no"}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
