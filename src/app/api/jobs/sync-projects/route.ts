@@ -47,10 +47,33 @@ export async function POST(request: Request): Promise<Response> {
   if (!authorisation.ok) {
     if (authorisation.reason === "misconfigured") {
       logger.error("job.sync.misconfigured", {
-        message: "JOB_SECRET non impostata: la rotta rifiuta ogni chiamata.",
+        detail: authorisation.detail ?? "name-missing",
+        message:
+          authorisation.detail === "value-empty"
+            ? "JOB_SECRET arriva con il nome presente e il valore vuoto: su Vercel è il tipo «Secret». Va ricreata come «Config»."
+            : "JOB_SECRET non impostata: la rotta rifiuta ogni chiamata.",
       });
 
-      return Response.json({ error: "Job non configurato." }, { status: 500 });
+      return Response.json(
+        {
+          error: "Job non configurato.",
+          /*
+           * Il dettaglio esce anche di qui, e non è una svista.
+           *
+           * Non rivela nulla: dice che *manca* un segreto, non quale sia né
+           * quanto sia lungo. Chi chiama questa rotta è uno schedulatore o chi
+           * lo sta configurando, e sono le due sole persone al mondo per cui la
+           * differenza fra «non l'hai creata» e «l'hai creata del tipo
+           * sbagliato» vale un pomeriggio.
+           */
+          detail: authorisation.detail ?? "name-missing",
+          suggerimento:
+            authorisation.detail === "value-empty"
+              ? "La variabile JOB_SECRET esiste ma arriva vuota: su Vercel ricreala con Type «Config». Vedi /organizzazione/ambiente."
+              : "Manca la variabile JOB_SECRET. Vedi /organizzazione/ambiente.",
+        },
+        { status: 500 },
+      );
     }
 
     return Response.json({ error: "Non autorizzato." }, { status: 401 });
