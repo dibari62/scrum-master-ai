@@ -7,7 +7,7 @@ import { organizationIdSchema, projectIdSchema } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings, writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
-import { gatewayForProject } from "@/lib/agents/project-gateway";
+import { gatewayForProject, modelProbeForProject } from "@/lib/agents/project-gateway";
 import { checkModel } from "@/lib/projects/model-check";
 import {
   mayConfigureSettings,
@@ -465,10 +465,12 @@ export async function testModelAction(
 
   const projectId = projectIdSchema.parse(project.id);
   const settings = await readProjectSettings(organizationId, projectId, db);
+  const probe = await modelProbeForProject(organizationId, projectId);
 
   const outcome = await checkModel({
     gateway: await gatewayForProject(organizationId, projectId),
     provider: settings.brainProvider,
+    ...(probe ? { listModels: probe } : {}),
   });
 
   if (outcome.kind === "fake") {
@@ -489,9 +491,22 @@ export async function testModelAction(
      */
     const richiesto = settings.brainModel
       ? `Il modello richiesto era «${settings.brainModel}».`
-      : "Nessun modello indicato: è stato usato quello predefinito del fornitore.";
+      : "Nessun modello indicato: è stato usato quello predefinito del portale per questo fornitore.";
 
-    return { status: "error", message: `${outcome.message} ${richiesto}` };
+    /*
+     * E, quando il fornitore ha voluto dirlo, quali nomi accetterebbe.
+     *
+     * Stesso rimedio della diagnosi Jira: sapere che un nome è sbagliato senza
+     * sapere quali siano quelli giusti lascia dove si era. Pochi, perché
+     * l'elenco completo di un aggregatore conta centinaia di voci e un muro di
+     * nomi non è un aiuto.
+     */
+    const disponibili =
+      outcome.availableModels.length > 0
+        ? ` Con questa chiave il fornitore accetta, fra gli altri: ${outcome.availableModels.slice(0, 8).join(", ")}.`
+        : "";
+
+    return { status: "error", message: `${outcome.message} ${richiesto}${disponibili}` };
   }
 
   return {

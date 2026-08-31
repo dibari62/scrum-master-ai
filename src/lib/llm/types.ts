@@ -97,4 +97,19 @@ export type LlmProviderAdapter = {
    */
   readonly isConfigured: () => boolean;
   readonly complete: (request: LlmRequest) => Promise<LlmResponse>;
+
+  /**
+   * Quali modelli questa credenziale può usare.
+   *
+   * **Facoltativo, e serve a una cosa sola**: quando una richiesta viene
+   * rifiutata *dopo* che la chiave è stata riconosciuta, il sospetto è il nome
+   * del modello — e da questa parte non c'è modo di saperlo. Chiederlo al
+   * fornitore trasforma «controlla il nome del modello» in «quello che hai
+   * scritto non c'è, questi invece sì».
+   *
+   * È lo stesso rimedio applicato al connettore Jira per le chiavi di progetto:
+   * quando una configurazione non funziona, la domanda giusta si fa al servizio,
+   * non a chi la sta subendo.
+   */
+  readonly listModels?: () => Promise<readonly string[]>;
 };

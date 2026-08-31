@@ -114,6 +114,33 @@ export function createGoogleProvider(options: GoogleProviderOptions): LlmProvide
     // invece di provarlo e riportarlo indisponibile.
     isConfigured: () => options.apiKey.trim().length > 0,
 
+    /**
+     * I modelli che questa chiave può usare, secondo Google.
+     *
+     * Solo quelli che sanno generare testo: l'elenco comprende anche modelli di
+     * sola trasformazione in vettori, che offerti come alternativa manderebbero
+     * a incollare un nome che fallirebbe di nuovo.
+     */
+    async listModels(): Promise<readonly string[]> {
+      const response = await httpFetch(ENDPOINT, {
+        headers: { "x-goog-api-key": options.apiKey },
+      });
+
+      if (!response.ok) throw classifyStatus(response.status, "elenco modelli non disponibile");
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        models?: readonly {
+          name?: string;
+          supportedGenerationMethods?: readonly string[];
+        }[];
+      };
+
+      return (payload.models ?? [])
+        .filter((entry) => (entry.supportedGenerationMethods ?? []).includes("generateContent"))
+        .map((entry) => (entry.name ?? "").replace(/^models\//, ""))
+        .filter((name) => name.length > 0);
+    },
+
     async complete(request: LlmRequest): Promise<LlmResponse> {
       /*
        * I delimitatori attorno al contenuto non fidato li mette

@@ -1,6 +1,6 @@
 import type { OrganizationId, ProjectId } from "@/domain";
 import { readProjectSettings, revealProjectSecret } from "@/db/project-settings";
-import { createGateway, type Gateway } from "@/lib/llm";
+import { createGateway, providersFor, type Gateway } from "@/lib/llm";
 
 /**
  * Il gateway di **questo** progetto, con la chiave che il suo cliente ha portato.
@@ -64,4 +64,33 @@ export async function gatewayForProject(
       baseUrl: settings.brainBaseUrl,
     },
   });
+}
+
+/**
+ * Come si chiede al fornitore di **questo** progetto quali modelli conosce.
+ *
+ * `null` quando quel fornitore non sa rispondere alla domanda — oggi solo
+ * Anthropic e il fornitore finto. Restituire una funzione che fallisce sempre
+ * costringerebbe chi chiama a distinguere un fallimento vero da un «non
+ * previsto», che è la stessa informazione detta peggio.
+ */
+export async function modelProbeForProject(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+): Promise<(() => Promise<readonly string[]>) | null> {
+  const settings = await readProjectSettings(organizationId, projectId);
+  if (settings.brainProvider === "fake") return null;
+
+  const apiKey = await revealProjectSecret(organizationId, projectId, "brain");
+
+  const [adapter] = providersFor({
+    provider: settings.brainProvider,
+    apiKey,
+    model: settings.brainModel,
+    baseUrl: settings.brainBaseUrl,
+  });
+
+  const listModels = adapter?.listModels;
+
+  return listModels ? () => listModels() : null;
 }
