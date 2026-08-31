@@ -53,12 +53,30 @@ export type ModelCheckOutcome =
       readonly kind: "failed";
       readonly cause: SkillRunFailureCause;
       readonly message: string;
+      /**
+       * I modelli che quella credenziale può usare, quando si è potuto chiederlo.
+       *
+       * Vuoto quando la domanda non è stata fatta o non ha avuto risposta: come
+       * per la diagnosi di una lettura Jira a vuoto, un elenco inventato sarebbe
+       * peggio di nessun elenco.
+       */
+      readonly availableModels: readonly string[];
     };
 
 export type ModelCheckInput = {
   readonly gateway: Gateway;
   readonly provider: LlmProvider;
   readonly language?: string | undefined;
+
+  /**
+   * Come si chiede al fornitore quali modelli conosce.
+   *
+   * Iniettata, e usata **solo** quando la richiesta è stata rifiutata dopo che
+   * la chiave era stata riconosciuta: è l'unico caso in cui la risposta cambia
+   * ciò che si dice a chi legge, ed è una chiamata in più che non ha senso
+   * spendere quando tutto funziona.
+   */
+  readonly listModels?: (() => Promise<readonly string[]>) | undefined;
 };
 
 /**
@@ -92,6 +110,7 @@ export async function checkModel(input: ModelCheckInput): Promise<ModelCheckOutc
       kind: "failed",
       cause: outcome.failureCause,
       message: explainFailure(outcome.failureCause),
+      availableModels: await askForModels(outcome.failureCause, input.listModels),
     };
   }
 
@@ -103,6 +122,30 @@ export async function checkModel(input: ModelCheckInput): Promise<ModelCheckOutc
     costUsd: outcome.estimatedCostUsd,
     reply: outcome.text.trim().slice(0, 200),
   };
+}
+
+/**
+ * L'elenco dei modelli, chiesto solo quando cambia la risposta.
+ *
+ * Una richiesta rifiutata *dopo* che la chiave è stata riconosciuta è l'unico
+ * caso in cui il nome del modello è il sospetto principale. Su una chiave
+ * assente la domanda fallirebbe per la stessa ragione, e su una quota esaurita
+ * sarebbe una chiamata in più per confermare ciò che già si sa.
+ *
+ * Un fallimento della sonda non è un errore da propagare: la prova ha già il
+ * suo esito, e l'elenco è un di più.
+ */
+async function askForModels(
+  cause: SkillRunFailureCause,
+  listModels: (() => Promise<readonly string[]>) | undefined,
+): Promise<readonly string[]> {
+  if (cause !== "provider_unavailable" || listModels === undefined) return [];
+
+  try {
+    return await listModels();
+  } catch {
+    return [];
+  }
 }
 
 /**

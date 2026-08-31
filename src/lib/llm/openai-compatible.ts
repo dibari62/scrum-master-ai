@@ -169,6 +169,34 @@ export function createCompatibleProvider(options: CompatibleOptions): LlmProvide
 
     isConfigured: () => !profile.needsKey || (options.apiKey ?? "").trim().length > 0,
 
+    /**
+     * I modelli che questa credenziale può usare.
+     *
+     * `GET /models` fa parte del dialetto che tutti e cinque hanno adottato
+     * insieme a `/chat/completions`, quindi un'implementazione sola li serve
+     * tutti — Ollama compreso, che elenca quelli scaricati sulla macchina.
+     */
+    async listModels(): Promise<readonly string[]> {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (options.apiKey) headers["Authorization"] = `Bearer ${options.apiKey}`;
+
+      const response = await httpFetch(`${baseUrl}/models`, { headers });
+
+      if (!response.ok) {
+        throw new LlmProviderError(
+          "provider_unavailable",
+          `${options.provider} non ha voluto elencare i modelli (${response.status}).`,
+          false,
+        );
+      }
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: readonly { id?: string }[];
+      };
+
+      return (payload.data ?? []).map((entry) => entry.id ?? "").filter((id) => id.length > 0);
+    },
+
     async complete(request: LlmRequest): Promise<LlmResponse> {
       /*
        * Il messaggio dell'utente lo compone `renderUserContent`, che mette i

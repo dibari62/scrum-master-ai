@@ -129,6 +129,66 @@ describe("prova di connessione al modello", () => {
     expect(richiesta.message).not.toContain("Rigenerala");
   });
 
+  it("chiede quali modelli esistono quando è la richiesta a essere stata rifiutata", async () => {
+    /*
+     * Lo stesso rimedio della diagnosi di una lettura Jira a vuoto: quando una
+     * configurazione non funziona, la domanda giusta si fa **al servizio**, non
+     * a chi la sta subendo. «Controlla il nome del modello» senza dire quali
+     * nomi esistano lascia esattamente dove si era.
+     */
+    const outcome = await checkModel({
+      gateway: gatewayThat({ ...FAILURE, failureCause: "provider_unavailable", message: "x" }),
+      provider: "gemini",
+      listModels: async () => ["gemini-2.5-flash", "gemini-2.5-pro"],
+    });
+
+    if (outcome.kind !== "failed") throw new Error("atteso fallimento");
+    expect(outcome.availableModels).toEqual(["gemini-2.5-flash", "gemini-2.5-pro"]);
+  });
+
+  it("non spende una chiamata in più quando l'elenco non cambierebbe la risposta", async () => {
+    /*
+     * Su una chiave rifiutata la sonda fallirebbe per la stessa ragione, e su
+     * una quota esaurita confermerebbe ciò che già si sa. In entrambi i casi
+     * sarebbe una chiamata al fornitore per niente.
+     */
+    let asked = 0;
+    const listModels = async () => {
+      asked += 1;
+      return ["gemini-2.5-flash"];
+    };
+
+    await checkModel({
+      gateway: gatewayThat({ ...FAILURE, failureCause: "provider_not_configured", message: "x" }),
+      provider: "gemini",
+      listModels,
+    });
+
+    await checkModel({
+      gateway: gatewayThat({ ...FAILURE, failureCause: "rate_limited", message: "x" }),
+      provider: "gemini",
+      listModels,
+    });
+
+    expect(asked).toBe(0);
+  });
+
+  it("resta senza elenco, invece di fallire, se la sonda non risponde", async () => {
+    // La prova ha già il suo esito: un elenco è un di più, e trasformare la sua
+    // assenza in un errore direbbe a chi legge che è andata peggio di com'è andata.
+    const outcome = await checkModel({
+      gateway: gatewayThat({ ...FAILURE, failureCause: "provider_unavailable", message: "x" }),
+      provider: "gemini",
+      listModels: async () => {
+        throw new Error("403");
+      },
+    });
+
+    if (outcome.kind !== "failed") throw new Error("atteso fallimento");
+    expect(outcome.availableModels).toEqual([]);
+    expect(outcome.message).toContain("Modello");
+  });
+
   it("dice che la chiave funziona quando il problema è la quota", async () => {
     // Il caso in cui la risposta giusta è «non toccare niente». Suggerire di
     // ricontrollare la chiave manderebbe a cercare un guasto che non c'è.
