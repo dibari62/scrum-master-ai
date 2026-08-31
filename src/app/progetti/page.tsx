@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { organizationIdSchema } from "@/domain";
 import { auth } from "@/lib/auth";
+import { mayCreateProject } from "@/lib/projects/create";
 
-import { loadProjects } from "./data";
+import { ProjectList, ProjectListFallback } from "./project-list";
 
 export const metadata: Metadata = {
   title: "Progetti · Scrum Master AI",
@@ -28,48 +24,55 @@ export default async function ProjectsPage() {
   if (!session) redirect("/accedi");
   if (!session.organizationId) redirect("/organizzazione");
 
-  const projects = await loadProjects(organizationIdSchema.parse(session.organizationId));
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+
+  /*
+   * Il pulsante compare solo a chi può usarlo, e questo non è il controllo.
+   *
+   * L'autorizzazione vera sta nella server action, dentro `createProject`: qui
+   * si decide soltanto se offrire un comando che funzionerebbe. Un pulsante che
+   * porta a un rifiuto insegna a diffidare dei pulsanti.
+   */
+  const canCreate = mayCreateProject(session.role);
 
   return (
     <main className="mx-auto grid max-w-3xl gap-6 px-6 py-12">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Progetti</h1>
-        <p className="text-muted-foreground text-sm">
-          Ogni progetto ha i propri sprint, il proprio flusso e le proprie metriche.
-        </p>
+      {/*
+       * Intestazione e comando insieme, e il comando resta al suo posto anche
+       * quando l'elenco è vuoto: è proprio lì che serve, perché quella è la
+       * schermata di chi non ha ancora nulla.
+       *
+       * `flex-wrap` con il pulsante a larghezza piena sotto i 640 pixel: su
+       * telefono affiancarlo al titolo lo stringerebbe fino a spezzarne il
+       * testo.
+       */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="grid gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Progetti</h1>
+          <p className="text-muted-foreground text-sm">
+            Ogni progetto ha i propri sprint, il proprio flusso e le proprie metriche.
+          </p>
+        </div>
+
+        {canCreate ? (
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/progetti/crea">Nuovo progetto</Link>
+          </Button>
+        ) : null}
       </header>
 
-      {projects.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Nessun progetto</CardTitle>
-            <CardDescription>
-              Per popolare un progetto con una storia sintetica esegui{" "}
-              <code className="font-mono text-xs">npm run seed</code>.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <ul className="grid gap-3">
-          {projects.map((project) => (
-            <li key={project.id}>
-              <Link href={`/progetti/${project.slug}`} className="block">
-                <Card className="transition-colors hover:border-foreground/30">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{project.name}</CardTitle>
-                    <CardDescription>
-                      {project.description ?? "Nessuna descrizione."}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-muted-foreground font-mono text-xs">
-                    {project.slug}
-                  </CardContent>
-                </Card>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/*
+       * `Suspense` delimita l'attesa alla sola parte che legge dal database.
+       *
+       * È il meccanismo con cui React mostra un segnaposto mentre un pezzo di
+       * pagina è ancora in arrivo: l'intestazione e il pulsante qui sopra sono
+       * già visibili e già utilizzabili mentre l'elenco viaggia. Il database sul
+       * piano gratuito si addormenta, e la prima richiesta dopo un'ora di quiete
+       * paga il risveglio.
+       */}
+      <Suspense fallback={<ProjectListFallback />}>
+        <ProjectList organizationId={organizationId} canCreate={canCreate} />
+      </Suspense>
 
       <p className="text-muted-foreground text-sm">
         <Link href="/organizzazione" className="underline underline-offset-4">
