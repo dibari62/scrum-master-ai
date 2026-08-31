@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/format";
 import { loadSettings } from "./data";
 import { CalendarForm } from "./calendar-form";
 import { IdentityForm } from "./identity-form";
+import { ModelTestPanel } from "./model-test-panel";
 import { SettingsSections } from "./sections";
 import { SettingsForm } from "./settings-form";
 import { SyncPanel } from "./sync-panel";
@@ -140,12 +141,19 @@ export default async function ImpostazioniPage({ params, searchParams }: PagePro
               label: "Modello",
               hint: describeBrainShort(settings.brainProvider, brainReadyNow),
               content: (
-                <SettingsForm
-                  slug={project.slug}
-                  settings={settings}
-                  custody={custody}
-                  sezione="modello"
-                />
+                <>
+                  <ModelTestPanel
+                    slug={project.slug}
+                    provider={settings.brainProvider}
+                    ready={brainReadyNow || settings.brainProvider === "fake"}
+                  />
+                  <SettingsForm
+                    slug={project.slug}
+                    settings={settings}
+                    custody={custody}
+                    sezione="modello"
+                  />
+                </>
               ),
             },
           ]}

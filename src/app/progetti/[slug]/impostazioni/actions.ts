@@ -7,6 +7,8 @@ import { organizationIdSchema, projectIdSchema } from "@/domain";
 import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings, writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
+import { gatewayForProject } from "@/lib/agents/project-gateway";
+import { checkModel } from "@/lib/projects/model-check";
 import {
   mayConfigureSettings,
   parseCalendarForm,
@@ -68,6 +70,19 @@ export type SyncFormState =
   | { readonly status: "idle" }
   | { readonly status: "error"; readonly message: string }
   | { readonly status: "done"; readonly message: string; readonly at: string };
+
+/**
+ * L'esito di una prova di connessione al modello.
+ *
+ * `skipped` è uno stato a sé e non un errore: il fornitore dimostrativo non ha
+ * un collegamento da provare, e chiamarlo fallimento suggerirebbe che ci sia
+ * qualcosa da riparare in una scelta perfettamente legittima.
+ */
+export type ModelTestState =
+  | { readonly status: "idle" }
+  | { readonly status: "error"; readonly message: string }
+  | { readonly status: "skipped"; readonly message: string }
+  | { readonly status: "done"; readonly message: string; readonly reply: string };
 
 export async function saveSettingsAction(
   _previous: SettingsFormState,
@@ -400,5 +415,81 @@ export async function synchroniseAction(
     status: "done",
     message: describeReport(outcome.report, outcome.diagnosis),
     at: outcome.at.toISOString(),
+  };
+}
+
+/**
+ * «Prova la connessione»: una chiamata sola, per sapere se la chiave funziona.
+ *
+ * **Perché non riusa il pulsante che esiste già.** Nel diario dello Scrum
+ * Master AI c'è «Prova il collegamento», che fa una cosa simile — ma pretende
+ * che l'agente sia già stato creato, e sta due schermate più in là di dove si
+ * incolla la chiave. Chi ha appena salvato una credenziale vuole saperlo lì e
+ * subito, senza prima creare un agente per scoprire di avere sbagliato a
+ * incollare.
+ *
+ * **Questa esecuzione non finisce nel registro**, e va detto perché è una
+ * deroga: il registro tiene le esecuzioni di un agente, e qui un agente può non
+ * esistere. Il costo non sparisce, però — viene mostrato nella risposta, che è
+ * l'unico posto dove serva a qualcosa.
+ */
+export async function testModelAction(
+  _previous: ModelTestState,
+  form: FormData,
+): Promise<ModelTestState> {
+  const session = await auth();
+  if (!session?.organizationId) redirect("/accedi");
+
+  const slug = form.get("slug");
+  if (typeof slug !== "string") {
+    return { status: "error", message: "Progetto non indicato." };
+  }
+
+  /*
+   * Lo stesso controllo di ruolo della lettura, e per la stessa ragione: la
+   * prova spende, poco ma spende, sulla chiave di qualcun altro.
+   */
+  if (!mayConfigureSettings(session.role)) {
+    return {
+      status: "error",
+      message: "Solo il proprietario o un amministratore può provare il collegamento.",
+    };
+  }
+
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const db = getDatabase();
+  const scope = forOrganization(db, organizationId);
+
+  const [project] = await scope.reads.projectBySlug(slug);
+  if (!project) return { status: "error", message: "Progetto non trovato." };
+
+  const projectId = projectIdSchema.parse(project.id);
+  const settings = await readProjectSettings(organizationId, projectId, db);
+
+  const outcome = await checkModel({
+    gateway: await gatewayForProject(organizationId, projectId),
+    provider: settings.brainProvider,
+  });
+
+  if (outcome.kind === "fake") {
+    return {
+      status: "skipped",
+      message:
+        "Questo progetto usa il modello dimostrativo, che risponde sempre e non chiama nessuno: " +
+        "non c'è un collegamento da provare. I numeri restano veri comunque — cambia solo chi li racconta.",
+    };
+  }
+
+  if (outcome.kind === "failed") {
+    return { status: "error", message: outcome.message };
+  }
+
+  return {
+    status: "done",
+    message:
+      `Ha risposto ${outcome.provider} con il modello ${outcome.model}, ` +
+      `in ${(outcome.durationMs / 1000).toFixed(1)} secondi. Costo stimato: ` +
+      `${outcome.costUsd < 0.0001 ? "meno di un decimo di millesimo di dollaro" : `${outcome.costUsd.toFixed(4)} dollari`}.`,
+    reply: outcome.reply,
   };
 }
