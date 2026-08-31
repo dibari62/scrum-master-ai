@@ -49,23 +49,28 @@ export async function createProjectAction(
   if (!outcome.ok) return creationFailureState(outcome.reason, parsed.values);
 
   /*
-   * L'elenco viene rigenerato prima di tornarci.
+   * L'elenco viene rigenerato anche se non ci si torna.
    *
    * `revalidatePath` dice a Next che la versione già calcolata di quella pagina
-   * non vale più. Senza, chi ha appena creato un progetto potrebbe atterrare su
-   * un elenco che non lo contiene — e un progetto che non compare subito dopo
-   * essere stato creato si legge come un comando che non ha funzionato.
+   * non vale più. Senza, chi torna all'elenco dal menù troverebbe un elenco che
+   * non contiene il progetto appena creato — e un progetto che non compare si
+   * legge come un comando che non ha funzionato.
    */
   revalidatePath("/progetti");
 
   /*
-   * Si torna all'elenco, non alla dashboard del progetto appena creato.
+   * Si va sulla dashboard del progetto nuovo, non sull'elenco.
    *
-   * La dashboard di un progetto senza dati è una pagina di «non disponibile»:
-   * corretta, e indistinguibile da un guasto per chi la vede come prima
-   * schermata. L'elenco invece mostra il progetto appena creato accanto agli
-   * altri, che è la conferma che si stava cercando, e da lì la dashboard è a un
-   * clic.
+   * **Questa decisione era l'opposto fino a poco fa**, e la ragione era buona:
+   * la dashboard di un progetto vuoto mostrava nove metriche a trattino, il che
+   * è corretto e indistinguibile da un guasto per chi la vede come prima
+   * schermata.
+   *
+   * Quella dashboard adesso apre con i **primi passi** — cosa manca, a che cosa
+   * serve, e il collegamento per farlo — quindi la causa non c'è più. E
+   * atterrare nel progetto appena creato è ciò che chi ha premuto «Crea» si
+   * aspetta: l'elenco gli mostrava una riga in più e lo lasciava a chiedersi
+   * cosa fare adesso.
    */
-  redirect("/progetti");
+  redirect(`/progetti/${parsed.data.slug}`);
 }

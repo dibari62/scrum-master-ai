@@ -16,14 +16,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { organizationIdSchema, type HealthVerdict } from "@/domain";
+import { forOrganization, getDatabase } from "@/db";
+import { readProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
+import { onboardingFromSettings } from "@/lib/projects/onboarding";
 import { available } from "@/metrics";
 
 import { loadProjectDashboard, type SprintMetrics } from "../data";
 import { HealthNarration } from "./health-narration";
 import { DailyDigest } from "./daily-digest";
 import { ForecastTable } from "./forecast-table";
+import { NextSteps } from "./next-steps";
 import {
   presentBurndown,
   presentCount,
@@ -123,6 +127,31 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
 
   const { project, sprints, current, flow, wip } = dashboard;
 
+  /*
+   * Che cosa manca al progetto, letto accanto ai dati della dashboard.
+   *
+   * Due letture in più su una pagina che ne fa già molte, e valgono il costo:
+   * senza, un progetto appena creato mostra nove metriche vuote e nessuna
+   * indicazione su come riempirle.
+   */
+  const organizationId = organizationIdSchema.parse(session.organizationId);
+  const scope = forOrganization(getDatabase(), organizationId);
+
+  const [settings, agents] = await Promise.all([
+    readProjectSettings(organizationId, project.id),
+    scope.reads.scrumAgentByProject(project.id),
+  ]);
+
+  const nextSteps = onboardingFromSettings({
+    slug: project.slug,
+    connector: settings.connector,
+    connectorConfig: settings.connectorConfig,
+    connectorSecretConfigured: settings.connectorSecret.configured,
+    brainProvider: settings.brainProvider,
+    brainKeyConfigured: settings.brainApiKey.configured,
+    hasAgent: agents.length > 0,
+  });
+
   const velocityBars: readonly Bar[] = sprints.map((entry) => ({
     label: sprintLabel(entry),
     value: entry.velocity.available ? (entry.velocity.value.points ?? null) : null,
@@ -213,6 +242,18 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
           </Button>
         </div>
       </header>
+
+      {/*
+       * I primi passi stanno sopra il semaforo, e solo finché servono.
+       *
+       * Su un progetto senza dati tutto ciò che segue è vuoto — correttamente,
+       * ma in un modo indistinguibile da un guasto. Questa sezione è l'unica
+       * che dice **cosa fare**, quindi finché il progetto non ha una fonte
+       * dati è la sola che valga la pena leggere per prima.
+       *
+       * Quando non resta alcun passo non rende nulla, e la pagina torna com'era.
+       */}
+      <NextSteps state={nextSteps} />
 
       {/*
        * Il semaforo sta in cima, e non è una preferenza di impaginazione.
