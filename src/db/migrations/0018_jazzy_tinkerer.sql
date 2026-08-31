@@ -1,0 +1,2 @@
+CREATE TYPE "public"."sync_schedule" AS ENUM('manual', 'hourly', 'every-4-hours', 'daily');--> statement-breakpoint
+ALTER TABLE "project_settings" ADD COLUMN "sync_schedule" "sync_schedule" DEFAULT 'manual' NOT NULL;

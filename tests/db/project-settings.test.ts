@@ -79,6 +79,7 @@ function storedRow(overrides: Record<string, unknown> = {}) {
     brainApiKey: null,
     brainApiKeyUpdatedAt: null,
     lastSyncedAt: new Date("2026-08-31T12:33:00.000Z"),
+    syncSchedule: "manual",
     createdAt: new Date("2026-08-30T10:00:00.000Z"),
     updatedAt: new Date("2026-08-30T10:00:00.000Z"),
     ...overrides,
@@ -184,5 +185,30 @@ describe("il cursore delle letture", () => {
     const values = await save({ brainProvider: "gemini", brainModel: "gemini-2.0-flash" });
 
     expect(values["lastSyncedAt"]).toBeUndefined();
+  });
+
+  it("resta dov'è quando si cambia solo la frequenza della rilettura", async () => {
+    /*
+     * Cambiare ritmo non è cambiare posto.
+     *
+     * Passare da «ogni ora» a «una volta al giorno» non rende incompleto nulla
+     * di ciò che è già stato letto: azzerare il cursore qui costringerebbe a
+     * una rilettura completa a ogni ripensamento, cioè a pagare la storia
+     * intera sulla quota del cliente per aver cambiato idea su un menu.
+     */
+    const values = await save({ syncSchedule: "daily" });
+
+    expect(values["syncSchedule"]).toBe("daily");
+    expect(values["lastSyncedAt"]).toBeUndefined();
+  });
+
+  it("conserva la frequenza quando il salvataggio non la nomina", async () => {
+    // Un invio che parla solo del token non deve spegnere l'automatismo.
+    const values = await save(
+      { connectorSecret: "token-nuovo" },
+      storedRow({ syncSchedule: "hourly" }),
+    );
+
+    expect(values["syncSchedule"]).toBe("hourly");
   });
 });

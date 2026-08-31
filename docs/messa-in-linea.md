@@ -418,6 +418,31 @@ Per fermarlo:
 npm run qstash -- delete <scheduleId>
 ```
 
+### Passo 3 — registrare la rilettura da Jira
+
+Il secondo job, e quello che il Product Owner nota davvero: senza, i dati
+cambiano solo quando qualcuno preme «Leggi ora».
+
+```powershell
+npm run qstash -- create https://scrum-master-ai-swart.vercel.app/api/jobs/sync-projects "0 * * * *"
+```
+
+**Ogni ora, e non è la frequenza con cui si legge un progetto.** Questo timer
+sveglia il portale; è il portale a decidere quali progetti siano scaduti,
+guardando la frequenza scelta su ciascuno nella scheda «Dati». Un progetto
+impostato su «una volta al giorno» viene letto una volta al giorno anche se il
+timer suona ventiquattro volte.
+
+> **Perché un timer solo invece di uno per progetto.** Con un'iscrizione per
+> progetto la frequenza vivrebbe in due posti — nel portale e su QStash — e il
+> giorno in cui qualcuno la cambia dall'interfaccia il servizio esterno
+> resterebbe indietro senza che nulla lo segnali. Un solo timer e la decisione
+> nel codice: la schermata è l'unica fonte di verità.
+
+Il predefinito di ogni progetto è **`manual`**, quindi accendere questo job non
+fa partire alcuna lettura finché qualcuno non sceglie una frequenza. È voluto:
+la quota di chiamate a Jira è del cliente.
+
 ### Verificare senza aspettare domani
 
 ```powershell
@@ -428,6 +453,17 @@ node -e "process.loadEnvFile('.env.local'); fetch('https://scrum-master-ai-swart
 Risponde con quanti progetti ha esaminato e quanti giudizi ha scritto. Due
 esecuzioni nello stesso giorno lasciano **una** riga: un grafico con due punti
 sullo stesso giorno suggerirebbe una variazione che non c'è stata.
+
+Per la rilettura da Jira, lo stesso con l'altro indirizzo:
+
+```powershell
+node -e "process.loadEnvFile('.env.local'); fetch('https://scrum-master-ai-swart.vercel.app/api/jobs/sync-projects',{method:'POST',headers:{authorization:'Bearer '+process.env.JOB_SECRET}}).then(r=>r.json()).then(console.log)"
+```
+
+Risponde con quanti progetti ha guardato, quanti erano **scaduti**, quante righe
+sono entrate e quanti hanno fallito. Su un'installazione in cui nessuno ha ancora
+scelto una frequenza, `projectsDue` vale `0` — e non è un guasto: è il
+predefinito che fa il suo mestiere.
 
 Senza il segreto, o con quello sbagliato, risponde `401` e non scrive nulla.
 
