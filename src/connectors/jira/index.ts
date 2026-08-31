@@ -95,5 +95,5 @@ export { translateSnapshot } from "./translate";
 export type { TranslationResult } from "./translate";
 export { jiraSnapshotSchema } from "./types";
 export type { JiraSnapshot } from "./types";
-export { createJiraReader } from "./client";
-export type { JiraCredentials, JiraReaderOptions } from "./client";
+export { createJiraProbe, createJiraReader } from "./client";
+export type { JiraCredentials, JiraProjectSummary, JiraReaderOptions } from "./client";

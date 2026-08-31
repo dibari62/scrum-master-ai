@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createJiraReader, type JiraCredentials } from "@/connectors/jira/client";
+import { createJiraProbe, createJiraReader, type JiraCredentials } from "@/connectors/jira/client";
 import { jiraConfigSchema } from "@/connectors/jira";
 import { organizationIdSchema, projectIdSchema } from "@/domain";
 
@@ -183,6 +183,77 @@ describe("client Jira — che cosa chiede", () => {
     });
 
     await read(OPTIONS);
+
+    expect(authorization).toBe(
+      `Basic ${Buffer.from("chi@example.invalid:token-finto", "utf8").toString("base64")}`,
+    );
+  });
+});
+
+describe("client Jira — la sonda sui progetti visibili", () => {
+  it("chiede i progetti che l'account vede, e ne riporta chiave e nome", async () => {
+    /*
+     * A che cosa serve, e perché è una funzione a parte.
+     *
+     * Una lettura può riuscire e non portare elementi, e da quel fatto solo le
+     * tre cause possibili sono indistinguibili. Questa domanda le separa: se la
+     * chiave configurata è nell'elenco la chiave è giusta, se non c'è ma altre
+     * sì la chiave è sbagliata e sappiamo quali sono quelle buone, se l'elenco
+     * è vuoto il problema è il permesso.
+     */
+    const calls: string[] = [];
+
+    const probe = createJiraProbe({
+      config: CONFIG,
+      credentials: CREDENTIALS,
+      httpFetch: (async (input: string | URL | Request) => {
+        calls.push(String(input));
+        return reply({
+          values: [
+            { key: "SCRUM", name: "Team Conqueriors" },
+            { key: "OPS", name: "Operazioni" },
+          ],
+        });
+      }) as typeof fetch,
+      sleep: async () => undefined,
+    });
+
+    const projects = await probe();
+
+    expect(calls[0]).toContain("/rest/api/3/project/search");
+    expect(projects.map((project) => project.key)).toEqual(["SCRUM", "OPS"]);
+    expect(projects[0]?.name).toBe("Team Conqueriors");
+  });
+
+  it("risponde con un elenco vuoto quando l'account non vede nulla", async () => {
+    // Non è un errore: è un fatto, ed è il fatto che distingue «permesso
+    // mancante» da «chiave sbagliata».
+    const probe = createJiraProbe({
+      config: CONFIG,
+      credentials: CREDENTIALS,
+      httpFetch: (async () => reply({ values: [] })) as typeof fetch,
+      sleep: async () => undefined,
+    });
+
+    expect(await probe()).toEqual([]);
+  });
+
+  it("si autentica come il lettore, con la stessa coppia indirizzo e token", async () => {
+    // Se la sonda si autenticasse diversamente risponderebbe a una domanda
+    // diversa da quella che interessa: cosa vede *questo* token.
+    let authorization: string | null = null;
+
+    const probe = createJiraProbe({
+      config: CONFIG,
+      credentials: CREDENTIALS,
+      httpFetch: (async (_input: string | URL | Request, init?: RequestInit) => {
+        authorization = new Headers(init?.headers).get("Authorization");
+        return reply({ values: [] });
+      }) as typeof fetch,
+      sleep: async () => undefined,
+    });
+
+    await probe();
 
     expect(authorization).toBe(
       `Basic ${Buffer.from("chi@example.invalid:token-finto", "utf8").toString("base64")}`,

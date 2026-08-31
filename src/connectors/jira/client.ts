@@ -88,6 +88,38 @@ const paginatedSchema = z.object({
 });
 
 export function createJiraReader(options: JiraReaderOptions): SnapshotReader {
+  const get = createTransport(options);
+
+  return async (fetchOptions: FetchOptions): Promise<JiraSnapshot> => {
+    const fields = z
+      .array(jiraFieldSchema)
+      .parse(await get("/rest/api/3/field"))
+      .map((field) => ({ id: field.id, name: field.name }));
+
+    const sprintFieldId = fields.find((field) => field.name === "Sprint")?.id ?? null;
+
+    const board = z
+      .object({ name: z.string().min(1).default("Board") })
+      .parse(await get(`/rest/agile/1.0/board/${options.config.boardId}`));
+
+    const sprints = await readAllPages(get, (startAt) =>
+      `/rest/agile/1.0/board/${options.config.boardId}/sprint?startAt=${startAt}&maxResults=${PAGE_SIZE}`,
+    ).then((values) => values.map((value) => jiraSprintSchema.parse(value)));
+
+    const issues = await readIssues(get, options.config, fetchOptions, sprintFieldId);
+
+    return { boardName: board.name, fields, sprints, issues: [...issues] };
+  };
+}
+
+/**
+ * Authentication, retry and error context — the part every call shares.
+ *
+ * Estratto perché ora esiste un secondo lettore (la sonda qui sotto) e le due
+ * cose che vanno bene una volta sola sono l'intestazione di autenticazione e il
+ * modo di comportarsi davanti a un `429`.
+ */
+function createTransport(options: JiraReaderOptions): (path: string) => Promise<unknown> {
   const httpFetch = options.httpFetch ?? fetch;
   const sleep =
     options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
@@ -99,7 +131,7 @@ export function createJiraReader(options: JiraReaderOptions): SnapshotReader {
 
   const base = options.config.siteUrl.replace(/\/+$/, "");
 
-  async function get(path: string): Promise<unknown> {
+  return async function get(path: string): Promise<unknown> {
     for (let attempt = 1; ; attempt += 1) {
       const response = await httpFetch(`${base}${path}`, {
         headers: { Authorization: authorization, Accept: "application/json" },
@@ -121,27 +153,53 @@ export function createJiraReader(options: JiraReaderOptions): SnapshotReader {
 
       return response.json();
     }
-  }
+  };
+}
 
-  return async (fetchOptions: FetchOptions): Promise<JiraSnapshot> => {
-    const fields = z
-      .array(jiraFieldSchema)
-      .parse(await get("/rest/api/3/field"))
-      .map((field) => ({ id: field.id, name: field.name }));
+/** Un progetto come lo vede l'account del token: quel tanto che basta a nominarlo. */
+export type JiraProjectSummary = {
+  readonly key: string;
+  readonly name: string;
+};
 
-    const sprintFieldId = fields.find((field) => field.name === "Sprint")?.id ?? null;
+const projectSummarySchema = z.object({
+  key: z.string().min(1),
+  name: z.string().min(1).default("(senza nome)"),
+});
 
-    const board = z
-      .object({ name: z.string().min(1).default("Board") })
-      .parse(await get(`/rest/agile/1.0/board/${options.config.boardId}`));
+/**
+ * Quali progetti vede l'account del token.
+ *
+ * **Perché esiste.** Una lettura può riuscire e riportare zero elementi di
+ * lavoro, e da quel solo fatto le tre cause possibili — progetto vuoto, chiave
+ * sbagliata, account che non vede il progetto — sono indistinguibili. Questa
+ * domanda le separa: se la chiave configurata compare nell'elenco, la chiave è
+ * giusta e il progetto è verosimilmente vuoto; se non compare ma altre sì, la
+ * chiave è sbagliata **e sappiamo quali sono quelle buone**; se l'elenco è
+ * vuoto, il permesso è il problema.
+ *
+ * **È una lettura, e resta separata dal lettore principale**: non deve costare
+ * nulla a chi sta leggendo un progetto che funziona, e un suo fallimento non
+ * deve poter rovinare una sincronizzazione già riuscita.
+ */
+export function createJiraProbe(
+  options: JiraReaderOptions,
+): () => Promise<readonly JiraProjectSummary[]> {
+  const get = createTransport(options);
 
-    const sprints = await readAllPages(get, (startAt) =>
-      `/rest/agile/1.0/board/${options.config.boardId}/sprint?startAt=${startAt}&maxResults=${PAGE_SIZE}`,
-    ).then((values) => values.map((value) => jiraSprintSchema.parse(value)));
+  return async () => {
+    /*
+     * Una pagina sola, di proposito.
+     *
+     * Serve a nominare le chiavi in un messaggio d'errore, non a fare un
+     * inventario: chi ha più di cento progetti su un sito non risolve il proprio
+     * dubbio leggendo un elenco di cento nomi.
+     */
+    const page = z
+      .object({ values: z.array(z.unknown()).nullish() })
+      .parse(await get(`/rest/api/3/project/search?maxResults=${PAGE_SIZE}&orderBy=key`));
 
-    const issues = await readIssues(get, options.config, fetchOptions, sprintFieldId);
-
-    return { boardName: board.name, fields, sprints, issues: [...issues] };
+    return (page.values ?? []).map((value) => projectSummarySchema.parse(value));
   };
 }
 
