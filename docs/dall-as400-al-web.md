@@ -100,6 +100,115 @@ dubbio.
 
 ---
 
+## 4.bis `npm run <qualcosa>`: i comandi del progetto
+
+Questa notazione compare ovunque — in questo documento, nelle guide, nei
+messaggi degli agenti — e finora **non era spiegata da nessuna parte**. È il
+tipo di omissione che rende una documentazione inutile proprio a chi ne ha più
+bisogno.
+
+### Che cos'è
+
+`package.json` ha una sezione `"scripts"`: un **elenco di comandi con un nome
+breve**. Per esempio:
+
+```json
+"scripts": {
+  "verify": "npm run typecheck && npm run lint && npm run test",
+  "chiave":  "node scripts/genera-chiave.mjs",
+  "libro":   "node scripts/book-progress.mjs"
+}
+```
+
+`npm run chiave` significa: *«cerca `chiave` in quell'elenco ed esegui ciò che
+c'è scritto accanto»*. Niente di più. È una **scorciatoia con un nome
+leggibile** al posto di una riga di comando lunga e facile da sbagliare.
+
+### Il ponte con l'AS/400
+
+Il parallelo più vicino è un **membro CLP** che raccoglie una sequenza di
+comandi e si lancia per nome. `package.json` è l'elenco di quei membri, e
+`npm run` è il `CALL`.
+
+Il paragone però **si ferma prima di quanto sembri**, e vale la pena dire dove:
+
+| AS/400 | Qui |
+|---|---|
+| il CLP va **compilato** (`CRTCLPGM`) prima di girare | nessuna compilazione: si esegue il testo com'è |
+| il comando diventa un **oggetto** nella libreria | resta una riga in un file di testo versionato |
+| `DSPOBJD` mostra cosa esiste | l'elenco si legge aprendo `package.json` |
+
+Il fatto che sia un file di testo versionato è la parte che conta: quando
+qualcuno aggiunge un comando, arriva a tutti con il prossimo `git pull`. Non
+c'è nulla da installare.
+
+### Dove si scrive
+
+Nel **terminale di VS Code**: menù *Terminale → Nuovo terminale*, oppure
+`Ctrl+ò`. Si apre un riquadro in basso, e la posizione corrente è già la
+cartella del progetto — che è la condizione perché `npm` trovi `package.json`.
+
+È l'equivalente della riga comandi di un'emulazione 5250, con una differenza:
+qui non c'è `F4` per chiedere i parametri. Un comando si scrive per intero, e se
+sbagli il nome `npm` risponde con l'elenco di quelli che esistono.
+
+### Come si scopre cosa esiste
+
+```powershell
+npm run
+```
+
+Senza altro. Stampa **tutti** i comandi disponibili con la riga che eseguono. È
+il `WRKOBJ` di questo mondo, e conviene lanciarlo ogni tanto: l'elenco cresce.
+
+I principali di questo progetto:
+
+| Comando | Cosa fa |
+|---|---|
+| `npm run verify` | controlla tipi, stile, test e confini. **Deve passare prima di considerare finito un lavoro** |
+| `npm run dev` | avvia l'applicazione sul tuo PC, su `http://localhost:3000` |
+| `npm run chiave` | genera una chiave di custodia e la mette negli **appunti** |
+| `npm run libro` | quanto del libro *Scrum and XP from the Trenches* è implementato |
+| `npm run seed` | carica i dati di esempio |
+
+### Il trattino doppio
+
+Alcuni comandi accettano opzioni, e la notazione è insolita:
+
+```powershell
+npm run chiave -- --mostra
+```
+
+Il `--` isolato serve a dire a `npm`: *«quello che segue non è per te, passalo
+al comando»*. Senza, `npm` proverebbe a interpretare `--mostra` come una propria
+opzione e non lo capirebbe.
+
+### Che cosa fa `npm run chiave`
+
+Genera 32 byte casuali, li codifica in base64 — 44 caratteri — e li mette negli
+**appunti del sistema**, quelli di `Ctrl+V`.
+
+**Non li stampa a schermo, e non è pignoleria.** Un segreto stampato resta nella
+cronologia del terminale, nello scrollback, e — quando alla tastiera c'è un
+assistente — nella trascrizione di una conversazione inviata a terzi. Passare
+dagli appunti è l'unico modo perché il valore vada dal punto in cui nasce al
+punto in cui serve senza lasciare copie.
+
+Il comando conferma **la forma** di ciò che ha generato, così sai che negli
+appunti c'è finito qualcosa di sensato:
+
+```
+Chiave di custodia generata.
+  forma:         44 caratteri base64 = 32 byte
+  attesa:        44 caratteri = 32 byte
+  negli appunti: sì
+```
+
+Poi stampa dove incollarla. Se il valore vuoi vederlo — è tuo, ne hai diritto —
+`npm run chiave -- --mostra`.
+
+---
+
 ## 5. Il database
 
 | AS/400 | Qui |

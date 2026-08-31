@@ -101,6 +101,15 @@ Il ciclo tipico: `product-analyst` → `architect` → implementazione →
 
 ## Comandi
 
+> **`npm run <nome>` è una scorciatoia**, non un comando di sistema.
+> `package.json` contiene un elenco di comandi con un nome breve, e `npm run`
+> esegue quello che gli corrisponde. Si scrive nel terminale di VS Code
+> (*Terminale → Nuovo terminale*), e `npm run` **senza argomenti** stampa tutti
+> quelli disponibili.
+>
+> Il concetto è spiegato per esteso, con il ponte verso l'AS/400, in
+> [`docs/dall-as400-al-web.md`](docs/dall-as400-al-web.md) §4.bis.
+
 ```bash
 npm run verify        # typecheck + lint + test + confini — il contratto di "fatto"
 npm run dev           # sviluppo locale
@@ -108,6 +117,8 @@ npm run build         # build di produzione
 npm run test          # test unitari e di integrazione
 npm run test:e2e      # test end-to-end su Chrome        (richiede RUN_E2E=1)
 npm run eval          # valutazione degli output LLM, richiede una chiave (T4)
+npm run chiave        # genera SECRETS_KEY e la mette negli appunti
+npm run libro         # quanto del libro è implementato
 npm run db:generate   # genera una migrazione dallo schema
 npm run db:migrate    # applica le migrazioni
 npm run db:inspect    # cosa c'è davvero nel database — sola lettura
@@ -115,6 +126,10 @@ npm run seed          # prova a vuoto: mostra cosa farebbe
 npm run seed -- --conferma   # scrive davvero
 npm run boundaries    # verifica i confini architetturali
 ```
+
+> **Il `--` isolato** dice a `npm`: «quello che segue non è per te, passalo al
+> comando». Senza, `npm` proverebbe a interpretare `--conferma` come una propria
+> opzione.
 
 Strumenti per lavorare in questo ambiente, documentati in
 [`docs/ripartire-da-zero.md`](docs/ripartire-da-zero.md):
