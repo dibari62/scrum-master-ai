@@ -392,7 +392,7 @@ export async function synchroniseAction(
 
   return {
     status: "done",
-    message: describeReport(outcome.report),
+    message: describeReport(outcome.report, outcome.diagnosis),
     at: outcome.at.toISOString(),
   };
 }

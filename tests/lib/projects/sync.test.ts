@@ -209,3 +209,84 @@ describe("come si racconta una lettura", () => {
     expect(testo).not.toContain("_");
   });
 });
+
+describe("quando una lettura riuscita non porta elementi, e si sa perché", () => {
+  /*
+   * La differenza fra un elenco di ipotesi e una risposta.
+   *
+   * Fino a ieri il portale poteva solo dire «è una di tre cose». Sono
+   * distinguibili, però, e la domanda che le distingue è una sola: quali
+   * progetti vede l'account del token.
+   */
+  const REPORT = { counts: { board: 1, sprint: 1 }, total: 2 };
+
+  it("dice quale chiave è sbagliata e quali sarebbero giuste", () => {
+    // Sapere che la chiave è sbagliata senza sapere quale sia quella buona
+    // lascia esattamente dove si era.
+    const testo = describeReport(REPORT, {
+      kind: "key-not-visible",
+      configured: "PIER",
+      visible: ["SCRUM", "OPS"],
+    });
+
+    expect(testo).toContain("PIER");
+    expect(testo).toContain("SCRUM, OPS");
+    expect(testo).toContain("Chiave del progetto");
+  });
+
+  it("distingue «configurazione giusta, progetto vuoto» da un errore", () => {
+    /*
+     * È il caso di uno spazio Jira appena creato: la board esiste, lo sprint
+     * esiste, i ticket no. Chiamarlo problema manderebbe a cercare un guasto
+     * dove c'è solo un progetto che non è ancora cominciato.
+     */
+    const testo = describeReport(REPORT, { kind: "key-visible", configured: "SCRUM" });
+
+    expect(testo).toContain("è corretta");
+    expect(testo).toContain("non contiene ancora alcun ticket");
+    expect(testo).not.toContain("una di tre cose");
+  });
+
+  it("non chiama sintomo ciò che è la risposta normale a una lettura incrementale", () => {
+    // «Che cosa è cambiato da allora?» «Niente.» Non c'è nulla da riparare.
+    const testo = describeReport(REPORT, {
+      kind: "incremental-window",
+      configured: "SCRUM",
+      since: new Date("2026-08-27T08:00:00.000Z"),
+    });
+
+    expect(testo).toContain("è corretta");
+    expect(testo).toContain("niente");
+    expect(testo).not.toContain("non contiene ancora");
+  });
+
+  it("indica il permesso quando l'account non vede alcun progetto", () => {
+    const testo = describeReport(REPORT, { kind: "nothing-visible" });
+
+    expect(testo).toContain("non vede alcun progetto");
+    expect(testo).toContain("altro account");
+  });
+
+  it("torna alle tre ipotesi quando la domanda non ha avuto risposta", () => {
+    // `unknown` non è pigrizia: è il caso in cui la sonda stessa è fallita, e
+    // inventare una certezza manderebbe a cercare nel posto sbagliato.
+    const testo = describeReport(REPORT, { kind: "unknown" });
+
+    expect(testo).toContain("una di tre cose");
+  });
+
+  it("scrive in testo semplice anche nei casi diagnosticati", () => {
+    // Lo stesso vincolo del messaggio base: finisce in un JSX che non
+    // interpreta il markdown.
+    const casi = [
+      describeReport(REPORT, { kind: "key-not-visible", configured: "PIER", visible: ["SCRUM"] }),
+      describeReport(REPORT, { kind: "key-visible", configured: "SCRUM" }),
+      describeReport(REPORT, { kind: "nothing-visible" }),
+    ];
+
+    for (const testo of casi) {
+      expect(testo).not.toContain("*");
+      expect(testo).not.toContain("_");
+    }
+  });
+});
