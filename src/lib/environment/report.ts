@@ -261,6 +261,72 @@ function stateOf(
   return raw ? "present" : "absent";
 }
 
+/**
+ * Le quattro forme in cui si può chiedere la stessa variabile.
+ *
+ * **Perché una misura invece di un altro tentativo.** Su questo guasto si sono
+ * susseguite quattro ipotesi, ognuna plausibile e ognuna smentita dal deploy
+ * successivo. Il costo di sbagliare è alto — un giro completo di build — quindi
+ * qui si chiedono **tutte le forme insieme** e si guarda quale risponde.
+ *
+ * Le forme differiscono solo per quanto un bundler riesce a capirle:
+ *
+ * - `letterale`: `process.env.NOME`, l'unica che Next.js sostituisce a tempo di
+ *   build. Se la variabile non esiste ancora in quel momento, resta il vuoto.
+ * - `oggetto`: `process.env[nome]` con un nome calcolato. Non sostituibile per
+ *   nome, ma `process.env` stesso può essere un oggetto ricostruito dal
+ *   bundler.
+ * - `globale`: lo stesso, raggiunto da `globalThis`. Un bundler non può
+ *   rimpiazzare `globalThis` senza rompere tutto il resto.
+ * - `nomeSpezzato`: il nome composto a runtime, così nessuna analisi statica
+ *   può riconoscerlo.
+ *
+ * Se una risponde e le altre no, il rimedio è scritto nella riga stessa. Se
+ * nessuna risponde, la variabile non raggiunge il processo e il problema è
+ * nella piattaforma, non nel codice.
+ *
+ * **Nessun valore compare**: solo se la lettura ha prodotto qualcosa.
+ */
+export type ReadingProbe = {
+  readonly name: string;
+  readonly letterale: boolean;
+  readonly oggetto: boolean;
+  readonly globale: boolean;
+  readonly nomeSpezzato: boolean;
+};
+
+export function readingProbes(): readonly ReadingProbe[] {
+  const filled = (value: unknown): boolean =>
+    typeof value === "string" && value.trim() !== "";
+
+  const viaGlobal = (name: string): unknown => {
+    const holder = globalThis as unknown as {
+      readonly process?: { readonly env?: Record<string, unknown> };
+    };
+    return holder.process?.env?.[name];
+  };
+
+  const dynamic = process.env as unknown as Record<string, unknown>;
+
+  return [
+    {
+      name: "SECRETS_KEY",
+      letterale: filled(process.env.SECRETS_KEY),
+      oggetto: filled(dynamic["SECRETS_KEY"]),
+      globale: filled(viaGlobal("SECRETS_KEY")),
+      // Composto a runtime: nessuna analisi statica può riconoscerlo.
+      nomeSpezzato: filled(viaGlobal(["SECRETS", "KEY"].join("_"))),
+    },
+    {
+      name: "AUTH_SECRET",
+      letterale: filled(process.env.AUTH_SECRET),
+      oggetto: filled(dynamic["AUTH_SECRET"]),
+      globale: filled(viaGlobal("AUTH_SECRET")),
+      nomeSpezzato: filled(viaGlobal(["AUTH", "SECRET"].join("_"))),
+    },
+  ];
+}
+
 /** Il dettaglio in più per una chiave di custodia incollata male. */
 export function custodyDetail(
   env: Readonly<Record<string, string | undefined>> = processEnvironment(),

@@ -32,26 +32,22 @@ describe("che cosa vede il server", () => {
      * test guarda il sorgente invece del comportamento: in locale le due forme
      * si comportano allo stesso modo.
      *
-     * `bundledEnvironment` è l'eccezione **voluta**: raccoglie proprio i
-     * letterali congelati, per affiancarli a quelli veri e rendere visibile la
-     * differenza. È diagnostica, non lettura.
+     * Due parti del modulo sono **deliberatamente** escluse, e usano proprio i
+     * letterali: `bundledEnvironment`, che li raccoglie per affiancarli ai
+     * valori veri, e `readingProbes`, che chiede la stessa variabile in quattro
+     * forme per vedere quale risponde. Sono diagnostica, non lettura.
      */
     const source = readFileSync(
       join(__dirname, "..", "..", "..", "src", "lib", "environment", "report.ts"),
       "utf8",
     );
 
-    const bundledStart = source.indexOf("function bundledEnvironment");
-    const bundledEnd = source.indexOf("}", source.indexOf("{", bundledStart));
-    const withoutDiagnostic = source.slice(0, bundledStart) + source.slice(bundledEnd);
+    const readingStart = source.indexOf("export function environmentReport");
+    const readingEnd = source.indexOf("function stateOf");
+    const reading = source.slice(readingStart, readingEnd);
 
-    const code = withoutDiagnostic
-      .split("\n")
-      .filter((line) => !line.trimStart().startsWith("*") && !line.trimStart().startsWith("//"))
-      .join("\n");
-
-    expect(code).not.toContain("process.env.SECRETS_KEY");
-    expect(code).toContain("process.env as unknown as");
+    expect(reading).not.toContain("process.env.SECRETS_KEY");
+    expect(source).toContain("process.env as unknown as");
   });
 
   it("non riporta mai il valore di una variabile", () => {
