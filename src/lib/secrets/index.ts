@@ -1,4 +1,4 @@
-﻿import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
+﻿import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
  * Segreti di terzi, cifrati prima di toccare il database.
@@ -115,10 +115,82 @@ export class SecretCorruptedError extends Error {
  * lascia il codice com'è, e al runtime si legge ciò che la piattaforma ha
  * davvero iniettato.
  */
+/**
+ * Da dove viene la chiave che sta cifrando, adesso.
+ *
+ * Due fonti e non una, per la ragione scritta in
+ * [ADR-0011](../../../docs/architecture/ADR-0011-chiave-derivata.md): su
+ * un'installazione reale `SECRETS_KEY` non raggiunge il processo, e il portale
+ * è rimasto inutilizzabile per tre giorni mentre se ne cercava la causa.
+ *
+ * La distinzione non è un dettaglio interno: chi ruota `AUTH_SECRET` deve
+ * sapere se sta anche rendendo illeggibili le credenziali dei progetti, e
+ * questo tipo è ciò che permette all'interfaccia di dirglielo.
+ */
+export type KeySource = "secrets-key" | "derived-from-auth-secret";
+
+/**
+ * Il materiale da cui si deriva, quando `SECRETS_KEY` non c'è.
+ *
+ * `salt` e `info` sono costanti pubbliche e devono restarlo: il segreto è
+ * `AUTH_SECRET`, non questi. Cambiarne uno dei due cambia la chiave derivata e
+ * rende illeggibile tutto ciò che è già cifrato, quindi la `v1` nel salt è lì
+ * per permettere un cambio futuro **dichiarato** invece che accidentale.
+ */
+const DERIVATION_SALT = "scrum-master-ai/secrets/v1";
+const DERIVATION_INFO = "custodia-credenziali-progetto";
+
+/**
+ * Quanta entropia deve avere `AUTH_SECRET` perché derivarne una chiave abbia
+ * senso.
+ *
+ * HKDF non crea entropia: la distribuisce. Derivare da una passphrase corta
+ * produrrebbe una chiave che *sembra* a 256 bit e porta la robustezza della
+ * passphrase — esattamente il falso senso di sicurezza che ADR-0010 rifiuta.
+ * Sedici byte è il minimo sotto cui la derivazione viene rifiutata invece che
+ * eseguita.
+ */
+const MIN_DERIVATION_BYTES = 16;
+
 function processEnvironment(): Readonly<Record<string, string | undefined>> {
   // Non sostituire con `process.env.SECRETS_KEY`: quella forma viene congelata
   // in fase di build, quando la variabile può non esistere ancora.
   return process.env as unknown as Readonly<Record<string, string | undefined>>;
+}
+
+/**
+ * `AUTH_SECRET` come materiale di derivazione, se ne ha la sostanza.
+ *
+ * Restituisce `null` — e non lancia — quando non è utilizzabile: chi chiama
+ * deve poter distinguere «non c'è niente da cui derivare» da «la derivazione è
+ * fallita», e la prima è una condizione ordinaria di un'installazione appena
+ * creata.
+ */
+function derivationMaterial(
+  env: Readonly<Record<string, string | undefined>>,
+): Buffer | null {
+  const raw = env["AUTH_SECRET"]?.trim();
+  if (!raw) return null;
+
+  /*
+   * Prima come base64, poi come testo.
+   *
+   * Lo script che lo genera produce base64, ma `AUTH_SECRET` è una variabile
+   * che una persona può aver scritto a mano. Interpretarla sempre come base64
+   * scarterebbe silenziosamente i caratteri fuori alfabeto e produrrebbe meno
+   * entropia di quella che c'è.
+   */
+  const decoded = Buffer.from(raw, "base64");
+  const material =
+    decoded.length >= MIN_DERIVATION_BYTES ? decoded : Buffer.from(raw, "utf8");
+
+  return material.length >= MIN_DERIVATION_BYTES ? material : null;
+}
+
+function derive(material: Buffer): Buffer {
+  return Buffer.from(
+    hkdfSync("sha256", material, DERIVATION_SALT, DERIVATION_INFO, KEY_BYTES),
+  );
 }
 
 export function masterKey(
@@ -126,23 +198,52 @@ export function masterKey(
 ): Buffer {
   const raw = env["SECRETS_KEY"]?.trim();
 
-  if (!raw) {
+  if (raw) {
+    const decoded = Buffer.from(raw, "base64");
+
+    if (decoded.length !== KEY_BYTES) {
+      throw new SecretsUnavailableError(
+        `SECRETS_KEY deve essere ${KEY_BYTES} byte in base64, ne ha ${decoded.length}. ` +
+          "Una chiave più corta allungata a forza sembra lunga e non lo è.",
+      );
+    }
+
+    return decoded;
+  }
+
+  /*
+   * `SECRETS_KEY` assente: si deriva, invece di rifiutarsi (ADR-0011).
+   *
+   * Non è un ripiego sul chiaro — quello resta vietato e non accade mai. È una
+   * seconda chiave ricavata da un segreto che ha già l'entropia giusta, che è
+   * ciò per cui HKDF esiste.
+   */
+  const material = derivationMaterial(env);
+
+  if (!material) {
     throw new SecretsUnavailableError(
-      "SECRETS_KEY non è impostata: senza, i segreti dei progetti non si possono cifrare. " +
-        "Generane una con `node scripts/generate-secrets.mjs`.",
+      "Nessuna chiave di custodia: né SECRETS_KEY né un AUTH_SECRET da cui derivarla. " +
+        "Generane una con `npm run chiave`.",
     );
   }
 
-  const decoded = Buffer.from(raw, "base64");
+  return derive(material);
+}
 
-  if (decoded.length !== KEY_BYTES) {
-    throw new SecretsUnavailableError(
-      `SECRETS_KEY deve essere ${KEY_BYTES} byte in base64, ne ha ${decoded.length}. ` +
-        "Una chiave più corta allungata a forza sembra lunga e non lo è.",
-    );
-  }
+/**
+ * Da quale delle due fonti verrebbe la chiave, senza calcolarla.
+ *
+ * Serve all'interfaccia, che deve poter dire «sto usando una chiave derivata»
+ * prima che qualcuno ruoti `AUTH_SECRET` senza sapere cosa comporta.
+ */
+export function keySource(
+  env: Readonly<Record<string, string | undefined>> = processEnvironment(),
+): KeySource | null {
+  const raw = env["SECRETS_KEY"]?.trim();
+  if (raw && Buffer.from(raw, "base64").length === KEY_BYTES) return "secrets-key";
+  if (raw) return null;
 
-  return decoded;
+  return derivationMaterial(env) ? "derived-from-auth-secret" : null;
 }
 
 /** Whether secrets can be handled at all, without throwing to ask. */
@@ -171,7 +272,8 @@ export function secretsAvailable(
  * file — e trasforma una caccia al fantasma in una correzione di dieci secondi.
  */
 export type SecretsStatus =
-  | { readonly ok: true }
+  /** Si può cifrare. `source` dice con quale chiave, e non è indifferente. */
+  | { readonly ok: true; readonly source: KeySource }
   | { readonly ok: false; readonly reason: "missing" }
   | { readonly ok: false; readonly reason: "malformed"; readonly bytes: number };
 
@@ -179,14 +281,26 @@ export function secretsStatus(
   env: Readonly<Record<string, string | undefined>> = processEnvironment(),
 ): SecretsStatus {
   const raw = env["SECRETS_KEY"]?.trim();
-  if (!raw) return { ok: false, reason: "missing" };
 
-  const decoded = Buffer.from(raw, "base64");
-  if (decoded.length !== KEY_BYTES) {
-    return { ok: false, reason: "malformed", bytes: decoded.length };
+  if (raw) {
+    const decoded = Buffer.from(raw, "base64");
+    if (decoded.length !== KEY_BYTES) {
+      return { ok: false, reason: "malformed", bytes: decoded.length };
+    }
+
+    return { ok: true, source: "secrets-key" };
   }
 
-  return { ok: true };
+  /*
+   * Senza `SECRETS_KEY` si può ancora cifrare, derivando (ADR-0011).
+   *
+   * `missing` resta per il caso in cui non ci sia **nulla** da cui derivare:
+   * un'installazione appena creata, dove il messaggio giusto è ancora
+   * «generane una».
+   */
+  return derivationMaterial(env)
+    ? { ok: true, source: "derived-from-auth-secret" }
+    : { ok: false, reason: "missing" };
 }
 
 /**
