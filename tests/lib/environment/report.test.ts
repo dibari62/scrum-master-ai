@@ -114,7 +114,16 @@ describe("che cosa vede il server", () => {
 
     expect(assente.entries.find((entry) => entry.name === "SECRETS_KEY")?.state).toBe("absent");
     expect(rotta.entries.find((entry) => entry.name === "SECRETS_KEY")?.state).toBe("invalid");
-    expect(rotta.problems).toBe(1);
+  });
+
+  it("non conta SECRETS_KEY fra i problemi: senza, si deriva (ADR-0011)", () => {
+    /*
+     * Da quando la chiave si può derivare da `AUTH_SECRET`, la sua assenza non
+     * ferma più il portale. Contarla fra i problemi accenderebbe un allarme su
+     * un'installazione che funziona — e un allarme che suona quando va tutto
+     * bene è un allarme che si impara a ignorare.
+     */
+    expect(environmentReport({ ...COMPLETO, SECRETS_KEY: "" }).problems).toBe(0);
   });
 
   it("dice che cosa succede senza, non solo che manca", () => {
@@ -123,7 +132,7 @@ describe("che cosa vede il server", () => {
     const senzaCustodia = environmentReport({ ...COMPLETO, SECRETS_KEY: "" });
     const voce = senzaCustodia.entries.find((entry) => entry.name === "SECRETS_KEY");
 
-    expect(voce?.consequence).toContain("Chiave API");
+    expect(voce?.consequence).toContain("AUTH_SECRET");
   });
 
   it("non allega una conseguenza a ciò che è a posto", () => {

@@ -19,6 +19,7 @@ import {
   type EnvironmentEntry,
 } from "@/lib/environment/report";
 import { mayConfigureSettings } from "@/lib/projects/settings";
+import { secretsStatus } from "@/lib/secrets";
 
 export const metadata: Metadata = {
   title: "Ambiente del server · Scrum Master AI",
@@ -71,6 +72,7 @@ export default async function EnvironmentPage() {
   const detail = custodyDetail();
   const deploy = deploymentFacts();
   const probes = readingProbes();
+  const custody = secretsStatus();
 
   const required = report.entries.filter((entry) => entry.severity === "required");
   const optional = report.entries.filter((entry) => entry.severity === "optional");
@@ -164,6 +166,42 @@ export default async function EnvironmentPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-3">
+          <h2 className="text-sm font-medium">Chiave di custodia</h2>
+          <div className="grid gap-2 rounded-md border p-3 text-sm">
+            {custody.ok && custody.source === "secrets-key" ? (
+              <p>
+                In uso: <code className="font-mono">SECRETS_KEY</code>. È la
+                configurazione preferibile.
+              </p>
+            ) : custody.ok ? (
+              <>
+                <p>
+                  In uso: una chiave <strong>derivata da</strong>{" "}
+                  <code className="font-mono">AUTH_SECRET</code> ({" "}
+                  <a className="underline" href="https://github.com/dibari62/scrum-master-ai/blob/main/docs/architecture/ADR-0011-chiave-derivata.md">
+                    ADR-0011
+                  </a>{" "}
+                  ). Il portale conserva le credenziali normalmente.
+                </p>
+                <p>
+                  <strong>Da sapere prima di ruotare `AUTH_SECRET`:</strong> cambiarlo
+                  renderebbe illeggibili le credenziali già cifrate. Non si perde nulla di
+                  irrecuperabile — si reinseriscono, una per progetto — ma va saputo
+                  prima e non dopo. Impostare <code className="font-mono">SECRETS_KEY</code>{" "}
+                  toglie questa dipendenza.
+                </p>
+              </>
+            ) : (
+              <p className="text-destructive">
+                Nessuna chiave di custodia: né <code className="font-mono">SECRETS_KEY</code>{" "}
+                né un <code className="font-mono">AUTH_SECRET</code> da cui derivarla. Il
+                portale rifiuta di conservare credenziali.
+              </p>
             )}
           </div>
         </section>

@@ -256,12 +256,11 @@ export function SettingsForm({
         >
           {custody.reason === "missing" ? (
             <>
-              Questa installazione non ha una <strong>chiave di custodia</strong>
-              {" ("}
-              <code className="font-mono">SECRETS_KEY</code>
-              {"), "}
-              quindi non può conservare credenziali in modo sicuro. Tutto il resto si
-              configura lo stesso.
+              Questa installazione non ha una <strong>chiave di custodia</strong>: né{" "}
+              <code className="font-mono">SECRETS_KEY</code> né un{" "}
+              <code className="font-mono">AUTH_SECRET</code> da cui derivarla, quindi non
+              può conservare credenziali in modo sicuro. Tutto il resto si configura lo
+              stesso.
             </>
           ) : (
             <>

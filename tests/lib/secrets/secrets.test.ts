@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   hintOf,
+  keySource,
   masterKey,
   sameSecret,
   seal,
@@ -82,7 +83,9 @@ describe("chiave principale", () => {
   });
 
   it("dice come rimediare, non solo che c'è un problema", () => {
-    expect(() => masterKey({})).toThrow(/generate-secrets/);
+    // Il nome del comando, non quello del file: chi legge l'errore deve poter
+    // copiare la riga senza doverla tradurre.
+    expect(() => masterKey({})).toThrow(/npm run chiave/);
   });
 });
 
@@ -145,6 +148,123 @@ describe("perché la custodia non è pronta", () => {
     ]) {
       expect(secretsAvailable(env)).toBe(secretsStatus(env).ok);
     }
+  });
+});
+
+describe("chiave derivata da AUTH_SECRET (ADR-0011)", () => {
+  /*
+   * Nasce da un guasto reale: su un'installazione di produzione `SECRETS_KEY`
+   * non raggiunge il processo — misurato, non supposto — e il portale è rimasto
+   * inutilizzabile per tre giorni mentre se ne cercava la causa.
+   *
+   * Derivare non è ripiegare sul chiaro, che resta vietato: è ricavare una
+   * seconda chiave da un segreto che ha già l'entropia giusta, che è ciò per
+   * cui HKDF esiste.
+   */
+
+  const AUTH = { AUTH_SECRET: randomBytes(32).toString("base64") };
+
+  it("cifra e decifra anche senza SECRETS_KEY", () => {
+    const sealed = seal(CHIAVE_FINTA, AUTH);
+    expect(unseal(sealed, AUTH)).toBe(CHIAVE_FINTA);
+  });
+
+  it("SECRETS_KEY vince quando c'è", () => {
+    /*
+     * L'ordine di precedenza è la parte che rende la derivazione reversibile:
+     * chi imposta la variabile torna alla configurazione preferibile senza
+     * dover migrare nulla — a patto di reinserire le credenziali, perché la
+     * chiave cambia.
+     */
+    const entrambe = { ...ENV, ...AUTH };
+    const sealed = seal(CHIAVE_FINTA, entrambe);
+
+    expect(unseal(sealed, ENV)).toBe(CHIAVE_FINTA);
+  });
+
+  it("la chiave derivata è diversa da AUTH_SECRET", () => {
+    /*
+     * Se la derivazione restituisse il materiale così com'è, chi legge il
+     * database e conosce il segreto di sessione avrebbe le credenziali senza
+     * fare nulla. HKDF esiste per impedirlo.
+     */
+    const sealed = seal(CHIAVE_FINTA, AUTH);
+    const comeSe = { SECRETS_KEY: AUTH.AUTH_SECRET };
+
+    expect(() => unseal(sealed, comeSe)).toThrow(SecretCorruptedError);
+  });
+
+  it("due AUTH_SECRET diversi producono chiavi diverse", () => {
+    // La verifica che la derivazione dipenda davvero dal materiale, e non sia
+    // una costante travestita.
+    const altro = { AUTH_SECRET: randomBytes(32).toString("base64") };
+    const sealed = seal(CHIAVE_FINTA, AUTH);
+
+    expect(() => unseal(sealed, altro)).toThrow(SecretCorruptedError);
+  });
+
+  it("lo stesso AUTH_SECRET produce sempre la stessa chiave", () => {
+    // Senza questo, un riavvio renderebbe illeggibile tutto ciò che è stato
+    // cifrato prima — e il guasto sarebbe intermittente, cioè il peggiore.
+    const sealed = seal(CHIAVE_FINTA, { ...AUTH });
+    expect(unseal(sealed, { ...AUTH })).toBe(CHIAVE_FINTA);
+  });
+
+  it("rifiuta di derivare da un AUTH_SECRET troppo corto", () => {
+    /*
+     * HKDF non crea entropia, la distribuisce. Derivare da una passphrase
+     * corta produrrebbe una chiave che *sembra* a 256 bit e porta la robustezza
+     * della passphrase: è il falso senso di sicurezza che ADR-0010 rifiuta, e
+     * continua a rifiutare.
+     */
+    expect(() => masterKey({ AUTH_SECRET: "corta" })).toThrow(SecretsUnavailableError);
+    expect(secretsAvailable({ AUTH_SECRET: "corta" })).toBe(false);
+  });
+
+  it("dichiara quale fonte sta usando", () => {
+    // Chi ruota AUTH_SECRET deve sapere se sta anche rendendo illeggibili le
+    // credenziali dei progetti: questa è l'informazione che glielo permette.
+    expect(keySource(ENV)).toBe("secrets-key");
+    expect(keySource(AUTH)).toBe("derived-from-auth-secret");
+    expect(keySource({})).toBeNull();
+  });
+
+  it("lo stato dichiara la fonte insieme all'esito", () => {
+    const conChiave = secretsStatus(ENV);
+    const derivato = secretsStatus(AUTH);
+
+    expect(conChiave.ok && conChiave.source).toBe("secrets-key");
+    expect(derivato.ok && derivato.source).toBe("derived-from-auth-secret");
+  });
+
+  it("senza nulla da cui derivare resta «missing»", () => {
+    // Un'installazione appena creata: il messaggio giusto è ancora «generane
+    // una», non «la derivazione è fallita».
+    const vuoto = secretsStatus({});
+
+    expect(vuoto.ok).toBe(false);
+    if (vuoto.ok) throw new Error("atteso non disponibile");
+    expect(vuoto.reason).toBe("missing");
+  });
+
+  it("una SECRETS_KEY malformata non ricade sulla derivazione", () => {
+    /*
+     * Il caso che sarebbe silenzioso e costoso: chi ha incollato male la chiave
+     * vedrebbe il portale funzionare, e le credenziali verrebbero cifrate con
+     * una chiave diversa da quella che crede. Al momento di correggere
+     * l'incollatura, tutto diventerebbe illeggibile senza una ragione visibile.
+     */
+    const rotta = { SECRETS_KEY: randomBytes(31).toString("base64"), ...AUTH };
+    const stato = secretsStatus(rotta);
+
+    expect(stato.ok).toBe(false);
+    if (stato.ok) throw new Error("atteso non disponibile");
+    expect(stato.reason).toBe("malformed");
+    expect(() => masterKey(rotta)).toThrow(SecretsUnavailableError);
+  });
+
+  it("non riporta mai il valore di AUTH_SECRET", () => {
+    expect(JSON.stringify(secretsStatus(AUTH))).not.toContain(AUTH.AUTH_SECRET);
   });
 });
 

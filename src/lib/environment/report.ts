@@ -114,11 +114,11 @@ const EXPECTED: readonly Expectation[] = [
   },
   {
     name: "SECRETS_KEY",
-    severity: "required",
+    severity: "optional",
     purpose:
       "Cifra i token e le chiavi dei modelli che i progetti inseriscono, prima che tocchino il database.",
     consequence:
-      "Il portale rifiuta di conservare credenziali: il campo «Chiave API» resta bloccato, e lo stesso vale per il token di Jira.",
+      "La chiave viene derivata da AUTH_SECRET (ADR-0011): il portale funziona, ma ruotare AUTH_SECRET renderebbe illeggibili le credenziali già salvate.",
   },
   {
     name: "AUTH_GITHUB_ID",
@@ -251,13 +251,22 @@ function stateOf(
   name: string,
   env: Readonly<Record<string, string | undefined>>,
 ): EnvironmentState {
-  if (name === "SECRETS_KEY") {
-    const status = secretsStatus(env);
-    if (status.ok) return "present";
-    return status.reason === "missing" ? "absent" : "invalid";
+  const raw = env[name]?.trim();
+
+  /*
+   * Per `SECRETS_KEY` si controlla anche la **forma**, ma non la disponibilità
+   * della custodia.
+   *
+   * La distinzione è sottile e conta: questa riga parla della **variabile**,
+   * mentre la capacità di cifrare — che da ADR-0011 sopravvive alla sua assenza,
+   * derivando da `AUTH_SECRET` — ha una sezione tutta sua. Confonderle
+   * produrrebbe una riga che dice «presente» su una variabile che non c'è,
+   * cioè la cosa peggiore che una pagina di diagnostica possa fare.
+   */
+  if (name === "SECRETS_KEY" && raw) {
+    return Buffer.from(raw, "base64").length === 32 ? "present" : "invalid";
   }
 
-  const raw = env[name]?.trim();
   return raw ? "present" : "absent";
 }
 
