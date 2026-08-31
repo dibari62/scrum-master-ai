@@ -49,6 +49,15 @@ export type GatewayOutcome =
       /** `null` when no provider was ever contacted: the absence is the fact. */
       readonly provider: LlmProvider | null;
       readonly model: string | null;
+      /**
+       * Il codice HTTP del rifiuto, quando c'è stato uno.
+       *
+       * Sale fin qui perché è l'unico frammento della risposta di un fornitore
+       * che si possa mostrare senza rischi: un numero non contiene né la
+       * richiesta né la chiave (§8.3), e distingue tre situazioni che
+       * richiedono tre azioni diverse.
+       */
+      readonly providerStatus: number | null;
       readonly inputTokens: number;
       readonly outputTokens: number;
       readonly estimatedCostUsd: number;
@@ -308,6 +317,7 @@ export function createGateway(options: GatewayOptions = {}): Gateway {
         message,
         provider,
         model: null,
+        providerStatus: null,
         // Nothing was sent, so nothing was spent. Recording zero here is not a
         // default: it is the measurement (criterio 20).
         inputTokens: 0,
@@ -413,6 +423,7 @@ export function createGateway(options: GatewayOptions = {}): Gateway {
         // actions from whoever reads the register.
         provider: usable[usable.length - 1]?.name ?? null,
         model: null,
+        providerStatus: failed.status ?? null,
         inputTokens: 0,
         outputTokens: 0,
         estimatedCostUsd: 0,

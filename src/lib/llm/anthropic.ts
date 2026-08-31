@@ -49,14 +49,18 @@ function classify(status: number, detail: string): LlmProviderError {
       "provider_not_configured",
       `Anthropic ha rifiutato la chiave di questo progetto (${status}). Va rigenerata e reinserita.`,
       false,
+      status,
     );
   }
 
   if (status === 429) {
+    // `rate_limited` e non `provider_unavailable`: il secondo, a valle, manda a
+    // controllare il nome del modello. Qui la risposta giusta è aspettare.
     return new LlmProviderError(
-      "provider_unavailable",
+      "rate_limited",
       "Anthropic ha risposto che il limite del piano è stato raggiunto. La quota è del progetto, non nostra.",
       true,
+      status,
     );
   }
 
@@ -65,6 +69,7 @@ function classify(status: number, detail: string): LlmProviderError {
       "provider_unavailable",
       `Anthropic non è raggiungibile (${status}).`,
       true,
+      status,
     );
   }
 
@@ -72,6 +77,7 @@ function classify(status: number, detail: string): LlmProviderError {
     "provider_unavailable",
     `Anthropic ha rifiutato la richiesta (${status}): ${detail}`,
     false,
+    status,
   );
 }
 

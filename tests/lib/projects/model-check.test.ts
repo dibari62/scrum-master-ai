@@ -22,6 +22,7 @@ const FAILURE = {
   ok: false as const,
   provider: "gemini" as const,
   model: "gemini-2.0-flash",
+  providerStatus: 400,
   inputTokens: 0,
   outputTokens: 0,
   estimatedCostUsd: 0,

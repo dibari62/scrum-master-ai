@@ -85,6 +85,7 @@ function failingGateway(): Gateway {
         message: "Il fornitore non ha risposto.",
         provider: null,
         model: null,
+        providerStatus: null,
         inputTokens: 0,
         outputTokens: 0,
         estimatedCostUsd: 0,

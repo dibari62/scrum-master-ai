@@ -87,14 +87,27 @@ function classifyStatus(status: number, message: string): LlmProviderError {
       "provider_not_configured",
       `Gemini ha rifiutato la chiave di questo progetto (${status}). Va rigenerata e reinserita.`,
       false,
+      status,
     );
   }
 
   if (status === 429) {
+    /*
+     * `rate_limited`, non `provider_unavailable`.
+     *
+     * **La classificazione contava più di quanto sembrasse.** A valle,
+     * `provider_unavailable` significa «il fornitore ha riconosciuto la chiave e
+     * ha rifiutato la richiesta», e il consiglio che ne segue è di controllare
+     * il nome del modello. Con un 429 quel consiglio manda a cambiare una
+     * configurazione che funziona: la risposta giusta è aspettare.
+     *
+     * L'enum aveva già il valore adatto e nessuno lo usava.
+     */
     return new LlmProviderError(
-      "provider_unavailable",
+      "rate_limited",
       "Gemini ha risposto che il limite del piano è stato raggiunto. La quota è del progetto, non nostra.",
       true,
+      status,
     );
   }
 
@@ -103,6 +116,7 @@ function classifyStatus(status: number, message: string): LlmProviderError {
       "provider_unavailable",
       `Gemini non è raggiungibile (${status}).`,
       true,
+      status,
     );
   }
 
@@ -112,6 +126,7 @@ function classifyStatus(status: number, message: string): LlmProviderError {
     "provider_unavailable",
     `Gemini ha rifiutato la richiesta (${status}): ${message}`,
     false,
+    status,
   );
 }
 

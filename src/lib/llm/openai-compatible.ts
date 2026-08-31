@@ -120,6 +120,7 @@ function classify(provider: CompatibleProvider, status: number, detail: string):
       "provider_not_configured",
       `${provider} ha rifiutato la credenziale di questo progetto (${status}). Va rigenerata e reinserita.`,
       false,
+      status,
     );
   }
 
@@ -128,17 +129,22 @@ function classify(provider: CompatibleProvider, status: number, detail: string):
     // diverse da fare, e dirle uguali manderebbe a rigenerare una chiave che va
     // benissimo.
     return new LlmProviderError(
-      "provider_not_configured",
+      "quota_exceeded",
       `${provider} riporta che il credito del progetto è esaurito.`,
       false,
+      status,
     );
   }
 
   if (status === 429) {
+    // `rate_limited` e non `provider_unavailable`: a valle il secondo manda a
+    // controllare il nome del modello, cioè a cambiare una configurazione che
+    // funziona. Qui la risposta giusta è aspettare.
     return new LlmProviderError(
-      "provider_unavailable",
+      "rate_limited",
       `${provider} ha risposto che il limite del piano è stato raggiunto. La quota è del progetto, non nostra.`,
       true,
+      status,
     );
   }
 
@@ -147,6 +153,7 @@ function classify(provider: CompatibleProvider, status: number, detail: string):
       "provider_unavailable",
       `${provider} non è raggiungibile (${status}).`,
       true,
+      status,
     );
   }
 
@@ -154,6 +161,7 @@ function classify(provider: CompatibleProvider, status: number, detail: string):
     "provider_unavailable",
     `${provider} ha rifiutato la richiesta (${status}): ${detail}`,
     false,
+    status,
   );
 }
 

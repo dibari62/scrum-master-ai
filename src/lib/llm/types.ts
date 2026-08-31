@@ -81,6 +81,21 @@ export class LlmProviderError extends Error {
     readonly failureCause: SkillRunFailureCause,
     message: string,
     readonly retryable: boolean,
+
+    /**
+     * Il codice HTTP con cui il fornitore ha rifiutato, quando c'è stato.
+     *
+     * **Un numero, non un messaggio.** Il testo di un errore può contenere
+     * frammenti della richiesta e, con certi fornitori, la chiave rimandata
+     * indietro: non può arrivare a una schermata (§8.3). Un `404` non contiene
+     * nulla di tutto ciò, e distingue in un colpo solo «quel modello non esiste»
+     * da «quota esaurita» da «richiesta malformata» — che a valle sono tre
+     * consigli diversi.
+     *
+     * `undefined` quando il rifiuto non è arrivato per HTTP: una rete che non
+     * risponde, un budget superato prima di partire.
+     */
+    readonly status?: number,
   ) {
     super(message);
     this.name = "LlmProviderError";
