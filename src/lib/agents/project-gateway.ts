@@ -51,6 +51,17 @@ export async function gatewayForProject(
        */
       apiKey,
       model: settings.brainModel,
+
+      /*
+       * L'indirizzo di base, che prima veniva salvato e mai usato.
+       *
+       * È il campo che serve a chi punta a un modello locale (Ollama) o al
+       * gateway della propria azienda. Ometterlo qui significava che il valore
+       * si poteva compilare, validare e salvare — e le richieste andavano
+       * comunque all'indirizzo pubblico del fornitore. Un campo che non fa
+       * nulla è peggio di un campo che non c'è.
+       */
+      baseUrl: settings.brainBaseUrl,
     },
   });
 }
