@@ -166,6 +166,30 @@ export async function writeProjectSettings(
   const keep = <Value>(sent: Value | undefined, stored: Value | null, fallback: Value): Value =>
     sent !== undefined ? sent : (stored ?? fallback);
 
+  /*
+   * Il cursore si azzera quando cambia **che cosa** si sta leggendo.
+   *
+   * **Il difetto che questa riga ripara, trovato su un'istanza vera.** Il
+   * cursore `lastSyncedAt` fa sì che ogni lettura dopo la prima chieda a Jira
+   * soltanto «che cosa è cambiato da allora». È giusto finché si guarda lo
+   * stesso posto — ed è un buco nero appena quel posto cambia: chi corregge una
+   * chiave di progetto sbagliata continua a chiedere solo le novità, e tutto ciò
+   * che esisteva prima della correzione **non viene letto mai più**.
+   *
+   * Succede in silenzio, ed è la forma peggiore: la lettura riesce, non riporta
+   * errori, e il portale resta vuoto senza che nulla lo spieghi.
+   *
+   * Si azzera anche per la mappatura degli stati, che a rigore cambia solo
+   * l'interpretazione: ma un elemento già tradotto con la mappatura vecchia
+   * resta sbagliato finché non lo si rilegge. Il prezzo è una lettura completa
+   * in più; il prezzo dell'alternativa è non accorgersene.
+   */
+  const watchingSomethingElse =
+    (input.connector !== undefined && input.connector !== (existing?.connector ?? null)) ||
+    (input.connectorConfig !== undefined &&
+      !sameConfiguration(input.connectorConfig, existing?.connectorConfig ?? null)) ||
+    connectorSecret.changed;
+
   const values = {
     organizationId,
     projectId,
@@ -177,6 +201,7 @@ export async function writeProjectSettings(
         ? null
         : now
       : (existing?.connectorSecretUpdatedAt ?? null),
+    ...(watchingSomethingElse ? { lastSyncedAt: null } : {}),
     brainProvider: keep(input.brainProvider, existing?.brainProvider ?? null, "fake" as const),
     brainModel:
       input.brainModel !== undefined ? input.brainModel : (existing?.brainModel ?? null),
@@ -195,6 +220,28 @@ export async function writeProjectSettings(
     .insert(projectSettings)
     .values(values)
     .onConflictDoUpdate({ target: projectSettings.projectId, set: values });
+}
+
+/**
+ * Due configurazioni sono la stessa cosa?
+ *
+ * Confronto per valore e non per riferimento, con le chiavi in ordine: due
+ * oggetti uguali scritti in ordine diverso descrivono lo stesso posto, e
+ * trattarli come diversi provocherebbe una rilettura completa a ogni
+ * salvataggio.
+ */
+function sameConfiguration(next: unknown, previous: unknown): boolean {
+  return stableJson(next) === stableJson(previous);
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, nested: unknown) => {
+    if (nested === null || typeof nested !== "object" || Array.isArray(nested)) return nested;
+
+    return Object.fromEntries(
+      Object.entries(nested as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)),
+    );
+  });
 }
 
 /** Marks a synchronisation as having succeeded, without touching anything else. */

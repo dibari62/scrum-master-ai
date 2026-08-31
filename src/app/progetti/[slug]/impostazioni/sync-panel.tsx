@@ -58,13 +58,39 @@ export function SyncPanel({
           </p>
         </div>
 
-        <form action={action}>
+        <form action={action} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="slug" value={slug} />
           <Button type="submit" disabled={pending || !ready}>
             {pending ? "Lettura in corso…" : "Leggi ora"}
           </Button>
+
+          {/*
+            Il secondo pulsante compare solo quando ha senso premerlo.
+            Prima della prima lettura «rileggi tutto» e «leggi» sono la stessa
+            cosa, e due pulsanti identici sono un invito a chiedersi quale sia
+            quello giusto.
+          */}
+          {lastSyncedAt ? (
+            <Button
+              type="submit"
+              name="completa"
+              value="1"
+              variant="outline"
+              disabled={pending || !ready}
+            >
+              Rileggi tutto
+            </Button>
+          ) : null}
         </form>
       </div>
+
+      {lastSyncedAt ? (
+        <p className="text-muted-foreground text-sm">
+          «Leggi ora» chiede a Jira solo ciò che è cambiato dall&apos;ultima volta.
+          «Rileggi tutto» ignora quella data e richiede l&apos;intera storia: serve
+          quando mancano elementi che su Jira ci sono già.
+        </p>
+      ) : null}
 
       {!ready ? (
         <p className="text-muted-foreground text-sm">

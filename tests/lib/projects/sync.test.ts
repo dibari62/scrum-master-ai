@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { randomBytes } from "node:crypto";
+
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createDatabase } from "@/db";
 import type { SafeProjectSettings } from "@/db/project-settings";
 import { organizationIdSchema, projectIdSchema } from "@/domain";
+import { seal } from "@/lib/secrets";
 import { describeReport, synchroniseProject } from "@/lib/projects/sync";
 
 /**
@@ -135,6 +138,94 @@ describe("si ferma prima di telefonare, quando non ha di che", () => {
     });
 
     expect(httpFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("che cosa chiede a Jira, e da quando", () => {
+  /*
+   * L'unico percorso di questo file che arriva fino alla chiamata HTTP.
+   *
+   * Serve perché «Rileggi tutto» è la via d'uscita di chi si accorge che il
+   * portale è rimasto indietro: se non scavalcasse davvero il cursore, resterebbe
+   * bloccato con un pulsante che sembra funzionare.
+   */
+  beforeAll(() => {
+    vi.stubEnv("SECRETS_KEY", randomBytes(32).toString("base64"));
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const LAST_SYNC = new Date("2026-08-31T12:33:00.000Z");
+
+  async function readWith(options: { readonly full?: boolean }) {
+    const calls: string[] = [];
+
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () =>
+            Promise.resolve([{ connectorSecret: seal("token-finto"), brainApiKey: null }]),
+        }),
+      }),
+      insert: () => ({
+        values: () => ({ onConflictDoUpdate: () => Promise.resolve(undefined) }),
+      }),
+      update: () => ({ set: () => ({ where: () => Promise.resolve(undefined) }) }),
+    } as unknown as Parameters<typeof synchroniseProject>[0]["db"];
+
+    const httpFetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+
+      const body = url.includes("/rest/api/3/field")
+        ? [{ id: "customfield_10020", name: "Sprint" }]
+        : url.includes("/sprint")
+          ? { isLast: true, values: [] }
+          : url.includes("/search/jql")
+            ? { issues: [], isLast: true }
+            : url.includes("/project/search")
+              ? { values: [{ key: "SMAI", name: "Progetto" }] }
+              : { name: "Board" };
+
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    await synchroniseProject({
+      organizationId: ORGANIZATION_ID,
+      projectId: PROJECT_ID,
+      settings: settings({ lastSyncedAt: LAST_SYNC }),
+      asOf: new Date("2026-08-31T15:00:00.000Z"),
+      db,
+      httpFetch,
+      ...(options.full ? { full: true } : {}),
+    });
+
+    return calls;
+  }
+
+  it("di norma chiede solo ciò che è cambiato dall'ultima lettura", async () => {
+    const calls = await readWith({});
+    const search = calls.find((url) => url.includes("/search/jql"));
+
+    expect(decodeURIComponent(search ?? "")).toContain("updated >=");
+  });
+
+  it("con «Rileggi tutto» ignora il cursore e chiede l'intera storia", async () => {
+    /*
+     * Il caso vero: un cursore già avanti per una configurazione sbagliata.
+     * Finché la richiesta porta `updated >=`, tutto ciò che esisteva prima
+     * resta invisibile per sempre — e nessun errore lo segnala.
+     */
+    const calls = await readWith({ full: true });
+    const search = calls.find((url) => url.includes("/search/jql"));
+
+    expect(decodeURIComponent(search ?? "")).not.toContain("updated >=");
+    expect(decodeURIComponent(search ?? "")).toContain('project = "SMAI"');
   });
 });
 

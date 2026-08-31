@@ -372,6 +372,12 @@ export async function synchroniseAction(
     settings,
     asOf: new Date(),
     db,
+    /*
+     * «Rileggi tutto» arriva come un campo del modulo, non come una seconda
+     * azione: cambia un parametro della stessa operazione, e duplicarla
+     * significherebbe tenere allineati due controlli di ruolo.
+     */
+    ...(form.get("completa") === "1" ? { full: true } : {}),
   });
 
   if (outcome.status !== "done") {
