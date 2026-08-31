@@ -507,3 +507,56 @@ describe("la corrispondenza fra gli stati", () => {
     expect(parsed.ok).toBe(false);
   });
 });
+
+describe("la frequenza della rilettura automatica", () => {
+  /*
+   * Ogni valore salvato qui si traduce in chiamate sulla quota Jira del
+   * cliente. I casi che contano di più sono quelli in cui la frequenza **non**
+   * deve cambiare senza che qualcuno l'abbia chiesto.
+   */
+
+  const dati = (values: Record<string, string>) =>
+    parseSettingsForm(
+      form({
+        sezione: "dati",
+        connector: "jira",
+        jiraSiteUrl: "https://esempio.atlassian.net",
+        jiraProjectKey: "SMAI",
+        jiraAccountEmail: "chi@esempio.it",
+        jiraBoardId: "7",
+        jiraStateMapping: "To Do = todo\nDone = done",
+        ...values,
+      }),
+    );
+
+  it("legge la frequenza scelta", () => {
+    const parsed = dati({ syncSchedule: "daily" });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("atteso salvataggio valido");
+    expect(parsed.input.syncSchedule).toBe("daily");
+  });
+
+  it("non nomina la frequenza quando il modulo non la manda", () => {
+    /*
+     * `undefined` e non «manual»: un invio che non parla della frequenza deve
+     * lasciarla com'era. Farlo diventare «manuale» spegnerebbe l'automatismo
+     * di nascosto — e ci si accorgerebbe dopo giorni, guardando dati fermi.
+     */
+    const parsed = dati({});
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("atteso salvataggio valido");
+    expect("syncSchedule" in parsed.input).toBe(false);
+  });
+
+  it("rifiuta un valore che non riconosce, invece di spegnere l'automatismo", () => {
+    // Ripiegare su «manual» davanti a un valore inatteso sarebbe la stessa cosa
+    // detta peggio: una schedulazione che sparisce senza dirlo.
+    const parsed = dati({ syncSchedule: "ogni-tanto" });
+
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) throw new Error("atteso rifiuto");
+    expect(parsed.errors.some((error) => error.field === "syncSchedule")).toBe(true);
+  });
+});

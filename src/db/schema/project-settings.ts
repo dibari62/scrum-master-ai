@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
-import { sourceSystemSchema, type ProjectSettings } from "@/domain";
+import { sourceSystemSchema, syncScheduleSchema, type ProjectSettings } from "@/domain";
 
 import { enumValues } from "./enum-values";
 import { auditColumns } from "./organizations";
@@ -31,6 +31,15 @@ import { projectScopedColumns } from "./shared-columns";
  * added, and the drift only shows as a failed INSERT.
  */
 export const connectorChoice = pgEnum("connector_choice", enumValues(sourceSystemSchema));
+
+/**
+ * Ogni quanto la lettura riparte da sola.
+ *
+ * Generato dall'enum Zod come tutti gli altri (R8): riscrivere i valori a mano
+ * creerebbe una seconda definizione, e la divergenza si vedrebbe solo il giorno
+ * di un INSERT rifiutato.
+ */
+export const syncSchedule = pgEnum("sync_schedule", enumValues(syncScheduleSchema));
 
 export const projectSettings = pgTable(
   "project_settings",
@@ -74,6 +83,16 @@ export const projectSettings = pgTable(
      * entrambe.
      */
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+
+    /**
+     * Ogni quanto la lettura riparte da sola.
+     *
+     * Predefinito `manual`, e non è prudenza generica: ogni lettura consuma la
+     * quota di chiamate del cliente sul suo Jira. Un progetto che non ha chiesto
+     * nulla non deve trovarsi un timer acceso — e una migrazione che accendesse
+     * l'automatismo su ogni progetto esistente sarebbe esattamente questo.
+     */
+    syncSchedule: syncSchedule("sync_schedule").notNull().default("manual"),
 
     /**
      * Which model this project's Scrum Master AI thinks with.

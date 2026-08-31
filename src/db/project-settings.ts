@@ -81,6 +81,7 @@ export async function readProjectSettings(
     connectorSecret: presenceOf(settings.connectorSecret, settings.connectorSecretUpdatedAt),
     connectorSecretUpdatedAt: settings.connectorSecretUpdatedAt,
     lastSyncedAt: settings.lastSyncedAt,
+    syncSchedule: settings.syncSchedule,
     brainProvider: settings.brainProvider,
     brainModel: settings.brainModel,
     brainBaseUrl: settings.brainBaseUrl,
@@ -202,6 +203,19 @@ export async function writeProjectSettings(
         : now
       : (existing?.connectorSecretUpdatedAt ?? null),
     ...(watchingSomethingElse ? { lastSyncedAt: null } : {}),
+
+    /*
+     * La frequenza non è «cosa si guarda», quindi non azzera il cursore.
+     *
+     * Passare da «ogni ora» a «una volta al giorno» non rende incompleto nulla
+     * di ciò che è già stato letto: cambia solo quando si tornerà a chiedere.
+     * Azzerare il cursore qui costringerebbe a una rilettura completa a ogni
+     * ripensamento sul ritmo.
+     */
+    syncSchedule:
+      input.syncSchedule !== undefined
+        ? input.syncSchedule
+        : (existing?.syncSchedule ?? "manual"),
     brainProvider: keep(input.brainProvider, existing?.brainProvider ?? null, "fake" as const),
     brainModel:
       input.brainModel !== undefined ? input.brainModel : (existing?.brainModel ?? null),

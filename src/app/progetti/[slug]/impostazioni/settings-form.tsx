@@ -8,6 +8,23 @@ import { Label } from "@/components/ui/label";
 import type { SafeProjectSettings } from "@/db/project-settings";
 import type { SecretsStatus } from "@/lib/secrets";
 import { configString, renderStateMapping } from "@/lib/projects/settings";
+import { readsPerMonth } from "@/lib/jobs/due";
+import type { SyncSchedule } from "@/domain";
+
+/**
+ * I ritmi offerti, con la frase che li accompagna.
+ *
+ * Quattro passi e non un campo libero: un'espressione cron sarebbe più potente e
+ * chiederebbe di conoscerne la sintassi, mentre queste quattro rispondono alla
+ * domanda che una squadra si pone davvero — «li voglio freschi per la riunione
+ * di domattina» — e nessuna può essere scritta sbagliata.
+ */
+const SCHEDULES: readonly { readonly value: SyncSchedule; readonly label: string }[] = [
+  { value: "manual", label: "Solo quando premo «Leggi ora»" },
+  { value: "hourly", label: "Ogni ora" },
+  { value: "every-4-hours", label: "Ogni quattro ore" },
+  { value: "daily", label: "Una volta al giorno" },
+];
 
 import { saveSettingsAction, type SettingsFormState } from "./actions";
 
@@ -182,6 +199,7 @@ export function SettingsForm({
 
   const [connector, setConnector] = useState<string>(settings.connector ?? "");
   const [brain, setBrain] = useState<string>(settings.brainProvider);
+  const [schedule, setSchedule] = useState<string>(settings.syncSchedule);
 
   /**
    * Il valore da rimettere in un campo: quello appena inviato, se c'è.
@@ -409,6 +427,43 @@ export function SettingsForm({
               }
               error={errorOf(state, "connectorSecret")}
             />
+
+            <div className="grid gap-2">
+              <Label htmlFor="syncSchedule">Rilettura automatica</Label>
+              <select
+                id="syncSchedule"
+                name="syncSchedule"
+                className={SELECT_CLASS}
+                value={schedule}
+                onChange={(event) => setSchedule(event.target.value)}
+              >
+                {SCHEDULES.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+
+              {/*
+                Il costo si dichiara qui, non a fine mese.
+                La quota di chiamate a Jira è del cliente, e fra «ogni ora» e
+                «una volta al giorno» ci sono ventiquattro volte tanto: è una
+                differenza che chi sceglie ha il diritto di vedere mentre sceglie.
+              */}
+              <p className="text-muted-foreground text-sm">
+                {schedule === "manual"
+                  ? "Nessuna lettura automatica: i dati cambiano solo quando premi «Leggi ora»."
+                  : `Circa ${readsPerMonth(schedule as SyncSchedule)} letture al mese sulla quota del tuo Jira. Ogni lettura chiede soltanto ciò che è cambiato dall'ultima volta.`}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                «Leggi ora» continua a funzionare comunque: la schedulazione non lo sostituisce,
+                gli toglie solo il compito di ricordarsene.
+              </p>
+
+              {errorOf(state, "syncSchedule") ? (
+                <p className="text-destructive text-sm">{errorOf(state, "syncSchedule")}</p>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>

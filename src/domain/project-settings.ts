@@ -89,6 +89,24 @@ export const secretPresenceSchema = z.object({
 
 export type SecretPresence = z.infer<typeof secretPresenceSchema>;
 
+/**
+ * Ogni quanto il portale rilegge da solo la fonte dati.
+ *
+ * **Il valore predefinito è «mai», ed è una scelta.** Ogni lettura consuma la
+ * quota di chiamate del cliente sul suo Jira: accendere un timer per conto suo,
+ * su un progetto che non l'ha chiesto, significherebbe spendere una risorsa
+ * altrui. Chi vuole l'automatismo lo dichiara.
+ *
+ * **Quattro passi e non un campo libero.** Un'espressione cron sarebbe più
+ * potente e chiederebbe a chi la scrive di conoscerne la sintassi; queste
+ * quattro rispondono alla domanda che una squadra si pone davvero — «voglio i
+ * dati freschi per la riunione di domattina» — e nessuna di esse può essere
+ * scritta sbagliata.
+ */
+export const syncScheduleSchema = z.enum(["manual", "hourly", "every-4-hours", "daily"]);
+
+export type SyncSchedule = z.infer<typeof syncScheduleSchema>;
+
 export const projectSettingsSchema = z.object({
   id: projectSettingsIdSchema,
   ...projectScopedFields,
@@ -107,6 +125,15 @@ export const projectSettingsSchema = z.object({
    * sono due domande diverse, e un campo solo risponderebbe male a entrambe.
    */
   lastSyncedAt: timestampSchema.nullable(),
+
+  /**
+   * Ogni quanto la lettura riparte da sola.
+   *
+   * Sta accanto a `lastSyncedAt` perché le due si leggono insieme: la prima dice
+   * il ritmo, la seconda dice a che punto siamo del ritmo, e serve conoscerle
+   * entrambe per rispondere a «tocca adesso?».
+   */
+  syncSchedule: syncScheduleSchema,
 
   brainProvider: brainProviderSchema,
 
@@ -162,6 +189,16 @@ export const updateConnectorInputSchema = z.object({
    * sono richieste diverse e una sola delle due deve cancellare qualcosa.
    */
   connectorSecret: z.string().min(1).max(500).nullable().optional(),
+
+  /**
+   * `undefined` lascia il ritmo com'è.
+   *
+   * Serve perché la stessa scheda salva due cose diverse: la configurazione
+   * della fonte e la frequenza. Un invio che non nomina la frequenza non deve
+   * riportarla a «manuale», che è il difetto per cui esistono i tre stati del
+   * campo qui sopra.
+   */
+  syncSchedule: syncScheduleSchema.optional(),
 });
 
 export type UpdateConnectorInput = z.infer<typeof updateConnectorInputSchema>;
@@ -195,6 +232,7 @@ export const UNCONFIGURED_SETTINGS = {
   connectorSecret: null,
   connectorSecretUpdatedAt: null,
   lastSyncedAt: null,
+  syncSchedule: "manual",
   brainProvider: "fake",
   brainModel: null,
   brainBaseUrl: null,

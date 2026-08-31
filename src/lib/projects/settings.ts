@@ -2,6 +2,7 @@ import {
   calendarDateSchema,
   connectorChoiceSchema,
   brainProviderSchema,
+  syncScheduleSchema,
   updateBrainInputSchema,
   updateConnectorInputSchema,
   updateProjectInputSchema,
@@ -186,10 +187,25 @@ export function parseSettingsForm(form: FormData): ParsedSettingsForm {
       errors.push({ field: "connector", message: "Connettore non riconosciuto." });
     }
 
+    /*
+     * La frequenza sta nella scheda «Dati» e si salva insieme alla fonte.
+     *
+     * Un valore non riconosciuto non diventa «manuale» in silenzio: spegnere
+     * l'automatismo per un errore di battitura è il genere di cosa di cui ci si
+     * accorge dopo giorni, guardando dati fermi.
+     */
+    const scheduleRaw = field(form, "syncSchedule");
+    const schedule = scheduleRaw === null ? undefined : syncScheduleSchema.safeParse(scheduleRaw);
+
+    if (schedule && !schedule.success) {
+      errors.push({ field: "syncSchedule", message: "Frequenza non riconosciuta." });
+    }
+
     const parsed = updateConnectorInputSchema.safeParse({
       connector,
       connectorConfig: connector === "jira" ? jiraConfigFrom(form, errors) : {},
       connectorSecret: secretFrom(form, "connectorSecret"),
+      ...(schedule?.success ? { syncSchedule: schedule.data } : {}),
     });
 
     if (parsed.success) Object.assign(input, parsed.data);
