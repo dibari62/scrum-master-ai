@@ -156,17 +156,22 @@ password.
    per gli ambienti *Production*, *Preview* e *Development*.
 
    Genera `AUTH_SECRET` e `SECRETS_KEY` nuovi, senza riusare quelli locali.
+   Nel terminale di VS Code (*Terminale → Nuovo terminale*):
 
    ```powershell
    npm run chiave
    ```
 
-   Il comando genera 32 byte casuali, li mette **negli appunti** e stampa dove
-   incollarli. Il valore non finisce a schermo: un segreto stampato resta nella
-   cronologia della shell, nello scrollback e — quando alla tastiera c'è un
-   agente — nella trascrizione di una conversazione inviata a terzi. Con
-   `npm run chiave -- --mostra` lo si vede comunque, ed è una scelta che spetta
-   a chi possiede il segreto.
+   Il comando genera 32 byte casuali, li mette **negli appunti** — quelli di
+   `Ctrl+V` — e stampa dove incollarli. Il valore non finisce a schermo: un
+   segreto stampato resta nella cronologia della shell, nello scrollback e —
+   quando alla tastiera c'è un agente — nella trascrizione di una conversazione
+   inviata a terzi. Con `npm run chiave -- --mostra` lo si vede comunque, ed è
+   una scelta che spetta a chi possiede il segreto.
+
+   > `npm run <nome>` è una **scorciatoia** definita in `package.json`, non un
+   > comando di sistema. Spiegazione per esteso, con il ponte verso l'AS/400, in
+   > [`dall-as400-al-web.md`](dall-as400-al-web.md) §4.bis.
 
    > **⚠️ Il tipo va scelto «Config», non «Secret».** Vercel propone due tipi, e
    > la descrizione di *Secret* nomina esattamente questo caso d'uso —
