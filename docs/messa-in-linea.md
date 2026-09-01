@@ -431,6 +431,22 @@ Per fermarlo:
 npm run qstash -- delete <scheduleId>
 ```
 
+Per vedere **cosa è successo davvero** alle chiamate già partite:
+
+```powershell
+npm run qstash -- logs
+```
+
+Riporta data, stato e **codice di risposta** di ogni consegna. I due dati sono
+diversi e servono entrambi: `DELIVERED` dice che il portale ha risposto, il
+codice dice *come*. Un `401` è una consegna riuscita con un rifiuto dentro — e
+senza il codice sembrerebbe un successo.
+
+Le stesse informazioni si vedono anche nella console di Upstash
+(<https://console.upstash.com/qstash>), fra le schedulazioni e i log dei
+messaggi. Il comando esiste perché ciò che è successo dev'essere ricostruibile
+da chi arriva dopo, non solo guardabile da chi ha la scheda aperta.
+
 ### Passo 3 — registrare la rilettura da Jira
 
 Il secondo job, e quello che il Product Owner nota davvero: senza, i dati
