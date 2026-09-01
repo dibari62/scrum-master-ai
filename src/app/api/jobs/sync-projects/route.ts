@@ -34,12 +34,22 @@ export const dynamic = "force-dynamic";
 /**
  * Il tetto di tempo che questa rotta si concede.
  *
- * Una lettura vera dura pochi secondi su un progetto piccolo, ma cresce con la
- * storia: senza un tetto esplicito la piattaforma ne impone uno proprio, molto
- * più corto, e il giro si interromperebbe a metà dell'elenco lasciando gli
- * ultimi progetti indietro **senza un errore**.
+ * **Sessanta secondi, perché è il massimo del piano su cui giriamo.** Vercel
+ * Hobby non permette funzioni più lunghe: dichiarare 300 — come faceva la prima
+ * stesura — non le allunga, le fa solo sembrare più lunghe a chi legge il
+ * codice.
+ *
+ * **Cosa succede se il giro non ci sta.** La funzione viene interrotta a metà
+ * elenco. Non è un guasto silenzioso, però, ed è l'idempotenza a salvarlo: ogni
+ * progetto sposta il proprio segnatempo **appena** le sue righe sono dentro,
+ * quindi quelli già letti risultano non più scaduti e quelli mancanti lo sono
+ * ancora. Il giro successivo riprende da dove si era fermato, senza che nessuno
+ * debba tenerne il conto.
+ *
+ * È la stessa proprietà per cui premere «Leggi ora» due volte non duplica nulla,
+ * usata qui per un altro scopo.
  */
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<Response> {
   const authorisation = authoriseJob(request.headers);

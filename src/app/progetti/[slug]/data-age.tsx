@@ -32,6 +32,8 @@ export function DataAge({
   freshness,
   slug,
   canSync,
+  stalled,
+  schedule,
 }: {
   readonly freshness: DataFreshness;
   readonly slug: string;
@@ -44,6 +46,16 @@ export function DataAge({
    * altri pulsanti della pagina.
    */
   readonly canSync: boolean;
+  /**
+   * Il progetto ha un ritmo dichiarato che nessuno sta rispettando.
+   *
+   * Scegliere «ogni ora» non accende nulla da solo: serve uno schedulatore
+   * esterno che bussi al portale. Senza questo avviso, chi l'ha impostata
+   * vedrebbe dati fermi e nessuna spiegazione, avendo fatto tutto giusto dalla
+   * sua parte.
+   */
+  readonly stalled: boolean;
+  readonly schedule: string;
 }) {
   const [state, action, pending] = useActionState(synchroniseAction, INITIAL);
 
@@ -128,6 +140,23 @@ export function DataAge({
         ) : (
           <p className="text-muted-foreground text-sm">Dati letti da Jira {quando}.</p>
         )}
+
+        {/*
+          L'avviso che riguarda una promessa non mantenuta dal portale, non
+          dall'utente: la frequenza è stata scelta e nessuno la sta rispettando.
+          Va detto qui perché è qui che si guardano i dati fermi.
+        */}
+        {stalled ? (
+          <p className="text-sm">
+            La rilettura automatica è impostata <strong>{schedule}</strong>, ma non sta
+            avvenendo. Perché parta da sola serve uno schedulatore configurato:{" "}
+            <Link href="/organizzazione/ambiente" className="underline underline-offset-4">
+              controlla l&apos;ambiente
+            </Link>
+            . Nel frattempo «Leggi ora» funziona.
+          </p>
+        ) : null}
+
         {esito}
       </div>
 

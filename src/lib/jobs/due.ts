@@ -86,6 +86,49 @@ export function describeSchedule(schedule: SyncSchedule): string {
 }
 
 /**
+ * Quanti intervalli si lasciano passare prima di dire che il timer non suona.
+ *
+ * Tre, e non uno. Un solo intervallo mancato è normalissimo: lo schedulatore
+ * chiama a orari suoi, una lettura può fallire, un progetto può essere stato
+ * appena riconfigurato. Dire «non funziona» alla prima occasione produrrebbe un
+ * avviso che compare e sparisce, cioè un avviso che si impara a ignorare.
+ *
+ * Tre intervalli di fila senza che nulla accada non sono più un ritardo: sono un
+ * timer che non c'è.
+ */
+const STALLED_AFTER_INTERVALS = 3;
+
+/**
+ * Il progetto ha un ritmo dichiarato, ma nessuno lo sta rispettando.
+ *
+ * **Il guasto silenzioso che questa funzione rende visibile.** Scegliere «ogni
+ * ora» nelle impostazioni non accende nulla da solo: serve uno schedulatore
+ * esterno che bussi al portale, e finché non è configurato la scelta resta una
+ * dichiarazione di intenti. Senza questo controllo, chi l'ha impostata vedrebbe
+ * dati fermi e nessuna spiegazione — avendo fatto tutto giusto dalla sua parte.
+ *
+ * Non può distinguere «lo schedulatore non è configurato» da «è configurato ma
+ * non riesce a chiamare»: da questa parte i due casi sono identici, e infatti il
+ * messaggio non prova a indovinare.
+ */
+export function scheduleStalled(input: DueInput): boolean {
+  if (input.schedule === "manual") return false;
+
+  /*
+   * Mai letto non è «in ritardo».
+   *
+   * Un progetto appena configurato non ha ancora un ritmo da rispettare, e la
+   * schermata ha già i primi passi per dirgli cosa fare. Un avviso qui
+   * arriverebbe prima ancora del primo tentativo.
+   */
+  if (input.lastSyncedAt === null) return false;
+
+  const elapsed = input.now.getTime() - input.lastSyncedAt.getTime();
+
+  return elapsed > HOURS[input.schedule] * HOUR_MS * STALLED_AFTER_INTERVALS;
+}
+
+/**
  * Quante letture al mese costa un ritmo.
  *
  * Serve a rendere visibile ciò che altrimenti si scopre a fine mese: la quota di
