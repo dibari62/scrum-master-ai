@@ -8,6 +8,7 @@ import { forOrganization, getDatabase } from "@/db";
 import { readProjectSettings, writeProjectSettings } from "@/db/project-settings";
 import { auth } from "@/lib/auth";
 import { gatewayForProject, modelProbeForProject } from "@/lib/agents/project-gateway";
+import { checkProjectHealth } from "@/lib/jobs/sprint-health-check";
 import { checkModel } from "@/lib/projects/model-check";
 import {
   mayConfigureSettings,
@@ -398,6 +399,25 @@ export async function synchroniseAction(
   if (outcome.status !== "done") {
     return { status: "error", message: outcome.message };
   }
+
+  /*
+   * Il giudizio di oggi si scrive anche quando la lettura è a mano.
+   *
+   * **Perché non basta ricalcolare.** Quasi tutto in questo portale è
+   * ricalcolato a ogni apertura di pagina, e quindi è sempre aggiornato per
+   * definizione. Lo **storico** della salute no: è fatto di righe, una per
+   * giorno, e qualcuno deve scriverle.
+   *
+   * Finché lo scriveva solo il job schedulato, un'installazione senza
+   * schedulatore avrebbe avuto un grafico vuoto per sempre — e chi lo guarda non
+   * ha modo di distinguere «nessun dato» da «nessuno ha ancora scattato la
+   * fotografia».
+   *
+   * Una lettura fatta a mano cambia i dati esattamente come una schedulata,
+   * quindi lascia la stessa traccia. La chiave è `(sprint, giorno)`: premere
+   * cinque volte lascia un punto solo.
+   */
+  await checkProjectHealth(organizationId, projectId, outcome.at);
 
   /*
    * Tutto ciò che mostra numeri, non solo questa pagina.
