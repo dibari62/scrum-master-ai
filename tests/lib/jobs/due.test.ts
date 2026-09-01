@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeSchedule, isDue, readsPerMonth } from "@/lib/jobs/due";
+import { describeSchedule, isDue, readsPerMonth, scheduleStalled } from "@/lib/jobs/due";
 
 /**
  * Quando tocca rileggere.
@@ -71,6 +71,57 @@ describe("quando tocca rileggere", () => {
      * quota del cliente per un difetto di sincronizzazione fra macchine.
      */
     expect(due("hourly", new Date("2026-08-31T20:00:00.000Z"))).toBe(false);
+  });
+});
+
+describe("quando un ritmo dichiarato non viene rispettato", () => {
+  /*
+   * **Il guasto silenzioso che questi test rendono visibile.** Scegliere «ogni
+   * ora» nelle impostazioni non accende nulla da solo: serve uno schedulatore
+   * esterno che bussi al portale, perché un'applicazione web non è un processo
+   * sempre in esecuzione e non ha nessuno «dentro» che guardi l'orologio.
+   *
+   * Finché quello schedulatore non c'è, la scelta resta una dichiarazione di
+   * intenti — e chi l'ha fatta vedrebbe dati fermi senza spiegazione, avendo
+   * fatto tutto giusto dalla sua parte.
+   */
+
+  function stalled(schedule: Parameters<typeof isDue>[0]["schedule"], lastSyncedAt: Date | null) {
+    return scheduleStalled({ schedule, lastSyncedAt, now: NOW });
+  }
+
+  it("non si lamenta di un progetto che non ha chiesto l'automatismo", () => {
+    expect(stalled("manual", new Date("2020-01-01T00:00:00.000Z"))).toBe(false);
+  });
+
+  it("non si lamenta di un progetto mai letto", () => {
+    // Non ha ancora un ritmo da rispettare, e la schermata ha già i primi passi
+    // per dirgli cosa fare: un avviso qui arriverebbe prima del primo tentativo.
+    expect(stalled("hourly", null)).toBe(false);
+  });
+
+  it("tollera qualche intervallo mancato, che è normale", () => {
+    /*
+     * Uno schedulatore chiama a orari suoi, una lettura può fallire, un progetto
+     * può essere stato appena riconfigurato. Dire «non funziona» alla prima
+     * occasione produrrebbe un avviso che compare e sparisce — cioè un avviso
+     * che si impara a ignorare.
+     */
+    expect(stalled("hourly", new Date("2026-08-31T16:00:00.000Z"))).toBe(false);
+  });
+
+  it("lo dichiara dopo tre intervalli di fila senza che nulla accada", () => {
+    // A quel punto non è più un ritardo: è un timer che non c'è.
+    expect(stalled("hourly", new Date("2026-08-31T14:00:00.000Z"))).toBe(true);
+    expect(stalled("daily", new Date("2026-08-27T18:00:00.000Z"))).toBe(true);
+  });
+
+  it("misura la soglia sul ritmo scelto, non su un tempo fisso", () => {
+    // Dodici ore sono un guasto per «ogni ora» e la normalità per «ogni giorno».
+    const dodiciOreFa = new Date("2026-08-31T06:00:00.000Z");
+
+    expect(stalled("hourly", dodiciOreFa)).toBe(true);
+    expect(stalled("daily", dodiciOreFa)).toBe(false);
   });
 });
 

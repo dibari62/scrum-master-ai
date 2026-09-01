@@ -22,6 +22,7 @@ import { auth } from "@/lib/auth";
 import { formatDate, formatDuration, formatNumber, formatPercent } from "@/lib/format";
 import { onboardingFromSettings } from "@/lib/projects/onboarding";
 import { dataFreshness } from "@/lib/projects/freshness";
+import { describeSchedule, scheduleStalled } from "@/lib/jobs/due";
 import { mayConfigureSettings } from "@/lib/projects/settings";
 import { available } from "@/metrics";
 
@@ -290,6 +291,12 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
         freshness={freshness}
         slug={project.slug}
         canSync={mayConfigureSettings(session.role) && dataReady}
+        stalled={scheduleStalled({
+          schedule: settings.syncSchedule,
+          lastSyncedAt: settings.lastSyncedAt,
+          now: asOf,
+        })}
+        schedule={describeSchedule(settings.syncSchedule)}
       />
 
       {/*
