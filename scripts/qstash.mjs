@@ -8,6 +8,7 @@
  * has no way to see what was asked for.
  *
  *   npm run qstash -- list
+ *   npm run qstash -- logs
  *   npm run qstash -- create <url> "<cron>"
  *   npm run qstash -- delete <scheduleId>
  *
@@ -22,6 +23,7 @@ import { existsSync } from "node:fs";
 
 const USAGE = `uso:
   node scripts/qstash.mjs list
+  node scripts/qstash.mjs logs
   node scripts/qstash.mjs create <url> "<cron>"
   node scripts/qstash.mjs delete <scheduleId>
 
@@ -57,6 +59,45 @@ async function list() {
   for (const schedule of schedules) {
     console.log(`${schedule.scheduleId}  ${schedule.cron}  ${schedule.destination}`);
     if (schedule.isPaused) console.log("     in pausa");
+  }
+}
+
+/**
+ * Che cosa è successo alle chiamate già partite.
+ *
+ * **Perché serve, e perché sta qui.** Registrare una schedulazione non è
+ * abbastanza per sapere che funziona: fra «l'ho chiesto» e «sta accadendo» c'è
+ * uno schedulatore che bussa, una rete, e un portale che può rifiutare. Senza
+ * questo comando l'unico modo di saperlo è aprire la console nel browser e
+ * fidarsi di ciò che si legge lì.
+ *
+ * È lo stesso motivo per cui la schedulazione si crea da riga di comando: ciò
+ * che è successo dev'essere ricostruibile da chi arriva dopo.
+ */
+async function logs() {
+  const response = await fetch(`${BASE}/logs?count=20`, { headers: headers() });
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+
+  const payload = await response.json();
+  const rows = payload.events ?? payload.logs ?? [];
+
+  if (rows.length === 0) {
+    console.log("nessuna consegna finora: la prima parte allo scoccare dell'ora indicata.");
+    return;
+  }
+
+  for (const row of rows) {
+    const when = row.time ? new Date(row.time).toLocaleString("it-IT") : "?";
+
+    /*
+     * Lo stato e il codice di risposta, che sono due cose diverse.
+     *
+     * `DELIVERED` dice che il portale ha risposto; il codice dice **come**. Un
+     * `401` è una consegna riuscita con un rifiuto dentro — e senza il codice
+     * sembrerebbe un successo.
+     */
+    const esito = row.responseStatus ? `HTTP ${row.responseStatus}` : "";
+    console.log(`${when}  ${row.state ?? "?"}  ${esito}  ${row.url ?? ""}`);
   }
 }
 
@@ -114,7 +155,7 @@ async function remove([scheduleId]) {
   console.log(`schedulazione rimossa: ${scheduleId}`);
 }
 
-const COMMANDS = { list, create, delete: remove };
+const COMMANDS = { list, logs, create, delete: remove };
 
 async function main() {
   if (existsSync(".env.local")) process.loadEnvFile(".env.local");
