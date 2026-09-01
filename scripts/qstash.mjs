@@ -70,7 +70,22 @@ async function create([url, cron]) {
    * messo lì è un segreto già speso. QStash inoltra alla destinazione ogni
    * intestazione prefissata con `Upstash-Forward-`.
    */
-  const response = await fetch(`${BASE}/schedules/${encodeURIComponent(url)}`, {
+  /*
+   * L'indirizzo di destinazione va nel percorso **grezzo**, non codificato.
+   *
+   * **Il difetto che questa riga ripara.** Qui c'era `encodeURIComponent(url)`,
+   * che sembra la cosa prudente da fare con qualunque valore infilato in un
+   * percorso — e con QStash è esattamente quella sbagliata: l'indirizzo diventa
+   * `https%3A%2F%2F…`, e il servizio risponde «endpoint has invalid scheme, add
+   * http:// or https://», cioè lamenta la mancanza di uno schema che gli era
+   * stato mandato travestito.
+   *
+   * Il messaggio d'errore manda a controllare il comando digitato, che è
+   * giusto. Nessun test poteva vederlo: questa funzione parla con un servizio
+   * vero, e finché nessuno l'ha eseguita per davvero lo script è rimasto
+   * plausibile e inutilizzabile.
+   */
+  const response = await fetch(`${BASE}/schedules/${url}`, {
     method: "POST",
     headers: {
       ...headers(),
