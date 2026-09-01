@@ -135,8 +135,9 @@ const EXPECTED: readonly Expectation[] = [
   {
     name: "JOB_SECRET",
     severity: "optional",
-    purpose: "Autentica le chiamate ai job schedulati.",
-    consequence: "Nessuno finché non esiste un job: oggi le letture si avviano a mano.",
+    purpose: "Autentica le chiamate ai job schedulati: la salute dello sprint e la rilettura da Jira.",
+    consequence:
+      "La lettura automatica non parte e la salute non viene registrata: le due rotte rifiutano ogni chiamata, anche quella dello schedulatore. Il pulsante «Leggi ora» continua a funzionare.",
   },
 ];
 

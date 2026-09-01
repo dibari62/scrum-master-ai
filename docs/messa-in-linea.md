@@ -91,7 +91,8 @@ quando arriverà il momento.
 | `LOG_LEVEL` | no | se vuota: `info` in produzione |
 | `DATABASE_URL_UNPOOLED` | no | serve solo alle migrazioni, già applicate |
 | `LLM_PROVIDER`, `GEMINI_API_KEY`, `GROQ_API_KEY` | **no, mai più** | superate da ADR-0010: la chiave la porta il cliente, per progetto. Vedi il riquadro qui sotto |
-| `JOB_SECRET`, `QSTASH_*` | quando ci sarà un job | oggi la lettura da Jira si avvia a mano |
+| `JOB_SECRET` | **sì**, con tipo *Config* | senza, la lettura automatica non parte: le rotte dei job rifiutano ogni chiamata |
+| `QSTASH_*` | no | servono alla macchina che registra la schedulazione, non al server |
 
 > **`SECRETS_KEY` è la chiave con cui si custodiscono le chiavi altrui**, e va
 > capito prima di generarla ([ADR-0010](architecture/ADR-0010-chiavi-del-cliente.md)).
@@ -384,15 +385,27 @@ esiste una storia, e non può esistere.
 
 **Project Settings → Environment Variables**, ambiente *Production*:
 
-| Variabile | Valore |
-|---|---|
-| `JOB_SECRET` | lo stesso valore che hai in `.env.local` |
+| Variabile | Valore | Tipo |
+|---|---|---|
+| `JOB_SECRET` | lo stesso valore che hai in `.env.local` | **Config**, non *Secret* |
+
+**Il tipo non è un dettaglio.** Su Vercel una variabile creata come *Secret*
+raggiunge il processo con il **nome presente e il valore vuoto**; una *Config*
+arriva valorizzata. La descrizione di «Secret» nomina esattamente questo caso
+d'uso — *«passwords, API keys, and tokens»* — quindi è la scelta che chiunque
+farebbe, ed è quella che non funziona. Costò tre giorni con `SECRETS_KEY`
+([ripartire-da-zero](ripartire-da-zero.md) §5.quinquies) e un pomeriggio con
+questa.
+
+*Config* non significa pubblica: resta visibile solo a chi ha accesso al
+progetto. Una chiave che non arriva non protegge nulla.
 
 Poi **rilancia il deploy**: le variabili si leggono all'avvio, non a caldo.
 
 Solo `JOB_SECRET`. Le chiavi `QSTASH_*` servono a *questa* macchina per
 registrare la schedulazione, non all'applicazione: il server verifica un segreto
-condiviso, non parla mai con Upstash.
+condiviso, non parla mai con Upstash — **è Upstash a bussare al server**.
+Metterle su Vercel non fa danni e non serve a nulla.
 
 ### Passo 2 — registrare la schedulazione
 
